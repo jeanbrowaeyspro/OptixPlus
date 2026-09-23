@@ -34,12 +34,11 @@ def expected() -> dict:
     return _load_expected()
 
 
-def _link_or_copy(src: Path, dst: Path) -> None:
+def _copy(src: Path, dst: Path) -> None:
+    # Vraie copie, jamais de lien physique : Compare écrit ses fichiers en place, un lien
+    # ferait écrire les tests d'application dans le vrai projet du client.
     dst.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.link(src, dst)
-    except OSError:
-        shutil.copy2(src, dst)
+    shutil.copy2(src, dst)
 
 
 def _mirror(src_root: Path, dst_root: Path) -> None:
@@ -47,7 +46,7 @@ def _mirror(src_root: Path, dst_root: Path) -> None:
         dirnames[:] = [d for d in dirnames if not d.startswith("_FTOCompare_Rebut")]
         for name in filenames:
             src = Path(dirpath) / name
-            _link_or_copy(src, dst_root / src.relative_to(src_root))
+            _copy(src, dst_root / src.relative_to(src_root))
 
 
 def _overlay(src_root: Path, work: Path) -> int:
