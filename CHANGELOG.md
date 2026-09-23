@@ -54,6 +54,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - La fermeture de la boîte d'application attend la fin d'une restauration en cours, sans délai arbitraire.
 
 ### Corrigé (par rapport à l'ancien Optix LinkCheck)
+- Analyse environ quatre fois plus rapide sur un gros projet (17,7 s → 4,2 s sur un projet de 1,1 million de lignes) : les YAML générés par FT Optix sont lus directement, PyYAML ne servant plus qu'aux fichiers au format inhabituel. Résultats identiques, vérifiés nœud par nœud.
 - Les corrections sont appliquées en tout ou rien : en cas d'échec, les fichiers déjà écrits sont restaurés.
 - Le remplacement d'une cible porte sur la valeur exacte de la ligne, et non sur la première occurrence du texte.
 - Les projets très profonds ne font plus planter la lecture (construction de l'arbre sans récursion).

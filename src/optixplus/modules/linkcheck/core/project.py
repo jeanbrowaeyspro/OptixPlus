@@ -18,6 +18,7 @@ Corrections par rapport à l'outil d'origine :
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections import deque
@@ -27,9 +28,11 @@ import yaml
 
 from ....common.i18n import tr
 from ....common.optix.project import ProjectError, project_folder, read_project_meta  # noqa: F401
+from ....common.optix.tree import RawNode, Unsupported, read_nodes
 from ....common.progress import CancelCheck, ProgressCallback, check_cancel, report
 
 Loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+log = logging.getLogger("optixplus.linkcheck")
 
 POINTER_DATATYPES = ("NodeId", "NodePointer", "VariablePointer")
 POINTER_TYPES = ("NodePointer", "Alias")
@@ -136,6 +139,7 @@ class OptixProject:
         self.types_by_name: dict[str, Node] = {}
         self.by_name: dict[str, list[Node]] = {}
         self.files_loaded = 0
+        self.pyyaml_files = 0  # fichiers relus par PyYAML (format inhabituel)
 
     # ---- chargement ------------------------------------------------------------
     def _root_file(self) -> str:
@@ -170,9 +174,61 @@ class OptixProject:
     def _load_file(self, path: str, parent: Node, pending: deque) -> Node | None:
         try:
             with open(path, encoding="utf-8-sig") as fh:
-                loader = Loader(fh.read())
+                text = fh.read()
         except OSError as exc:
             raise ProjectError(tr("Cannot read {file}: {error}").format(file=path, error=exc)) from exc
+        try:
+            raw = read_nodes(text)
+        except Unsupported as exc:
+            # Construction YAML hors du format généré par FT Optix : lecture complète par PyYAML.
+            log.info("Lecture de %s par PyYAML (%s)", path, exc)
+            self.pyyaml_files += 1
+            return self._load_with_pyyaml(text, parent, path, pending)
+        return self._build_from_raw(raw, parent, path, pending)
+
+    def _build_from_raw(self, raw: list[RawNode], parent: Node, file: str, pending: deque) -> Node | None:
+        """Même arbre que ``_build``, à partir de la lecture directe (``common.optix.tree``)."""
+        result: Node | None = None
+        created: list[Node | None] = []
+        for record in raw:
+            if record.parent == -1:
+                owner, is_root = parent, True
+            else:
+                owner, is_root = created[record.parent], False
+                if owner is None:  # parent inclus d'un autre fichier ou ignoré (Class)
+                    created.append(None)
+                    continue
+            if record.file is not None and record.name is None:
+                sub = os.path.normpath(os.path.join(os.path.dirname(file), record.file))
+                pending.append((sub, owner))
+                created.append(None)
+                continue
+            if record.klass is not None and record.klass != "Method":
+                created.append(None)
+                continue
+            name = _NS_PREFIX.sub("", record.name if record.name is not None else "?")
+            node = Node(name, owner, file)
+            node.line = record.line
+            node.end_line = record.end_line
+            node.type = record.type
+            node.supertype = record.supertype
+            node.datatype = record.datatype
+            if record.has_value:
+                node.value_line = record.value_line
+                node.value = record.value
+            self.all_nodes.append(node)
+            self.by_name.setdefault(name, []).append(node)
+            if node.supertype is not None:
+                self.types_by_name.setdefault(name, node)
+            if is_root:
+                result = node
+            else:
+                owner.children[name] = node
+            created.append(node)
+        return result
+
+    def _load_with_pyyaml(self, text: str, parent: Node, path: str, pending: deque) -> Node | None:
+        loader = Loader(text)
         try:
             ynode = loader.get_single_node()
             return self._build(ynode, loader, parent, path, pending)

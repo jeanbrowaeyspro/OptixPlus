@@ -41,6 +41,8 @@ python -m venv .venv
 .venv\Scripts\python -m pytest
 ```
 
+Tests sur des données réelles, facultatifs : `OPTIXPLUS_COMPARE_DATA` (dossier du couple réel de Compare) et `OPTIXPLUS_OPTIX_SAMPLES` (dossiers de projets Optix séparés par `;`, lus par la lecture directe et par PyYAML, qui doivent donner le même résultat). Les données ne sont jamais modifiées : les tests travaillent sur des copies.
+
 Lancer depuis les sources : `.venv\Scripts\python -m optixplus` (mode découverte, sans tray) ou `--installe` (mode installé, avec tray). `--outil <id>` ouvre directement un outil (`logreader`, `linkcheck`, `compare`, `autovalidate`).
 
 Réglages et journaux : `%APPDATA%\OptixPlus`.

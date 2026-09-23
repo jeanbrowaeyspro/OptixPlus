@@ -76,7 +76,8 @@ OptixPlus/
       progress.py           # Progress / Cancelled sans Qt (repris de FTOCompare)
       win32.py              # ctypes : mutex, fenêtres, SendInput, WinEventHook
       single_instance.py    # mutex + QLocalServer/QLocalSocket
-      optix/                # lecture de projet Optix partagée (phase 8)
+      optix/                # lecture de projet Optix partagée (phase 8) : project (dossier, .optix, - File:),
+                            # text (octet près), scanner (index des nœuds), tree (arbre sans PyYAML, repli PyYAML)
     modules/
       base.py               # interface ToolModule (§6)
       logreader/{core,ui}/
