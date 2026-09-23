@@ -12,9 +12,9 @@ import pytest
 from optixplus.modules.compare.core import apply as apply_module
 from optixplus.modules.compare.core.analysis import USER_DEFINED_MODULE, compare
 from optixplus.modules.compare.core.apply import ApplyError, apply_preview, check_locks, list_backups, read_manifest, restore_backup
-from optixplus.modules.compare.core.lines import md5_of_file
+from optixplus.common.optix.text import md5_of_file
 from optixplus.modules.compare.core.plan import REBUT_DIR, Plan, build_preview
-from optixplus.modules.compare.core.progress import Progress
+from optixplus.common.progress import Progress
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 TAGS = "Nodes/CommDrivers/CODESYSDriver/API_Demo/Tags/Tags.yaml"

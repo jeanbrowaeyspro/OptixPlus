@@ -25,7 +25,8 @@ from .extractors.module_xml import extract_type_guids, guid_of_hunk_lines, merge
 from .extractors.optix_meta import copy_statistics
 from .extractors.translations import fix_dimensions
 from .integrity import Reference, check_braces, find_references
-from .lines import TextFile, read_text_file
+from ....common.optix.project import file_references, join_reference
+from ....common.optix.text import TextFile, read_text_file
 from .nodes import SemanticHunk
 
 log = logging.getLogger(__name__)
@@ -225,7 +226,7 @@ class FileChange:
 
     def opcodes(self) -> list[Opcode]:
         """Le diff exact avant → après, pour la prévisualisation."""
-        from .lines import split_lines
+        from ....common.optix.text import split_lines
 
         return compute_opcodes(split_lines(self.old).lines, split_lines(self.new).lines)
 
@@ -262,14 +263,7 @@ class Preview:
 
 
 def _file_refs(lines: Iterable[bytes], rel: str) -> set[str]:
-    base = rel.rsplit("/", 1)[0] if "/" in rel else ""
-    refs: set[str] = set()
-    for line in lines:
-        stripped = line.lstrip(b" ")
-        if stripped.startswith(b"- File:"):
-            value = stripped[len(b"- File:") :].strip().strip(b"'\"").decode("utf-8", "replace").replace("\\", "/")
-            refs.add(f"{base}/{value}" if base else value)
-    return refs
+    return {join_reference(rel, ref) for ref in file_references(lines)}
 
 
 def build_preview(plan: Plan, comparison: Comparison) -> Preview:
@@ -329,7 +323,7 @@ def build_preview(plan: Plan, comparison: Comparison) -> Preview:
     # Élagage des fichiers générés, piloté par le delta de GUID (jamais par nom).
     xml_change = preview.change(USER_DEFINED_MODULE)
     if xml_change is not None:
-        from .lines import split_lines
+        from ....common.optix.text import split_lines
 
         before = {m.guid for m in extract_type_guids(split_lines(xml_change.old).lines)}
         after_list = [m.guid for m in extract_type_guids(split_lines(xml_change.new).lines)]

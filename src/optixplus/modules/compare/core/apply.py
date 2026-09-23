@@ -24,9 +24,9 @@ from pathlib import Path
 from ....common.i18n import tr
 from .analysis import Comparison, find_orphans
 from .integrity import Reference, check_braces, find_references
-from .lines import md5_of_bytes, md5_of_file
+from ....common.optix.text import md5_of_bytes, md5_of_file
 from .plan import REBUT_DIR, Plan, Preview
-from .progress import CancelCheck, ProgressCallback, check_cancel, report
+from ....common.progress import CancelCheck, ProgressCallback, check_cancel, report
 
 log = logging.getLogger(__name__)
 

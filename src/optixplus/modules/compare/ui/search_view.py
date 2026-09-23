@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....common.i18n import tr
-from ..core.progress import Cancelled
+from ....common.progress import Cancelled
 from ..core.scan import Inventory
 from ..core.search import SearchHit, search_inventory
 

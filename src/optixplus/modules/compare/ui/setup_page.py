@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 
 from ....common import theme
 from ....common.i18n import tr
-from ..core.scan import is_optix_root, read_ide_version, suggest_optix_root
+from ....common.optix.project import is_optix_root, read_ide_version, suggest_optix_root
 
 MAX_HISTORIQUE = 10
 

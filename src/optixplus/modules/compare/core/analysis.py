@@ -19,10 +19,11 @@ from .extractors.netlogic import NetLogicDelta, compare_dlls
 from .extractors.optix_meta import OptixDelta, compare_optix, versions_compatibles
 from .extractors.tags import TagsDelta, compare_tags, is_tags_file
 from .extractors.translations import TranslationsDelta, compare_translations, parse_translations
-from .lines import TextFile, read_text_file
+from ....common.optix.project import file_references, join_reference, normalize_rel, read_ide_version
+from ....common.optix.text import TextFile, read_text_file
 from .nodes import SemanticHunk, describe_hunks, sens_semantique, slide_opcodes
-from .progress import CancelCheck, ProgressCallback, check_cancel, report
-from .scan import FileEntry, Inventory, build_inventory, read_ide_version
+from ....common.progress import CancelCheck, ProgressCallback, check_cancel, report
+from .scan import FileEntry, Inventory, build_inventory
 
 log = logging.getLogger(__name__)
 
@@ -159,16 +160,6 @@ def diff_file(entry: FileEntry, projet_path: Path, runtime_path: Path) -> FileDi
     return FileDiff(entry=entry, projet=projet, runtime=runtime, opcodes=opcodes, hunks=hunks, semantic=semantic)
 
 
-def _file_refs_fast(lines: list[bytes]) -> list[str]:
-    refs: list[str] = []
-    for line in lines:
-        stripped = line.lstrip(b" ")
-        if stripped.startswith(b"- File:"):
-            value = stripped[len(b"- File:") :].strip().strip(b"'\"")
-            refs.append(value.decode("utf-8", "replace").replace("\\", "/"))
-    return refs
-
-
 def find_orphans(root: Path, nodes_root: str, yaml_rels: list[str]) -> list[str]:
     """Les YAML sous ``Nodes/`` qu'aucun ``- File:`` ne référence : ignorés par Optix.
 
@@ -180,24 +171,12 @@ def find_orphans(root: Path, nodes_root: str, yaml_rels: list[str]) -> list[str]
             lines = read_text_file(root / rel).lines
         except OSError:
             continue
-        base = rel.rsplit("/", 1)[0] if "/" in rel else ""
-        for ref in _file_refs_fast(lines):
-            full = f"{base}/{ref}" if base else ref
-            referenced.add(_normalize(full))
-    return sorted(rel for rel in yaml_rels if _normalize(rel) not in referenced)
+        for ref in file_references(lines):
+            referenced.add(normalize_rel(join_reference(rel, ref)))
+    return sorted(rel for rel in yaml_rels if normalize_rel(rel) not in referenced)
 
 
-def _normalize(path: str) -> str:
-    parts: list[str] = []
-    for part in path.replace("\\", "/").split("/"):
-        if part in ("", "."):
-            continue
-        if part == "..":
-            if parts:
-                parts.pop()
-            continue
-        parts.append(part)
-    return "/".join(parts)
+
 
 
 def compare(

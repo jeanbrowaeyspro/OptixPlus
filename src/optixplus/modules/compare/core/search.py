@@ -11,8 +11,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from .lines import split_lines
-from .progress import CancelCheck, ProgressCallback, check_cancel, report
+from ....common.optix.text import split_lines
+from ....common.progress import CancelCheck, ProgressCallback, check_cancel, report
 from .scan import Inventory
 
 MAX_HITS = 5000

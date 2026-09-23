@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
 from ....common import theme, workers
 from ....common.i18n import tr
 from ..core.analysis import Comparison
-from ..core.lines import split_lines
+from ....common.optix.text import split_lines
 from ..core.plan import Plan, Preview, build_preview, load_plan, save_plan
 from .diff_view import DiffView
 from .style import taille_lisible

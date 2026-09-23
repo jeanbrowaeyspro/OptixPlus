@@ -9,7 +9,7 @@ from pathlib import Path
 from PySide6.QtCore import QThread, Signal
 
 from ..core.analysis import compare
-from ..core.progress import Cancelled, Progress
+from ....common.progress import Cancelled, Progress
 
 log = logging.getLogger(__name__)
 

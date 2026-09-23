@@ -14,7 +14,7 @@ from PySide6.QtCore import QEventLoop, QSettings, QTimer  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from optixplus.modules.compare.core.analysis import compare  # noqa: E402
-from optixplus.modules.compare.core.progress import Cancelled  # noqa: E402
+from optixplus.common.progress import Cancelled  # noqa: E402
 from optixplus.modules.compare.core.search import compile_pattern, search_inventory  # noqa: E402
 from optixplus.modules.compare.ui.page import ComparePage as MainWindow  # noqa: E402
 

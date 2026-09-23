@@ -4,13 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from optixplus.modules.compare.core.progress import Cancelled, Progress
-from optixplus.modules.compare.core.scan import (
-    build_inventory,
-    is_optix_root,
-    read_ide_version,
-    suggest_optix_root,
-)
+from optixplus.common.progress import Cancelled, Progress
+from optixplus.common.optix.project import is_optix_root, read_ide_version, suggest_optix_root
+from optixplus.modules.compare.core.scan import build_inventory
 
 
 def _make(root: Path, files: dict[str, bytes]) -> Path:

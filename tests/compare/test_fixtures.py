@@ -12,8 +12,8 @@ import pytest
 from optixplus.modules.compare.core.analysis import Comparison, compare
 from optixplus.modules.compare.core.diffing import merge_lines
 from optixplus.modules.compare.core.extractors.translations import parse_translations
-from optixplus.modules.compare.core.lines import TextFile, split_lines
-from optixplus.modules.compare.core.progress import Progress
+from optixplus.common.optix.text import TextFile, split_lines
+from optixplus.common.progress import Progress
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 RUNTIME = FIXTURES / "runtime" / "IHM_Demo"

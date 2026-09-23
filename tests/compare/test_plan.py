@@ -10,7 +10,7 @@ import pytest
 from optixplus.modules.compare.core.analysis import TYPE_CONSTANTS, UI_TYPE_DEFINITIONS, USER_DEFINED_MODULE, compare
 from optixplus.modules.compare.core.extractors.translations import fix_dimensions, parse_translations
 from optixplus.modules.compare.core.integrity import find_references
-from optixplus.modules.compare.core.lines import split_lines
+from optixplus.common.optix.text import split_lines
 from optixplus.modules.compare.core.plan import Plan, build_preview, load_plan, save_plan
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"

@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 import yaml
 
 from ....common.i18n import tr
+from ....common.optix.project import ProjectError, project_folder, read_project_meta  # noqa: F401
 from ....common.progress import CancelCheck, ProgressCallback, check_cancel, report
 
 Loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
@@ -46,10 +47,6 @@ SKIP_POINTER = "pointer"
 _NS_PREFIX = re.compile(r"^ns=\d+;")
 _INDEX_PREFIX = re.compile(r"^\d+:")
 _ARRAY = re.compile(r"^(.*?)\[(\d+)\]$")
-
-
-class ProjectError(Exception):
-    """Dossier qui n'est pas un projet Optix lisible."""
 
 
 class Node:
@@ -126,51 +123,11 @@ def reason_label(link: BrokenLink) -> str:
     return tr("Segment not found: {segment}").format(segment=link.detail)
 
 
-def read_project_meta(folder: str) -> tuple[str, str]:
-    """(nom du projet, YAML racine relatif) lus dans le ``.optix`` du dossier."""
-    optix = [f for f in os.listdir(folder) if f.lower().endswith(".optix") and os.path.isfile(os.path.join(folder, f))]
-    if not optix:
-        raise ProjectError(tr("No .optix file in {folder}").format(folder=folder))
-    path = os.path.join(folder, optix[0])
-    name, root = "", ""
-    try:
-        with open(path, encoding="utf-8-sig") as fh:
-            data = yaml.load(fh, Loader=Loader)
-        project = data.get("Project", {}) if isinstance(data, dict) else {}
-        name = str(project.get("Name") or "")
-        nodes = project.get("Nodes") or []
-        if nodes and isinstance(nodes[0], dict):
-            root = str(nodes[0].get("File") or "")
-    except (OSError, yaml.YAMLError, AttributeError):
-        pass
-    if not name:
-        # Repli : ligne « Name: » indentée sous « Project: ».
-        with open(path, encoding="utf-8-sig", errors="replace") as fh:
-            for line in fh:
-                match = re.match(r"^\s+Name:\s*(.+?)\s*$", line)
-                if match:
-                    name = match.group(1).strip("'\"")
-                    break
-    if not name:
-        name = os.path.splitext(optix[0])[0]
-    return name, root
-
-
-def find_project_folder(path: str) -> str:
-    """Dossier du projet à partir d'un dossier ou d'un fichier ``.optix``."""
-    path = os.path.abspath(path.strip().strip('"'))
-    if path.lower().endswith(".optix") and os.path.isfile(path):
-        return os.path.dirname(path)
-    if not os.path.isdir(os.path.join(path, "Nodes")):
-        raise ProjectError(tr("No Nodes folder in {folder}: this is not an FT Optix project.").format(folder=path))
-    return path
-
-
 class OptixProject:
     """Arbre des nœuds d'un projet ; construit par ``load()``."""
 
     def __init__(self, folder: str) -> None:
-        self.folder = find_project_folder(folder)
+        self.folder = project_folder(folder)
         self.name, root = read_project_meta(self.folder)
         self.nodes_dir = os.path.join(self.folder, "Nodes")
         self._root_hint = root

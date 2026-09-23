@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from optixplus.modules.compare.core.lines import (
+from optixplus.common.optix.text import (
     TextFile,
     detect_eol,
     is_probably_text,

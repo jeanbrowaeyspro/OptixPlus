@@ -19,15 +19,12 @@ from pathlib import Path
 from typing import Literal
 
 from ....common.i18n import tr
-from .lines import is_probably_text, md5_of_file
-from .progress import CancelCheck, ProgressCallback, check_cancel, report
+from ....common.optix.text import is_probably_text, md5_of_file
+from ....common.progress import CancelCheck, ProgressCallback, check_cancel, report
 
 log = logging.getLogger(__name__)
 
 Status = Literal["identique", "different", "runtime_seul", "projet_seul"]
-
-IDE_VERSION_FILE = "IDEVersion.txt"
-NODES_DIR = "Nodes"
 
 
 @dataclass(slots=True)
@@ -96,43 +93,6 @@ class Inventory:
 
     def projet_path(self, rel: str) -> Path:
         return self.projet_root / rel
-
-
-# ---------------------------------------------------------------------------
-# Détection d'un dossier projet / runtime Optix
-# ---------------------------------------------------------------------------
-
-
-def is_optix_root(path: Path | str) -> bool:
-    """Un dossier est un projet ou un runtime Optix s'il contient ``IDEVersion.txt`` et ``Nodes/``."""
-    root = Path(path)
-    return (root / IDE_VERSION_FILE).is_file() and (root / NODES_DIR).is_dir()
-
-
-def suggest_optix_root(path: Path | str) -> Path | None:
-    """Retourne le dossier lui-même s'il est un projet Optix, sinon son unique sous-dossier s'il l'est.
-
-    Sert à l'écran d'accueil : l'utilisateur a pu choisir le dossier parent d'un export.
-    """
-    root = Path(path)
-    if is_optix_root(root):
-        return root
-    try:
-        subdirs = [p for p in root.iterdir() if p.is_dir()]
-    except OSError:
-        return None
-    if len(subdirs) == 1 and is_optix_root(subdirs[0]):
-        return subdirs[0]
-    return None
-
-
-def read_ide_version(root: Path | str) -> str | None:
-    """Contenu de ``IDEVersion.txt`` (ex. ``1.3.2.9-Stable``), ou ``None`` s'il est absent."""
-    path = Path(root) / IDE_VERSION_FILE
-    try:
-        return path.read_bytes().decode("utf-8", errors="replace").strip() or None
-    except OSError:
-        return None
 
 
 # ---------------------------------------------------------------------------

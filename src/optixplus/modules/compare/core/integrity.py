@@ -16,7 +16,7 @@ from pathlib import Path
 
 from ....common.i18n import tr
 from .extractors.generated_cs import braces_balanced
-from .lines import split_lines
+from ....common.optix.text import split_lines
 
 MAX_HITS_PAR_NOM = 20
 

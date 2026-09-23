@@ -18,7 +18,7 @@ from optixplus.modules.compare.core.extractors.generated_cs import (
     prune_type_constants,
     prune_ui_type_definitions,
 )
-from optixplus.modules.compare.core.lines import TextFile, md5_of_bytes, read_text_file
+from optixplus.common.optix.text import TextFile, md5_of_bytes, read_text_file
 
 pytestmark = pytest.mark.couple_reel
 

@@ -23,7 +23,7 @@ from ....common.i18n import tr
 from ..core.analysis import Comparison
 from ..core.apply import ApplyError, ApplyReport, apply_preview, check_locks
 from ..core.plan import Plan, Preview
-from ..core.progress import Cancelled, Progress
+from ....common.progress import Cancelled, Progress
 
 log = logging.getLogger(__name__)
 

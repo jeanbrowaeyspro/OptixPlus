@@ -117,7 +117,7 @@ def write_text_file(path: Path | str, content: TextFile) -> str:
     target.write_bytes(expected)
     actual = target.read_bytes()
     if actual != expected:
-        from ....common.i18n import tr
+        from ..i18n import tr
 
         raise OSError(tr("Verification after writing failed for {file}").format(file=target))
     return hashlib.md5(actual).hexdigest()
