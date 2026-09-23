@@ -1,19 +1,25 @@
-r"""Chargement et sauvegarde de la configuration utilisateur.
+r"""Réglages du Lecteur de logs.
 
-Le fichier vit dans ``%APPDATA%\pyFTOLogReader\settings.json``. Les mots de
-passe y sont chiffrés par la DPAPI (voir :mod:`app.dpapi`) ; le reste est en
-clair pour rester lisible et modifiable à la main en cas de besoin.
+Dans OptixPlus, ils sont rangés dans la section ``logreader`` du fichier de réglages
+commun (``%APPDATA%\OptixPlus\settings.json``). Les mots de passe y restent chiffrés
+par la DPAPI (``common.dpapi``) ; le reste est en clair pour rester lisible.
+
+Corrections par rapport à pyFTOLogReader : chaque valeur lue est validée contre le type
+de sa valeur par défaut (une valeur invalide est ignorée et signalée, au lieu d'être
+injectée telle quelle).
 """
 
 from __future__ import annotations
 
-import json
-import os
-from dataclasses import asdict, dataclass, field
+import logging
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
-from .. import APP_NAME
-from . import dpapi
+from ....common import dpapi
+from ....common.settings import _coerce, _default_of
+
+log = logging.getLogger("optixplus.logreader")
 
 
 @dataclass
@@ -106,38 +112,41 @@ class Settings:
     last_host: str = ""
     #: Colonnes masquées, par identifiant de colonne.
     hidden_columns: list[str] = field(default_factory=list)
+    #: Rouvrir à l'ouverture du Lecteur les journaux ouverts lors de la session précédente.
+    reopen_logs: bool = True
+    #: Automates des onglets ouverts, et disposition des onglets (base64 de QtAds).
+    open_hosts: list[str] = field(default_factory=list)
+    dock_state: str = ""
 
-    # ---------------------------------------------------------------- chemins
-
-    @staticmethod
-    def config_dir() -> Path:
-        base = os.environ.get("APPDATA") or str(Path.home())
-        return Path(base) / APP_NAME
-
-    @classmethod
-    def config_path(cls) -> Path:
-        return cls.config_dir() / "settings.json"
+    def __post_init__(self) -> None:
+        # Hors des champs de la dataclass : non sérialisé. Fonction d'enregistrement
+        # fournie par OptixPlus ; absente (tests), ``save`` ne fait rien.
+        self._writer: Callable[[dict], None] | None = None
 
     # --------------------------------------------------------- (dé)sérialisation
 
     @classmethod
-    def load(cls) -> "Settings":
-        path = cls.config_path()
-        if not path.exists():
-            return cls()
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            # Configuration illisible : on repart des valeurs par défaut plutôt
-            # que d'empêcher le démarrage.
-            return cls()
-        return cls.from_dict(data)
+    def bound(cls, store: dict, writer: Callable[[], None]) -> Settings:
+        """Réglages lus dans ``store`` (section de settings.json) et enregistrés par ``writer``."""
+        settings = cls.from_dict(store) if store else cls()
+
+        def write(data: dict) -> None:
+            store.clear()
+            store.update(data)
+            writer()
+
+        settings._writer = write
+        return settings
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Settings":
+    def from_dict(cls, data: dict) -> Settings:
         settings = cls()
+        defaults = {f.name: _default_of(f) for f in fields(cls)}
         for key, value in data.items():
-            if not hasattr(settings, key):
+            if key not in defaults:
+                continue
+            if key in ("credentials", "highlight_rules") and not isinstance(value, list):
+                log.warning("Réglage logreader.%s invalide, valeur par défaut utilisée", key)
                 continue
             if key == "credentials":
                 settings.credentials = [
@@ -162,7 +171,10 @@ class Settings:
                     for item in value
                 ]
             else:
-                setattr(settings, key, value)
+                checked, ok = _coerce(value, defaults[key])
+                if not ok:
+                    log.warning("Réglage logreader.%s invalide (%r), valeur par défaut utilisée", key, value)
+                setattr(settings, key, checked)
         return settings
 
     def to_dict(self) -> dict:
@@ -172,13 +184,15 @@ class Settings:
         return data
 
     def save(self) -> None:
-        path = self.config_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        # Écriture atomique : on ne veut pas d'un settings.json tronqué si
-        # l'application est fermée pendant la sauvegarde.
-        temp = path.with_suffix(".json.tmp")
-        temp.write_text(json.dumps(self.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
-        temp.replace(path)
+        """Enregistre dans settings.json (écriture atomique assurée par OptixPlus)."""
+        writer = getattr(self, "_writer", None)
+        if writer is not None:
+            writer(self.to_dict())
+
+    def copy_binding_from(self, other: Settings) -> Settings:
+        """Reprend la destination d'enregistrement d'un autre objet (boîte Paramètres)."""
+        self._writer = getattr(other, "_writer", None)
+        return self
 
     # ------------------------------------------------------------------ utile
 

@@ -85,7 +85,9 @@ def main():
     real_unc = netshare.unc_path
     netshare.unc_path = lambda host, share: os.path.join(root, share)
 
-    settings = Settings()
+    # Réglages adossés à une section de settings.json simulée (dictionnaire en mémoire).
+    store: dict = {}
+    settings = Settings.bound(store, lambda: None)
     settings.poll_interval_ms = 250
     settings.remember_last_host = False
     window = open_window(app, root, settings)
@@ -149,7 +151,7 @@ def main():
     window.close()
     pump(300)
 
-    relu = Settings.load()
+    relu = Settings.bound(store, lambda: None)
     check("la configuration relue contient les colonnes masquees",
           set(relu.hidden_columns) == {COLUMNS[COLUMN_SOURCE][0], COLUMNS[COLUMN_LEVEL][0]},
           str(relu.hidden_columns))

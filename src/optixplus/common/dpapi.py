@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import base64
 import ctypes
+import logging
 from ctypes import wintypes
+
+log = logging.getLogger("optixplus.dpapi")
 
 _ENC_PREFIX = "dpapi:"
 _PLAIN_PREFIX = "plain:"
@@ -58,7 +61,7 @@ def protect(secret: str) -> str:
     src = _blob(secret.encode("utf-8"))
     out = _Blob()
     ok = _crypt32.CryptProtectData(
-        ctypes.byref(src), "pyFTOLogReader", None, None, None, 0, ctypes.byref(out)
+        ctypes.byref(src), "OptixPlus", None, None, None, 0, ctypes.byref(out)
     )
     if not ok:
         return _PLAIN_PREFIX + base64.b64encode(secret.encode("utf-8")).decode("ascii")
@@ -79,6 +82,7 @@ def unprotect(stored: str) -> str:
         # Valeur écrite à la main dans le fichier de configuration.
         return stored
     if not _AVAILABLE:
+        log.warning("DPAPI indisponible : un mot de passe chiffré ne peut pas être relu")
         return ""
 
     raw = base64.b64decode(stored[len(_ENC_PREFIX):])
@@ -88,6 +92,9 @@ def unprotect(stored: str) -> str:
         ctypes.byref(src), None, None, None, None, 0, ctypes.byref(out)
     )
     if not ok:
+        # Ancien pyFTOLogReader : le mot de passe a pu être chiffré sous un autre compte
+        # Windows. On le signale au lieu de le perdre en silence.
+        log.warning("Mot de passe chiffré illisible (autre compte Windows ?) : à ressaisir")
         return ""
     try:
         return _blob_bytes(out).decode("utf-8", "replace")

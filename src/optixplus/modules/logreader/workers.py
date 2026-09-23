@@ -12,17 +12,70 @@ délais. Trois règles en découlent :
 * **ne pas déduire l'état de la liaison du retour de l'appel bloquant** :
   le fil publie l'instant où il entre en lecture, et l'interface constate
   d'elle-même qu'il n'en est pas ressorti, sans rien attendre.
+
+Corrections par rapport à pyFTOLogReader :
+
+* le suivi **dort vraiment** entre deux lectures (attente sur un événement) au lieu de
+  se réveiller toutes les 100 ms pour vérifier une demande d'arrêt ;
+* une demande d'arrêt **annule la lecture réseau bloquée** (``CancelSynchronousIo``) :
+  plus besoin de ``QThread.terminate()``, qui pouvait laisser la session SMB ou une
+  poignée de fichier dans un état incertain.
 """
 
 from __future__ import annotations
 
+import ctypes
 import ipaddress
+import sys
+import threading
 import time
 
 from PySide6.QtCore import QMutex, QMutexLocker, QThread, Signal
 
 from .core import discovery, export, logreader, netshare
 from .core.logreader import LogFollower, PollResult
+
+
+_THREAD_TERMINATE = 0x0001  # droit requis par CancelSynchronousIo
+
+if sys.platform == "win32":
+    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    _kernel32.OpenThread.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+    _kernel32.OpenThread.restype = ctypes.c_void_p
+    _kernel32.CancelSynchronousIo.argtypes = [ctypes.c_void_p]
+    _kernel32.CancelSynchronousIo.restype = ctypes.c_int
+    _kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+    _kernel32.GetCurrentThreadId.restype = ctypes.c_uint32
+else:  # pragma: no cover - OptixPlus ne vise que Windows
+    _kernel32 = None
+
+
+class _IoCanceller:
+    """Poignée du fil de lecture, pour annuler depuis un autre fil une entrée-sortie bloquée."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._handle = None
+
+    def attach(self) -> None:
+        """À appeler depuis le fil de lecture lui-même, au début de ``run``."""
+        if _kernel32 is None:
+            return
+        handle = _kernel32.OpenThread(_THREAD_TERMINATE, 0, _kernel32.GetCurrentThreadId())
+        with self._lock:
+            self._handle = handle
+
+    def detach(self) -> None:
+        with self._lock:
+            handle, self._handle = self._handle, None
+        if handle and _kernel32 is not None:
+            _kernel32.CloseHandle(handle)
+
+    def cancel(self) -> None:
+        """Interrompt la lecture réseau en cours du fil (sans effet s'il n'en fait aucune)."""
+        with self._lock:
+            if self._handle and _kernel32 is not None:
+                _kernel32.CancelSynchronousIo(self._handle)
 
 
 def retire(thread: QThread, registry: list) -> None:
@@ -95,6 +148,15 @@ class LogWatcher(QThread):
         #: monotones. Zéro quand le fil ne lit rien. L'interface s'en sert pour
         #: constater une liaison muette sans attendre le retour de l'appel.
         self._io_started_ms = 0.0
+        #: Réveil immédiat du fil (arrêt demandé, reprise, nouvel intervalle).
+        self._wake = threading.Event()
+        self._canceller = _IoCanceller()
+
+    def requestInterruption(self) -> None:  # noqa: N802 (API Qt)
+        """Demande d'arrêt : réveille le fil et annule sa lecture réseau éventuelle."""
+        super().requestInterruption()
+        self._wake.set()
+        self._canceller.cancel()
 
     # ------------------------------------------------------------- pilotage
 
@@ -105,10 +167,12 @@ class LogWatcher(QThread):
     def set_interval(self, interval_ms: int) -> None:
         with QMutexLocker(self._mutex):
             self._interval_ms = max(100, interval_ms)
+        self._wake.set()
 
     def set_paused(self, paused: bool) -> None:
         with QMutexLocker(self._mutex):
             self._paused = paused
+        self._wake.set()
 
     def is_paused(self) -> bool:
         with QMutexLocker(self._mutex):
@@ -139,6 +203,13 @@ class LogWatcher(QThread):
     # ------------------------------------------------------------ exécution
 
     def run(self) -> None:
+        self._canceller.attach()
+        try:
+            self._run()
+        finally:
+            self._canceller.detach()
+
+    def _run(self) -> None:
         self._begin_io()
         try:
             result = self._follower.read_all()
@@ -164,11 +235,10 @@ class LogWatcher(QThread):
             if not self._connected:
                 interval = max(interval, self.RECONNECT_INTERVAL_MS)
 
-            # Sommeil fractionné pour rester réactif à une demande d'arrêt.
-            slept = 0
-            while slept < interval and not self.isInterruptionRequested():
-                self.msleep(min(100, interval - slept))
-                slept += 100
+            # Sommeil réel jusqu'à la prochaine lecture ; une demande d'arrêt, une
+            # reprise ou un changement d'intervalle réveille le fil aussitôt.
+            self._wake.wait(interval / 1000.0)
+            self._wake.clear()
             if self.isInterruptionRequested():
                 break
             if paused:
