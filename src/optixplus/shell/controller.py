@@ -9,9 +9,10 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import QObject, Qt
-from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QWidget
+from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon, QWidget
 
-from ..common import workers
+from ..common import i18n, qt_translation, workers
+from ..common.i18n import tr
 from ..common.settings import Settings
 from ..common.single_instance import SingleInstance
 from ..common.theme import ThemeManager
@@ -36,6 +37,7 @@ class AppController(QObject):
         self._settings_dialog: QWidget | None = None
         self._about_dialog: QWidget | None = None
         self._quitting = False
+        self._rebuilding = False
         self.tray = None
         self._create_services()
         if mode is LaunchMode.INSTALLED:
@@ -100,9 +102,46 @@ class AppController(QObject):
 
     def _on_window_closed(self) -> None:
         self._window = None
+        if self._rebuilding:
+            return
         log.info("Fenêtre principale fermée")
         if self.context.mode is LaunchMode.DISCOVERY or self.tray is None:
             self.quit()
+
+    # ---- langue ------------------------------------------------------------------
+    def change_language(self) -> None:
+        """Applique à chaud la langue des réglages : traductions, menu du tray, fenêtre reconstruite.
+
+        Chaque texte est traduit à la construction de son widget : plutôt que de
+        réappliquer chaque libellé, la fenêtre est reconstruite dans la nouvelle langue,
+        sur le même outil. Un outil qui refuse de se fermer (traitement en cours) garde
+        l'ancienne langue jusqu'à la prochaine ouverture de la fenêtre.
+        """
+        language = i18n.resolve_language(self.context.settings.general.language)
+        if language == i18n.current_language():
+            return
+        i18n.install(language)
+        qt_translation.apply(self._app, language)
+        log.info("Langue de l'interface : %s", language)
+        if self.tray is not None:
+            self.tray.rebuild_menu()
+        for service in self.context.services.values():
+            service.state_changed.emit()
+        window = self._window
+        if window is None:
+            return
+        page = window.current_page
+        self._rebuilding = True
+        try:
+            closed = window.close()
+        finally:
+            self._rebuilding = False
+        if closed:
+            self.show_main_window().show_page(page)
+        else:
+            QMessageBox.information(
+                window, "OptixPlus", tr("The window will switch to the new language when it is reopened.")
+            )
 
     # ---- dialogues ---------------------------------------------------------------
     def _raise_existing(self, dialog: QWidget | None) -> bool:

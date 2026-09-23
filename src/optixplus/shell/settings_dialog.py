@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QHBoxLayout,
-    QLabel,
     QListWidget,
     QMessageBox,
     QStackedWidget,
@@ -51,10 +50,6 @@ class GeneralPage(QWidget):
             self.language.addItem(labels[code], code)
         self.language.setCurrentIndex(max(0, self.language.findData(general.language)))
         form.addRow(tr("Language"), self.language)
-        note = QLabel(tr("A language change takes effect the next time OptixPlus starts."))
-        note.setProperty("muted", True)
-        note.setWordWrap(True)
-        form.addRow("", note)
 
         self.theme = QComboBox()
         for code in THEMES:
@@ -70,14 +65,13 @@ class GeneralPage(QWidget):
         form.addRow("", self.autostart)
 
     def apply(self) -> bool:
-        """Applique les choix ; renvoie vrai si un redémarrage est nécessaire."""
+        """Applique les choix ; renvoie vrai si la langue effective change."""
         general = self._context.settings.general
-        restart = False
+        language_changed = False
         language = self.language.currentData()
         if language != general.language:
-            old_effective = i18n.resolve_language(general.language)
             general.language = language
-            restart = i18n.resolve_language(language) != old_effective
+            language_changed = i18n.resolve_language(language) != i18n.current_language()
         theme = self.theme.currentData()
         if theme != general.theme:
             general.theme = theme
@@ -91,7 +85,7 @@ class GeneralPage(QWidget):
                 QMessageBox.warning(
                     self, "OptixPlus", tr("Unable to change the Windows startup setting:\n{error}").format(error=exc)
                 )
-        return restart
+        return language_changed
 
 
 class SettingsDialog(QDialog):
@@ -135,13 +129,16 @@ class SettingsDialog(QDialog):
         self._pages.addWidget(page)
 
     def _apply(self) -> None:
-        restart = self._general.apply()
+        language_changed = self._general.apply()
         self._context.settings.save()
-        if restart:
-            QMessageBox.information(
-                self, tr("Settings"), tr("The new language will be used the next time OptixPlus starts.")
-            )
+        if language_changed:
+            # La fenêtre (parente de cette boîte) va être reconstruite dans la nouvelle
+            # langue : la boîte se ferme d'abord, le changement suit hors de ses signaux.
+            controller = self._context.controller
+            self.accept()
+            QTimer.singleShot(0, controller.change_language)
 
     def _accept(self) -> None:
         self._apply()
-        self.accept()
+        if self.isVisible():
+            self.accept()

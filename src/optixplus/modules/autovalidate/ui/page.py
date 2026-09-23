@@ -73,6 +73,9 @@ class AutoValidatePage(QWidget):
         outer.addWidget(header)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        # Deux cadres côte à côte : la poignée reste déplaçable mais sans trait visible.
+        splitter.setProperty("cards", True)
+        splitter.setHandleWidth(12)
         splitter.addWidget(self._build_settings())
         splitter.addWidget(self._build_journal())
         splitter.setStretchFactor(0, 0)

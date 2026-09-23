@@ -86,6 +86,28 @@ class ToolModule(QObject):
         return None
 
 
+class CheckedSync(QObject):
+    """Garde une action cochable alignée sur un état ; meurt avec l'action.
+
+    Connecter une fonction anonyme au signal d'un service laisserait, après destruction
+    du menu (changement de langue), un rappel vers une action détruite.
+    """
+
+    def __init__(self, action: QAction, signal, getter) -> None:
+        super().__init__(action)
+        self._action = action
+        self._getter = getter
+        signal.connect(self.sync)
+        self.sync()
+
+    def sync(self) -> None:
+        value = bool(self._getter())
+        if self._action.isChecked() != value:
+            self._action.blockSignals(True)
+            self._action.setChecked(value)
+            self._action.blockSignals(False)
+
+
 class BackgroundService(QObject):
     """Partie d'un outil qui vit tant que l'application tourne, fenêtre ouverte ou non.
 

@@ -26,39 +26,49 @@ class TrayIcon(QObject):
         self.menu = QMenu()
 
         self._themed: list[tuple[object, str]] = []
-        open_action = self.menu.addAction(icons.app_icon(), tr("Open OptixPlus"))
-        font = open_action.font()
-        font.setBold(True)
-        open_action.setFont(font)
-        open_action.triggered.connect(controller.show_main_window)
-        self.menu.addSeparator()
+        self._build_menu()
         for service in controller.context.services.values():
-            for action in service.tray_actions(self.menu):
-                if action is None:
-                    self.menu.addSeparator()
-                else:
-                    self.menu.addAction(action)
             service.state_changed.connect(self.refresh)
             service.notification.connect(self.notify)
-        if controller.context.services:
-            self.menu.addSeparator()
-        for module in MODULES:
-            action = self._add(module.icon, tr(module.title))
-            action.triggered.connect(lambda _c=False, mid=module.id: controller.open_tool(mid))
-        self.menu.addSeparator()
-        settings_action = self._add("settings", tr("Settings…"))
-        settings_action.triggered.connect(controller.open_settings)
-        about_action = self._add("info", tr("About OptixPlus"))
-        about_action.triggered.connect(controller.open_about)
-        self.menu.addSeparator()
-        quit_action = self._add("power", tr("Quit"))
-        quit_action.triggered.connect(controller.quit)
-
         self.tray.setContextMenu(self.menu)
         controller.context.theme.changed.connect(self._refresh_icons)
         self.tray.activated.connect(self._on_activated)
         self.refresh()
         self.tray.show()
+
+    def _build_menu(self) -> None:
+        open_action = self.menu.addAction(icons.app_icon(), tr("Open OptixPlus"))
+        font = open_action.font()
+        font.setBold(True)
+        open_action.setFont(font)
+        open_action.triggered.connect(self._controller.show_main_window)
+        self.menu.addSeparator()
+        for service in self._controller.context.services.values():
+            for action in service.tray_actions(self.menu):
+                if action is None:
+                    self.menu.addSeparator()
+                else:
+                    self.menu.addAction(action)
+        if self._controller.context.services:
+            self.menu.addSeparator()
+        for module in MODULES:
+            action = self._add(module.icon, tr(module.title))
+            action.triggered.connect(lambda _c=False, mid=module.id: self._controller.open_tool(mid))
+        self.menu.addSeparator()
+        settings_action = self._add("settings", tr("Settings…"))
+        settings_action.triggered.connect(self._controller.open_settings)
+        about_action = self._add("info", tr("About OptixPlus"))
+        about_action.triggered.connect(self._controller.open_about)
+        self.menu.addSeparator()
+        quit_action = self._add("power", tr("Quit"))
+        quit_action.triggered.connect(self._controller.quit)
+
+    def rebuild_menu(self) -> None:
+        """Reconstruit le menu (changement de langue) ; les anciennes actions sont détruites."""
+        self.menu.clear()
+        self._themed.clear()
+        self._build_menu()
+        self.refresh()
 
     def _add(self, icon_name: str, text: str):
         action = self.menu.addAction(icons.themed_icon(icon_name), text)

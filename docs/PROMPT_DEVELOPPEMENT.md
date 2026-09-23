@@ -205,7 +205,7 @@ Le mode est détecté au démarrage, dans cet ordre : argument `--decouverte` ou
 - **Conséquence pour le portage** : tous les textes visibles des quatre outils, aujourd'hui en français, sont réécrits en anglais dans le code et leur texte français actuel passe dans `fr.json`. Le rendu français doit rester identique à l'existant. Les commentaires, docstrings et messages de log internes restent en français (§3).
 - **Choix de la langue** : paramètre « Langue » avec trois valeurs, `Automatique (Windows)` par défaut, `Français`, `English`.
   - En automatique : `GetUserDefaultUILanguage()` (repli sur `QLocale.system()`) ; français si la langue principale est le français (`fr-FR`, `fr-BE`, `fr-CA`, `fr-CH`…), anglais sinon.
-  - Le changement s'applique **au prochain démarrage**, avec un message qui le précise.
+  - Le changement s'applique **à chaud** : la fenêtre est reconstruite dans la nouvelle langue, sur le même outil, et le menu du tray est reconstruit. Chaque outil doit donc supporter d'être fermé puis rouvert sans perte (état enregistré, ou confirmation via `can_close()` s'il a un traitement en cours).
 - Les boutons et dialogues standard de Qt passent par `QTranslator`, avec les `qtbase_fr.qm` fournis par PySide6 quand la langue est le français.
 - L'installateur Inno Setup suit la même règle (détection automatique de la langue, FR ou EN).
 - `tools/i18n_check.py` liste les chaînes non traduites et les entrées orphelines. Un test pytest échoue s'il manque une traduction française.

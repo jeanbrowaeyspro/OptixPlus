@@ -370,6 +370,7 @@ def build_stylesheet(p: Palette) -> str:
     QSplitter::handle {{ background: {p.border}; }}
     QSplitter::handle:horizontal {{ width: 1px; }}
     QSplitter::handle:vertical {{ height: 1px; }}
+    QSplitter[cards="true"]::handle {{ background: transparent; }}
 
     QScrollBar:vertical {{
         background: transparent; width: 11px; margin: 2px;

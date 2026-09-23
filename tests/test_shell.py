@@ -85,3 +85,20 @@ def test_old_saved_layout_does_not_bring_back_window_toolbar(controller):
     assert toolbar is not None
     assert window.toolBarArea(toolbar).name == "NoToolBarArea"  # reste dans la zone de l'outil
     assert all(window.toolBarArea(t).name == "NoToolBarArea" for t in window.findChildren(QToolBar))
+
+
+def test_language_switch_is_live(controller):
+    """Le changement de langue reconstruit la fenêtre dans la nouvelle langue, sur le même outil."""
+    window = controller.show_main_window()
+    window.show_page("autovalidate")
+    assert window.windowTitle() == "Validation auto — OptixPlus"
+    controller.context.settings.general.language = "en"
+    controller.change_language()
+    rebuilt = controller.window
+    assert rebuilt is not None and rebuilt is not window
+    assert rebuilt.current_page == "autovalidate"
+    assert rebuilt.windowTitle() == "Auto Validate — OptixPlus"
+    assert [a.text() for a in rebuilt.menuBar().actions()][0] == "&File"
+    controller.context.settings.general.language = "fr"
+    controller.change_language()
+    assert [a.text() for a in controller.window.menuBar().actions()][0] == "&Fichier"

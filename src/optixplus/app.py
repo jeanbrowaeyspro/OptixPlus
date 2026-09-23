@@ -16,10 +16,9 @@ import sys
 import traceback
 from pathlib import Path
 
-from PySide6.QtCore import QLibraryInfo, QLocale, QTranslator
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from .common import i18n, logging_setup, paths, startup, win32
+from .common import i18n, logging_setup, paths, qt_translation, startup, win32
 from .common.i18n import tr
 from .common.settings import Settings
 from .common.single_instance import SingleInstance
@@ -91,16 +90,6 @@ def _install_excepthook() -> None:
     sys.excepthook = hook
 
 
-def _install_qt_translator(app: QApplication, language: str) -> None:
-    """Traduction des textes standard de Qt (boutons OK/Annuler…)."""
-    if language != "fr":
-        return
-    translator = QTranslator(app)
-    folder = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
-    if translator.load(QLocale(QLocale.Language.French), "qtbase", "_", folder):
-        app.installTranslator(translator)
-
-
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     win32.set_app_user_model_id(APP_ID)
@@ -114,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     settings = Settings.load()
     language = i18n.resolve_language(settings.general.language)
     i18n.install(language)
-    _install_qt_translator(app, language)
+    qt_translation.apply(app, language)
 
     instance = SingleInstance(APP_NAME)
     if not instance.acquire():

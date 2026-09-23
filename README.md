@@ -25,7 +25,7 @@ Réglages et journaux : `%APPDATA%\OptixPlus`.
 
 ## Langues
 
-L'interface suit la langue de Windows (français ou anglais) ; un réglage permet de la forcer. Les textes sources sont en anglais, le catalogue français est `src/optixplus/i18n/fr.json`. `tools/i18n_check.py` signale les traductions manquantes.
+L'interface suit la langue de Windows (français ou anglais) ; un réglage permet de la forcer, avec effet immédiat. Les textes sources sont en anglais, le catalogue français est `src/optixplus/i18n/fr.json`. `tools/i18n_check.py` signale les traductions manquantes.
 
 ## Auteur
 
