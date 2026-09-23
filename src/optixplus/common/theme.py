@@ -167,6 +167,7 @@ def build_stylesheet(p: Palette) -> str:
     mode = "dark" if p.dark else "light"
     qss_icon = lambda name: paths.resource_path("icons", "qss", f"{name}-{mode}.svg").as_posix()  # noqa: E731
     arrow_down, arrow_up, check = qss_icon("arrow-down"), qss_icon("arrow-up"), qss_icon("check")
+    dot = qss_icon("dot")
     hover = "rgba(255, 255, 255, 0.09)" if p.dark else "rgba(0, 0, 0, 0.06)"
     pressed = "rgba(255, 255, 255, 0.16)" if p.dark else "rgba(0, 0, 0, 0.11)"
     return f"""
@@ -429,7 +430,20 @@ def build_stylesheet(p: Palette) -> str:
     /* Marge à gauche de l'icône : sans elle, l'icône colle au bord du surlignage. */
     QMenu::item {{ padding: 6px 24px 6px 32px; border-radius: 5px; }}
     QMenu::icon {{ padding-left: 10px; }}
+    /* Cases et pastilles des entrées à cocher : visibles aussi à l'état décoché. */
     QMenu::indicator {{ width: 14px; height: 14px; left: 10px; }}
+    QMenu::indicator:non-exclusive:unchecked {{
+        border: 1px solid {p.text_muted}; border-radius: 4px; background: {p.surface};
+    }}
+    QMenu::indicator:non-exclusive:checked {{
+        border: 1px solid {p.accent}; border-radius: 4px; background: {p.accent}; image: url({check});
+    }}
+    QMenu::indicator:exclusive:unchecked {{
+        border: 1px solid {p.text_muted}; border-radius: 7px; background: {p.surface};
+    }}
+    QMenu::indicator:exclusive:checked {{
+        border: 1px solid {p.accent}; border-radius: 7px; background: {p.accent}; image: url({dot});
+    }}
     QMenu::item:selected {{ background: {p.selection}; color: {p.selection_text}; }}
     QMenu::separator {{ height: 1px; background: {p.border}; margin: 4px 8px; }}
 

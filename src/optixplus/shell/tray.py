@@ -25,7 +25,8 @@ class TrayIcon(QObject):
         self.tray = QSystemTrayIcon(icons.app_icon(), self)
         self.menu = QMenu()
 
-        open_action = self.menu.addAction(tr("Open OptixPlus"))
+        self._themed: list[tuple[object, str]] = []
+        open_action = self.menu.addAction(icons.app_icon(), tr("Open OptixPlus"))
         font = open_action.font()
         font.setBold(True)
         open_action.setFont(font)
@@ -42,21 +43,37 @@ class TrayIcon(QObject):
         if controller.context.services:
             self.menu.addSeparator()
         for module in MODULES:
-            action = self.menu.addAction(icons.themed_icon(module.icon), tr(module.title))
+            action = self._add(module.icon, tr(module.title))
             action.triggered.connect(lambda _c=False, mid=module.id: controller.open_tool(mid))
         self.menu.addSeparator()
-        settings_action = self.menu.addAction(icons.themed_icon("settings"), tr("Settings…"))
+        settings_action = self._add("settings", tr("Settings…"))
         settings_action.triggered.connect(controller.open_settings)
-        about_action = self.menu.addAction(tr("About OptixPlus"))
+        about_action = self._add("info", tr("About OptixPlus"))
         about_action.triggered.connect(controller.open_about)
         self.menu.addSeparator()
-        quit_action = self.menu.addAction(tr("Quit"))
+        quit_action = self._add("power", tr("Quit"))
         quit_action.triggered.connect(controller.quit)
 
         self.tray.setContextMenu(self.menu)
+        controller.context.theme.changed.connect(self._refresh_icons)
         self.tray.activated.connect(self._on_activated)
         self.refresh()
         self.tray.show()
+
+    def _add(self, icon_name: str, text: str):
+        action = self.menu.addAction(icons.themed_icon(icon_name), text)
+        self._themed.append((action, icon_name))
+        return action
+
+    def _refresh_icons(self, _palette=None) -> None:
+        """Le menu du tray survit à la fenêtre : il recolore lui-même ses icônes."""
+        icons.clear_cache()
+        for action, icon_name in self._themed:
+            action.setIcon(icons.themed_icon(icon_name))
+        for action in self.menu.actions():
+            name = action.property("themedIcon")
+            if name:
+                action.setIcon(icons.themed_icon(name))
 
     def refresh(self) -> None:
         """Icône grise si un service est en pause ; infobulle avec l'état de chaque service."""

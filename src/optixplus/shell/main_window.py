@@ -36,6 +36,11 @@ from .sidebar import HOME_ID, Sidebar
 
 log = logging.getLogger("optixplus.shell")
 
+# Version de la disposition enregistrée (docks, barres). À incrémenter à chaque changement
+# de structure : une disposition d'une autre version est ignorée au lieu d'être restaurée
+# de travers (la 1 plaçait la barre d'actions au niveau de la fenêtre).
+LAYOUT_VERSION = 2
+
 
 class _ServiceStatus(QLabel):
     """État d'un service dans la barre d'état ; la connexion meurt avec le libellé."""
@@ -87,7 +92,7 @@ class MainWindow(QMainWindow):
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
         self._toolbar = QToolBar(tr("Tool actions"), content)
-        self._toolbar.setObjectName("contextToolbar")
+        self._toolbar.setObjectName("toolPageActions")
         self._toolbar.setMovable(False)
         self._toolbar.setFloatable(False)
         self._toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -131,17 +136,17 @@ class MainWindow(QMainWindow):
         controller = self.context.controller
         bar = self.menuBar()
 
+        self._themed_actions: list[tuple[QAction, str]] = []
         file_menu = bar.addMenu(tr("&File"))
-        close_action = file_menu.addAction(tr("Close window"))
+        close_action = self._icon_action(file_menu, "close-window", tr("Close window"))
         close_action.setShortcut(QKeySequence("Ctrl+W"))
         close_action.triggered.connect(self.close)
         file_menu.addSeparator()
-        quit_action = file_menu.addAction(tr("&Quit OptixPlus"))
+        quit_action = self._icon_action(file_menu, "power", tr("&Quit OptixPlus"))
         quit_action.setShortcut(QKeySequence("Ctrl+Q"))
         quit_action.triggered.connect(controller.quit)
 
         tools_menu = bar.addMenu(tr("&Tools"))
-        self._themed_actions: list[tuple[QAction, str]] = []
         home_action = self._icon_action(tools_menu, "home", tr("Home"))
         home_action.setShortcut(QKeySequence("Ctrl+0"))
         home_action.triggered.connect(lambda: self.show_page(HOME_ID))
@@ -157,6 +162,8 @@ class MainWindow(QMainWindow):
 
         view_menu = bar.addMenu(tr("&View"))
         theme_menu = view_menu.addMenu(tr("Theme"))
+        self._themed_actions.append((theme_menu.menuAction(), "theme"))
+        theme_menu.menuAction().setIcon(icons.themed_icon("theme"))
         group = QActionGroup(self)
         for code in THEMES:
             action = theme_menu.addAction(theme_label(code))
@@ -169,6 +176,8 @@ class MainWindow(QMainWindow):
         log_action = self._log_dock.toggleViewAction()
         log_action.setText(tr("Log"))
         log_action.setShortcut(QKeySequence("Ctrl+J"))
+        log_action.setIcon(icons.themed_icon("journal"))
+        self._themed_actions.append((log_action, "journal"))
         view_menu.addAction(log_action)
 
         help_menu = bar.addMenu(tr("&Help"))
@@ -277,13 +286,13 @@ class MainWindow(QMainWindow):
         if general.window_geometry:
             self.restoreGeometry(QByteArray.fromBase64(general.window_geometry.encode("ascii")))
         if general.window_state:
-            self.restoreState(QByteArray.fromBase64(general.window_state.encode("ascii")))
+            self.restoreState(QByteArray.fromBase64(general.window_state.encode("ascii")), LAYOUT_VERSION)
         self._log_dock.setVisible(general.show_log_panel)
 
     def _save_layout(self) -> None:
         general = self.context.settings.general
         general.window_geometry = bytes(self.saveGeometry().toBase64().data()).decode("ascii")
-        general.window_state = bytes(self.saveState().toBase64().data()).decode("ascii")
+        general.window_state = bytes(self.saveState(LAYOUT_VERSION).toBase64().data()).decode("ascii")
         general.show_log_panel = self._log_dock.isVisible()
 
     def can_close(self) -> bool:

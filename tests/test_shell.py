@@ -64,3 +64,24 @@ def test_close_saves_layout_and_last_tool(controller):
     assert general.window_geometry
     reopened = controller.show_main_window()
     assert reopened.current_page == "compare"
+
+
+def test_old_saved_layout_does_not_bring_back_window_toolbar(controller):
+    """Une disposition enregistrée par une version précédente (barre d'outils au niveau de la
+    fenêtre) ne doit pas recréer de bande vide sous les menus."""
+    from PySide6.QtWidgets import QMainWindow, QToolBar
+
+    old = QMainWindow()
+    bar = QToolBar(old)
+    bar.setObjectName("contextToolbar")
+    old.addToolBar(bar)
+    state = bytes(old.saveState().toBase64().data()).decode("ascii")
+    old.deleteLater()
+
+    controller.context.settings.general.window_state = state
+    window = controller.show_main_window()
+    window.show_page("autovalidate")
+    toolbar = window.findChild(QToolBar, "toolPageActions")
+    assert toolbar is not None
+    assert window.toolBarArea(toolbar).name == "NoToolBarArea"  # reste dans la zone de l'outil
+    assert all(window.toolBarArea(t).name == "NoToolBarArea" for t in window.findChildren(QToolBar))
