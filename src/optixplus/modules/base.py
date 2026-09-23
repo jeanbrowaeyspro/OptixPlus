@@ -74,6 +74,18 @@ class ToolModule(QObject):
         """Faux pour refuser la fermeture (traitement en cours que l'utilisateur veut garder)."""
         return True
 
+    def snapshot(self) -> dict | None:
+        """État complet de la page, pour la reconstruire à l'identique (changement de langue).
+
+        Doit tout contenir, y compris les saisies non enregistrées, puisque la page est
+        détruite sans confirmation. ``None`` si l'outil ne sait pas se reconstruire en
+        l'état (traitement en cours) : la fermeture passe alors par ``can_close()``.
+        """
+        return {}
+
+    def restore(self, state: dict) -> None:
+        """Réapplique un instantané produit par ``snapshot()`` sur la page neuve."""
+
     def shutdown(self) -> None:
         """Arrêt propre : threads arrêtés sans ``terminate()``, réglages enregistrés."""
 

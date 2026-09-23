@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QByteArray, Qt, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -124,6 +124,14 @@ class SettingsDialog(QDialog):
         layout.addWidget(buttons)
         self._categories.setCurrentRow(0)
 
+    def snapshot(self) -> dict:
+        return {"category": self._categories.currentRow(), "geometry": bytes(self.saveGeometry().toBase64().data())}
+
+    def restore(self, state: dict) -> None:
+        self._categories.setCurrentRow(max(0, state.get("category", 0)))
+        if state.get("geometry"):
+            self.restoreGeometry(QByteArray.fromBase64(state["geometry"]))
+
     def _add_page(self, title: str, page: QWidget) -> None:
         self._categories.addItem(title)
         self._pages.addWidget(page)
@@ -134,10 +142,11 @@ class SettingsDialog(QDialog):
         if language_changed:
             # La fenêtre (parente de cette boîte) va être reconstruite dans la nouvelle
             # langue : la boîte se ferme d'abord, le changement suit hors de ses signaux,
-            # puis la boîte est rouverte, traduite.
+            # puis la boîte est rouverte, traduite, sur la même catégorie.
             controller = self._context.controller
             self.accept()
-            QTimer.singleShot(0, lambda: controller.change_language(reopen_settings=True))
+            dialog_state = self.snapshot()
+            QTimer.singleShot(0, lambda: controller.change_language(settings_state=dialog_state))
 
     def _accept(self) -> None:
         self._apply()

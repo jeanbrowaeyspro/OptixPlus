@@ -13,7 +13,12 @@ from optixplus.shell.controller import AppController
 
 
 @pytest.fixture
-def controller(qapp, tmp_path):
+def controller(qapp, tmp_path, monkeypatch):
+    # Hors écran, personne ne peut répondre à une boîte modale : on répond « Oui ».
+    from PySide6.QtWidgets import QMessageBox
+
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes))
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Ok))
     i18n.install("fr")
     logging_setup.configure(to_file=False)
     settings = Settings.load(tmp_path / "settings.json")
@@ -110,9 +115,49 @@ def test_settings_dialog_reopens_after_language_change(controller):
 
     controller.show_main_window()
     controller.context.settings.general.language = "en"
-    controller.change_language(reopen_settings=True)
+    controller.change_language(settings_state={})
     dialogs = [d for d in controller.window.findChildren(QDialog) if d.isVisible()]
     assert [d.windowTitle() for d in dialogs] == ["Settings"]
     dialogs[0].close()
     controller.context.settings.general.language = "fr"
     controller.change_language()
+
+
+def test_language_change_restores_everything_as_it_was(controller):
+    from PySide6.QtWidgets import QDialog
+
+    """Après un changement de langue : mêmes outils ouverts, même page, saisies non enregistrées
+    conservées (sans demande de confirmation), mêmes boîtes de dialogue ouvertes."""
+    window = controller.show_main_window()
+    window.show_page("linkcheck")
+    window.show_page("autovalidate")
+    page = window.module("autovalidate").page
+    page.process.setText("AutreStudio.exe")
+    page._mark_dirty()
+    page.retries.setValue(7)
+    window.show_page("compare")
+    controller.open_about()
+
+    controller.context.settings.general.language = "en"
+    controller.change_language(settings_state={"category": 0})
+
+    rebuilt = controller.window
+    assert rebuilt is not window
+    assert rebuilt.current_page == "compare"
+    assert {"linkcheck", "autovalidate", "compare"} <= set(rebuilt._modules)
+    new_page = rebuilt.module("autovalidate").page
+    assert new_page.process.text() == "AutreStudio.exe"
+    assert new_page.retries.value() == 7
+    assert new_page.has_unsaved_changes()
+    # Rien n'a été enregistré : la saisie n'est que conservée à l'écran.
+    from optixplus.modules.autovalidate.core.config import AutoValidateSettings
+
+    assert controller.context.settings.section(AutoValidateSettings).process_name == "FTOptixStudio.exe"
+    titles = sorted(d.windowTitle() for d in rebuilt.findChildren(QDialog) if d.isVisible())
+    assert titles == ["About OptixPlus", "Settings"]
+    for dialog in rebuilt.findChildren(QDialog):
+        dialog.close()
+    controller.context.settings.general.language = "fr"
+    controller.change_language()
+    # Abandon de la saisie : sinon la fermeture finale demanderait confirmation.
+    controller.window.module("autovalidate").page.save_button.setEnabled(False)

@@ -41,6 +41,13 @@ class AutoValidateModule(ToolModule):
     def toolbar_actions(self) -> list[QAction | None]:
         return [self._toggle, None, self._open, self._clear]
 
+    def snapshot(self) -> dict | None:
+        return self.page.snapshot() if self.page is not None else {}
+
+    def restore(self, state: dict) -> None:
+        if self.page is not None and state:
+            self.page.restore(state)
+
     def can_close(self) -> bool:
         if self.page is None or not self.page.has_unsaved_changes():
             return True

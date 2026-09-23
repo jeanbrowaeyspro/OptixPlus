@@ -82,6 +82,7 @@ class AutoValidatePage(QWidget):
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([420, 700])
         outer.addWidget(splitter, 1)
+        self._splitter = splitter
 
         service.state_changed.connect(self.refresh_state)
         service.activity.relay.entry_added.connect(self._append)
@@ -230,6 +231,43 @@ class AutoValidatePage(QWidget):
 
     def has_unsaved_changes(self) -> bool:
         return self.save_button.isEnabled()
+
+    def snapshot(self) -> dict:
+        """Formulaire tel qu'affiché (même non enregistré), séparation et défilement du journal."""
+        bar = self.journal.verticalScrollBar()
+        return {
+            "titles": [self.titles.item(i).text() for i in range(self.titles.count())],
+            "current_title": self.titles.currentRow(),
+            "process": self.process.text(),
+            "retries": self.retries.value(),
+            "retry_delay": self.retry_delay.value(),
+            "fallback": self.fallback.value(),
+            "restore_focus": self.restore_focus.isChecked(),
+            "notify": self.notify.isChecked(),
+            "dirty": self.has_unsaved_changes(),
+            "splitter": self._splitter.sizes(),
+            "journal_scroll": bar.value(),
+            "journal_at_end": bar.value() >= bar.maximum(),
+        }
+
+    def restore(self, state: dict) -> None:
+        self._loading = True
+        self.titles.clear()
+        for title in state.get("titles", []):
+            self._append_title(title)
+        self.titles.setCurrentRow(state.get("current_title", -1))
+        self.process.setText(state.get("process", self.process.text()))
+        self.retries.setValue(state.get("retries", self.retries.value()))
+        self.retry_delay.setValue(state.get("retry_delay", self.retry_delay.value()))
+        self.fallback.setValue(state.get("fallback", self.fallback.value()))
+        self.restore_focus.setChecked(state.get("restore_focus", self.restore_focus.isChecked()))
+        self.notify.setChecked(state.get("notify", self.notify.isChecked()))
+        self._loading = False
+        self.save_button.setEnabled(bool(state.get("dirty")))
+        if state.get("splitter"):
+            self._splitter.setSizes(state["splitter"])
+        bar = self.journal.verticalScrollBar()
+        bar.setValue(bar.maximum() if state.get("journal_at_end", True) else state.get("journal_scroll", 0))
 
     # ---- journal -----------------------------------------------------------------
     def _build_journal(self) -> QWidget:

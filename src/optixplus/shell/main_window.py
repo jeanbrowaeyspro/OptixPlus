@@ -298,8 +298,41 @@ class MainWindow(QMainWindow):
     def can_close(self) -> bool:
         return all(module.can_close() for module in self._modules.values())
 
+    # ---- reconstruction à l'identique (changement de langue) -------------------------
+    def snapshot(self) -> dict | None:
+        """État de toute la fenêtre ; ``None`` si un outil ne peut pas être reconstruit en l'état."""
+        modules: dict[str, dict] = {}
+        for module_id, module in self._modules.items():
+            state = module.snapshot()
+            if state is None:
+                return None
+            modules[module_id] = state
+        return {
+            "page": self._current,
+            "modules": modules,  # l'ordre d'ouverture est conservé
+            "home_scroll": self.home.verticalScrollBar().value(),
+        }
+
+    def restore(self, state: dict) -> None:
+        """Rouvre les mêmes outils, restaure leurs pages, puis revient sur la page affichée."""
+        for module_id, module_state in state.get("modules", {}).items():
+            self.show_page(module_id)
+            module = self._modules.get(module_id)
+            if module is not None:
+                module.restore(module_state)
+        self.show_page(state.get("page") or HOME_ID)
+        self.home.verticalScrollBar().setValue(state.get("home_scroll", 0))
+
+    def close_for_rebuild(self) -> bool:
+        """Ferme sans confirmation : l'état a été capturé par ``snapshot()``."""
+        self._skip_confirmation = True
+        try:
+            return self.close()
+        finally:
+            self._skip_confirmation = False
+
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (API Qt)
-        if not self.can_close():
+        if not getattr(self, "_skip_confirmation", False) and not self.can_close():
             event.ignore()
             return
         self._save_layout()

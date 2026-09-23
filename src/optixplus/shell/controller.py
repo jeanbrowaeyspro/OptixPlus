@@ -109,16 +109,19 @@ class AppController(QObject):
             self.quit()
 
     # ---- langue ------------------------------------------------------------------
-    def change_language(self, reopen_settings: bool = False) -> None:
-        """Applique à chaud la langue des réglages : traductions, menu du tray, fenêtre reconstruite.
+    def change_language(self, settings_state: dict | None = None) -> None:
+        """Applique à chaud la langue des réglages, en rouvrant tout **en l'état**.
 
         Chaque texte est traduit à la construction de son widget : plutôt que de
-        réappliquer chaque libellé, la fenêtre est reconstruite dans la nouvelle langue,
-        sur le même outil. Un outil qui refuse de se fermer (traitement en cours) garde
-        l'ancienne langue jusqu'à la prochaine ouverture de la fenêtre.
+        réappliquer chaque libellé, la fenêtre est reconstruite dans la nouvelle langue.
+        Avant, chaque outil ouvert livre un instantané de sa page (saisies non
+        enregistrées comprises) ; après, les mêmes outils sont rouverts et restaurés, sur
+        la même page, avec les mêmes boîtes de dialogue ouvertes.
 
-        ``reopen_settings`` : la demande vient de la boîte Paramètres, qui est rouverte
-        dans la nouvelle langue pour que l'utilisateur retrouve où il en était.
+        ``settings_state`` : la demande vient de la boîte Paramètres, rouverte sur la même
+        catégorie. Un outil qui ne sait pas se reconstruire en l'état (traitement en cours)
+        passe par la confirmation de fermeture habituelle ; en cas de refus, la fenêtre
+        garde l'ancienne langue jusqu'à sa prochaine ouverture.
         """
         language = i18n.resolve_language(self.context.settings.general.language)
         if language == i18n.current_language():
@@ -130,33 +133,55 @@ class AppController(QObject):
             self.tray.rebuild_menu()
         for service in self.context.services.values():
             service.state_changed.emit()
+
         window = self._window
+        about_open = self._is_open(self._about_dialog)
         if window is None:
-            if reopen_settings:
-                self.open_settings()
+            self._reopen_dialogs(settings_state, about_open)
             return
-        page = window.current_page
+        snapshot = window.snapshot()
+        if about_open:
+            self._about_dialog.close()
+            self._about_dialog = None
         self._rebuilding = True
         try:
-            closed = window.close()
+            closed = window.close_for_rebuild() if snapshot is not None else window.close()
         finally:
             self._rebuilding = False
-        if closed:
-            self.show_main_window().show_page(page)
-            if reopen_settings:
-                self.open_settings()
-        else:
+        if not closed:
             QMessageBox.information(
                 window, "OptixPlus", tr("The window will switch to the new language when it is reopened.")
             )
+            return
+        rebuilt = self.show_main_window()
+        if snapshot is not None:
+            rebuilt.restore(snapshot)
+        self._reopen_dialogs(settings_state, about_open)
+
+    def _reopen_dialogs(self, settings_state: dict | None, about_open: bool) -> None:
+        if about_open:
+            self.open_about()
+        if settings_state is not None:
+            self.open_settings()
+            if self._settings_dialog is not None:
+                self._settings_dialog.restore(settings_state)
 
     # ---- dialogues ---------------------------------------------------------------
-    def _raise_existing(self, dialog: QWidget | None) -> bool:
-        if dialog is None:
-            return False
+    @staticmethod
+    def _is_open(dialog: QWidget | None) -> bool:
+        # Une boîte fermée mais pas encore détruite (destruction différée) compte comme absente.
+        return dialog is not None and dialog.isVisible()
+
+    @staticmethod
+    def _show(dialog: QWidget) -> None:
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
+
+    def _raise_existing(self, dialog: QWidget | None) -> bool:
+        if not self._is_open(dialog):
+            return False
+        self._show(dialog)
         return True
 
     def open_settings(self) -> None:
@@ -168,7 +193,7 @@ class AppController(QObject):
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.destroyed.connect(lambda: setattr(self, "_settings_dialog", None))
         self._settings_dialog = dialog
-        self._raise_existing(dialog)
+        self._show(dialog)
 
     def open_about(self) -> None:
         if self._raise_existing(self._about_dialog):
@@ -179,7 +204,7 @@ class AppController(QObject):
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.destroyed.connect(lambda: setattr(self, "_about_dialog", None))
         self._about_dialog = dialog
-        self._raise_existing(dialog)
+        self._show(dialog)
 
     # ---- demandes externes ---------------------------------------------------------
     def handle_message(self, message: list[str]) -> None:
