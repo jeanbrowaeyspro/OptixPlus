@@ -1,6 +1,6 @@
 """Rapport Markdown : synthèse, inventaire, résumé sémantique complet, vues spécialisées.
 
-Le niveau de détail visé est celui de ``docs/cas-reel.md`` (FTOCompare). Le rapport est
+Le niveau de détail visé est celui de l'étude de cas de FTOCompare. Le rapport est
 rédigé dans la langue de l'interface au moment de l'export ; les libellés d'état et de sens
 viennent de ``core.labels``, source unique partagée avec l'interface.
 """

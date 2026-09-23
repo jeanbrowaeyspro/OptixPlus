@@ -1,10 +1,11 @@
 """Fixtures pytest.
 
-Le couple réel réel (~60 Mo par côté) vit hors dépôt (voir ``DATA_ROOT``).
-Le projet ``1.3.2.9`` sur disque a déjà reçu les 4 correctifs décrits dans ``optixplus_expected.json`` ;
+Le couple réel d'un client (~60 Mo par côté) et son résultat attendu vivent hors dépôt
+(voir ``DATA_ROOT`` et ``EXPECTED``). Le projet sur disque a déjà reçu les 4 correctifs décrits
+dans le résultat attendu ;
 pour retrouver son état d'origine, on en construit une copie temporaire (liens physiques quand
 c'est possible, copie sinon) dans laquelle on restaure les 4 fichiers de ``_Sauvegarde_AvantMerge``.
-Les tests marqués ``couple_reel`` sont ignorés si ces dossiers sont absents.
+Les tests marqués ``couple_reel`` sont ignorés si ces données sont absentes.
 """
 
 from __future__ import annotations
@@ -18,14 +19,16 @@ from pathlib import Path
 import pytest
 
 HERE = Path(__file__).resolve().parent
-EXPECTED = HERE / "expected" / "optixplus_expected.json"
 # Emplacement du couple réel : variable d'environnement, sinon le dossier qui contenait
 # FTOCompare (les données n'ont pas bougé lors de l'intégration dans OptixPlus).
 DATA_ROOT = Path(os.environ.get("OPTIXPLUS_COMPARE_DATA", HERE.parents[2]))
 SAUVEGARDE = DATA_ROOT / "_Sauvegarde_AvantMerge"
+EXPECTED = Path(os.environ.get("OPTIXPLUS_COMPARE_EXPECTED", DATA_ROOT / "optixplus_expected.json"))
 
 
 def _load_expected() -> dict:
+    if not EXPECTED.is_file():
+        pytest.skip(f"résultat attendu du couple réel absent : {EXPECTED}")
     return json.loads(EXPECTED.read_text(encoding="utf-8"))
 
 
@@ -90,7 +93,7 @@ def couple_reel(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[Path
     projet = DATA_ROOT / exp["couple"]["projet"]
     if not runtime.is_dir() or not projet.is_dir() or not SAUVEGARDE.is_dir():
         pytest.skip(f"couple réel absent sous {DATA_ROOT}")
-    work = tmp_path_factory.mktemp("reel") / projet.name
+    work = tmp_path_factory.mktemp("couple_reel") / projet.name
     _mirror(projet, work)
     # Le projet réel a pu être modifié par l'outil lui-même : on remonte ses sauvegardes,
     # de la plus récente à la plus ancienne (la plus ancienne gagne), puis l'état d'avant merge.

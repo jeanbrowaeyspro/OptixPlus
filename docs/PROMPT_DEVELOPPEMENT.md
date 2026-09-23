@@ -285,7 +285,7 @@ Il est repris aux sections 7.1 à 7.4. On y ajoute les points transverses :
   - traduction : couverture FR, choix automatique de la langue selon Windows (fr-* → français, autre → anglais) ;
   - mises à jour : comparaison de versions et lecture de la réponse GitHub (HTTP simulé), vérification SHA-256 ;
   - instance unique et IPC.
-- Le couple réel « réel » reste ignoré s'il est absent, comme aujourd'hui.
+- Le couple réel d'un client (données hors dépôt) reste ignoré s'il est absent, comme aujourd'hui.
 - **Ressources**, à mesurer et à consigner dans le README à chaque phase :
   - mémoire du processus au repos (tray seul), puis avec chaque outil ouvert ;
   - CPU au repos (cible : environ 0 % hors événement) ;

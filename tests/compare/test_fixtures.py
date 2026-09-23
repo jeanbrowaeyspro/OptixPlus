@@ -1,6 +1,6 @@
 """Le couple synthétique versionné ``tests/fixtures`` : un exemplaire de chaque type d'écart.
 
-C'est ce couple qui fait tourner les tests sans dépendre du couple réel réel.
+C'est ce couple qui fait tourner les tests sans dépendre d'un couple réel de client.
 """
 
 from __future__ import annotations

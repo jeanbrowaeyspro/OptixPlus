@@ -1,7 +1,7 @@
-"""Critères d'acceptation de la phase 1 sur le couple réel réel (voir SPEC.md).
+"""Critères d'acceptation sur un couple réel runtime / projet d'un client.
 
-Tout est comparé à ``tests/expected/optixplus_expected.json``. Les tests sont ignorés si le couple
-n'est pas présent sur la machine.
+Les données et le résultat attendu (``optixplus_expected.json``) vivent hors dépôt, à
+l'emplacement donné par ``OPTIXPLUS_COMPARE_DATA`` ; sans eux, ces tests sont ignorés.
 """
 
 from __future__ import annotations
@@ -215,7 +215,7 @@ def test_aucune_divergence_sur_les_fichiers_attendus(comparison: Comparison, exp
             else:
                 assert rel != motif, rel
     assert not any(rel.endswith(".cs") or rel.endswith(".sln") or "/obj/" in rel for rel in divergents)
-    optix = comparison.inventory.get("IHM_Client.optix")
+    optix = comparison.inventory.get(expected["fichier_optix"])
     assert optix is not None and optix.attendu and optix.status == "different"
 
 
@@ -364,7 +364,7 @@ def test_plan_alignement_complet(comparison: Comparison, expected: dict) -> None
     assert xml.sens == "branche_projet"
     assert len(xml.semantic) == 21 and all(s.genre == "type" for s in xml.semantic)
     assert {s.noeud for s in xml.semantic} == set(attendus.values())
-    # Les références restantes : les Find("IType_Div_…") par chaîne dans PresetsWorkUI.cs
+    # Les références restantes : les Find("IType_Div_…") par chaîne dans un fichier C# du projet
     refs_cs = {r.rel for r in preview.references if r.rel.endswith(".cs")}
-    assert any(r.endswith("PresetsWorkUI.cs") for r in refs_cs)
+    assert any(r.endswith(expected["fichier_cs_references"]) for r in refs_cs)
     assert any("Project.Current.Find" in a for a in preview.avertissements)
