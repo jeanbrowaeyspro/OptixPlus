@@ -42,9 +42,7 @@ class LogPanel(QPlainTextEdit):
         self._handler = handler
         self._recolor()
         handler.relay.record.connect(self._append)
-        manager = theme.manager()
-        if manager is not None:
-            manager.changed.connect(self._recolor)
+        theme.follow(self, self._recolor)
 
     def _append(self, text: str, level: int) -> None:
         append_colored(self, text, level)

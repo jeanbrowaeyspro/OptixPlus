@@ -85,6 +85,14 @@ def tr(text: str) -> str:
     return _catalog.get(text, text)
 
 
+def tr_noop(text: str) -> str:
+    """Marque un texte source pour l'extraction sans le traduire (constantes de module).
+
+    Le texte est traduit plus tard, à l'affichage, par ``tr(variable)``.
+    """
+    return text
+
+
 def tr_n(singular: str, plural: str, n: int) -> str:
     """Traduit un texte qui dépend d'un nombre.
 

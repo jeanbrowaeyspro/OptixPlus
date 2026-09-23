@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 
 from ..common import icons
 from ..common.i18n import tr
-from ..common.recent import recent_projects
+from ..common.recent import recent_controllers, recent_projects
 from ..modules import MODULES
 from ..version import __version__
 
@@ -147,11 +147,57 @@ class _RecentProjects(QWidget):
         menu.exec(button.mapToGlobal(button.rect().bottomLeft()))
 
 
+class _RecentControllers(QWidget):
+    """Automates récents : un clic ouvre l'automate dans l'outil choisi."""
+
+    requested = Signal(str, str)  # (outil, adresse)
+
+    def __init__(self, settings, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._settings = settings
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(2)
+        self.refresh()
+
+    def refresh(self) -> None:
+        while self._layout.count():
+            item = self._layout.takeAt(0)
+            if item.widget() is not None:
+                item.widget().deleteLater()
+        controllers = recent_controllers(self._settings)[:6]
+        if not controllers:
+            empty = QLabel(tr("No recent controller."))
+            empty.setProperty("muted", True)
+            self._layout.addWidget(empty)
+            return
+        for host, name in controllers:
+            button = QToolButton()
+            button.setText(name)
+            button.setToolTip(host)
+            button.setProperty("link", True)
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+            button.clicked.connect(lambda _c=False, h=host, b=button: self._open(h, b))
+            self._layout.addWidget(button)
+
+    def _open(self, host: str, button: QToolButton) -> None:
+        tools = [m for m in MODULES if m.controller_action]
+        if len(tools) == 1:
+            self.requested.emit(tools[0].id, host)
+            return
+        menu = QMenu(self)
+        for tool in tools:
+            menu.addAction(icons.themed_icon(tool.icon), tr(tool.title), lambda t=tool.id: self.requested.emit(t, host))
+        menu.exec(button.mapToGlobal(button.rect().bottomLeft()))
+
+
 class HomePage(QScrollArea):
     """Accueil de la fenêtre principale."""
 
     tool_requested = Signal(str)
     project_requested = Signal(str, str)  # (outil, dossier)
+    controller_requested = Signal(str, str)  # (outil, adresse de l'automate)
 
     def __init__(self, services: dict | None = None, settings=None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -211,7 +257,11 @@ class HomePage(QScrollArea):
             self.projects_card.body.addWidget(self.recent)
             self.projects_card.body.addStretch(1)
         self.plcs_card = _Card(tr("Recent controllers"))
-        self.plcs_card.add_muted(tr("No recent controller."))
+        self.controllers = _RecentControllers(settings) if settings is not None else None
+        if self.controllers is not None:
+            self.controllers.requested.connect(self.controller_requested)
+            self.plcs_card.body.addWidget(self.controllers)
+            self.plcs_card.body.addStretch(1)
         for card in (*service_cards, self.projects_card, self.plcs_card):
             cards.addWidget(card, 1)
         outer.addLayout(cards)
@@ -221,6 +271,8 @@ class HomePage(QScrollArea):
         # La liste a pu changer pendant qu'un outil était affiché.
         if self.recent is not None:
             self.recent.refresh()
+        if self.controllers is not None:
+            self.controllers.refresh()
         super().showEvent(event)
 
     def refresh_icons(self) -> None:

@@ -28,14 +28,17 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication
 
 from optixplus.modules.logreader.core import netshare
-from optixplus.modules.logreader import theme
+from optixplus.common import theme
 from optixplus.modules.logreader.core.config import Settings
 from optixplus.modules.logreader.core.discovery import Ipc
 from optixplus.modules.logreader.ui.connect_dialog import ConnectDialog
 from optixplus.modules.logreader.ui.filter_header import MAX_DISTINCT_VALUES, ColumnFilterPopup, FilterHeaderView
 from optixplus.modules.logreader.ui.log_filter import RULE_ANY, RULE_NONE
 from optixplus.modules.logreader.ui.log_model import COLUMN_LEVEL, COLUMN_MESSAGE, COLUMN_SOURCE
-from optixplus.modules.logreader.ui.main_window import MainWindow
+from optixplus.common import i18n as _i18n
+
+_i18n.install("fr")  # les vérifications portent sur les libellés français
+from optixplus.modules.logreader.ui.log_tab import LogTab as MainWindow  # l'onglet reprend la fenêtre d'origine
 
 FAILURES = []
 

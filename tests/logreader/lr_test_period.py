@@ -31,12 +31,15 @@ from PySide6.QtCore import QDate, QEventLoop, QTime, QTimer
 from PySide6.QtWidgets import QAbstractSpinBox, QApplication
 
 from optixplus.modules.logreader.core import netshare
-from optixplus.modules.logreader import theme
+from optixplus.common import theme
 from optixplus.modules.logreader.core.config import Settings
 from optixplus.modules.logreader.core.discovery import Ipc
 from optixplus.modules.logreader.ui.datetime_range import DateTimeField, TimePickerPopup
 from optixplus.modules.logreader.ui.log_model import COLUMN_MESSAGE
-from optixplus.modules.logreader.ui.main_window import MainWindow
+from optixplus.common import i18n as _i18n
+
+_i18n.install("fr")  # les vérifications portent sur les libellés français
+from optixplus.modules.logreader.ui.log_tab import LogTab as MainWindow  # l'onglet reprend la fenêtre d'origine
 
 FAILURES = []
 

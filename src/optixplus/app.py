@@ -18,7 +18,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from .common import i18n, logging_setup, paths, qt_translation, startup, win32
+from .common import i18n, logging_setup, paths, qt_translation, startup, win32, workers
 from .common.i18n import tr
 from .common.settings import Settings
 from .common.single_instance import SingleInstance
@@ -146,4 +146,4 @@ def main(argv: list[str] | None = None) -> int:
 
     code = app.exec()
     instance.release()
-    return code
+    return workers.exit_code(code)

@@ -15,8 +15,9 @@ from PySide6.QtWidgets import (
     QProgressBar, QPushButton, QStyle, QStyledItemDelegate, QVBoxLayout,
 )
 
+from ....common.i18n import tr, tr_n
 from ..core.discovery import Ipc
-from ..theme import Palette
+from ....common.theme import Palette
 from ..workers import DiscoveryWorker, retire
 
 IPC_ROLE = Qt.ItemDataRole.UserRole + 1
@@ -101,7 +102,7 @@ def _detail_line(ipc: Ipc) -> str:
     if ipc.reachable and ipc.ping_ms >= 0:
         parts.append(f"{ipc.ping_ms} ms")
     elif ipc.icmp_filtered:
-        parts.append("ICMP filtré, port 445 ouvert")
+        parts.append(tr("ICMP filtered, port 445 open"))
     if ipc.runtime_version:
         parts.append(f"runtime {ipc.runtime_version}")
     parts.append(ipc.status)
@@ -124,7 +125,7 @@ class ConnectDialog(QDialog):
         self._auto_timer: QTimer | None = None
         self.selected: Ipc | None = None
 
-        self.setWindowTitle("Connexion à un automate")
+        self.setWindowTitle(tr("Connection to a controller"))
         self.setMinimumSize(560, 460)
         self._build()
         QTimer.singleShot(0, self.start_scan)
@@ -136,11 +137,11 @@ class ConnectDialog(QDialog):
         layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(12)
 
-        title = QLabel("Automates détectés")
+        title = QLabel(tr("Detected controllers"))
         title.setProperty("heading", True)
         layout.addWidget(title)
 
-        self.subtitle = QLabel("Recherche en cours…")
+        self.subtitle = QLabel(tr("Search in progress…"))
         self.subtitle.setProperty("muted", True)
         self.subtitle.setWordWrap(True)
         layout.addWidget(self.subtitle)
@@ -163,21 +164,21 @@ class ConnectDialog(QDialog):
         buttons = QHBoxLayout()
         buttons.setSpacing(8)
 
-        self.rescan_button = QPushButton("Relancer la recherche")
+        self.rescan_button = QPushButton(tr("Search again"))
         self.rescan_button.clicked.connect(self.start_scan)
         buttons.addWidget(self.rescan_button)
 
-        self.settings_button = QPushButton("Paramètres…")
+        self.settings_button = QPushButton(tr("Settings…"))
         self.settings_button.clicked.connect(self.settingsRequested.emit)
         buttons.addWidget(self.settings_button)
 
         buttons.addStretch(1)
 
-        cancel = QPushButton("Annuler")
+        cancel = QPushButton(tr("Cancel"))
         cancel.clicked.connect(self.reject)
         buttons.addWidget(cancel)
 
-        self.connect_button = QPushButton("Se connecter")
+        self.connect_button = QPushButton(tr("Connect"))
         self.connect_button.setProperty("accent", True)
         self.connect_button.setDefault(True)
         self.connect_button.setEnabled(False)
@@ -203,12 +204,11 @@ class ConnectDialog(QDialog):
             self.progress.hide()
             self.rescan_button.setEnabled(True)
             self.subtitle.setText(
-                "Aucune adresse à tester. Ajoutez-en dans les paramètres."
+                tr("No address to test. Add some in the settings.")
             )
             return
 
-        plural = "s" if len(hosts) > 1 else ""
-        self.subtitle.setText(f"Test de {len(hosts)} adresse{plural}…")
+        self.subtitle.setText(tr_n("Testing {n} address…", "Testing {n} addresses…", len(hosts)).format(n=len(hosts)))
 
         self._worker = DiscoveryWorker(
             hosts,
@@ -262,14 +262,14 @@ class ConnectDialog(QDialog):
             reachable = [ipc for ipc in results if ipc.reachable]
             if reachable:
                 self.subtitle.setText(
-                    "Aucun journal accessible. Les machines répondent mais le partage "
-                    "ou le fichier de log est hors de portée — vérifiez les identifiants "
-                    "dans les paramètres."
+                    tr(
+                        "No log accessible. The machines answer but the share or the log file "
+                        "is out of reach — check the credentials in the settings."
+                    )
                 )
             else:
                 self.subtitle.setText(
-                    "Aucun automate n'a répondu. Vérifiez le réseau et la liste "
-                    "d'adresses dans les paramètres."
+                    tr("No controller answered. Check the network and the address list in the settings.")
                 )
             return
 
@@ -277,15 +277,15 @@ class ConnectDialog(QDialog):
             self._select_host(usable[0].host)
             if self._auto_connect:
                 self.subtitle.setText(
-                    f"Un seul automate trouvé : {usable[0].display_name}. Connexion…"
+                    tr("Only one controller found: {name}. Connecting…").format(name=usable[0].display_name)
                 )
                 self._start_auto_connect()
                 return
-            self.subtitle.setText(f"Un automate trouvé : {usable[0].display_name}.")
+            self.subtitle.setText(tr("One controller found: {name}.").format(name=usable[0].display_name))
             return
 
         self.subtitle.setText(
-            f"{len(usable)} automates disponibles. Sélectionnez celui à consulter."
+            tr("{n} controllers available. Select the one to read.").format(n=len(usable))
         )
         self._select_host(usable[0].host)
 

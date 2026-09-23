@@ -24,6 +24,20 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
   - Interface et rapports Markdown / HTML bilingues ; menus de FTOCompare réunis dans la barre d'actions de l'outil.
   - Historique des couples, arbitrages mémorisés et dernier export rangés dans les réglages d'OptixPlus.
   - Le projet comparé rejoint les projets récents ; un projet récent s'ouvre aussi dans Comparaison.
+- Outil **Lecteur de logs** (ex-pyFTOLogReader) : suivi en direct du journal runtime des automates FT Optix.
+  - Plusieurs journaux ouverts en onglets, à la façon de Visual Studio : onglets côte à côte (gauche/droite, haut/bas) par glisser-déposer, ou sortis dans des fenêtres flottantes.
+  - Chaque onglet porte un voyant de connexion et le nombre d'erreurs arrivées pendant qu'il était caché.
+  - Les onglets ouverts et leur disposition sont rouverts à la prochaine ouverture (réglable).
+  - Automates récents sur l'accueil (un clic ouvre leur journal) ; « Ouvrir un journal… » dans le menu du tray.
+  - Réglages rangés dans les paramètres d'OptixPlus, mots de passe toujours chiffrés par la DPAPI Windows.
+
+### Corrigé (par rapport à l'ancien pyFTOLogReader)
+- Un partage réseau qui ne répond plus n'oblige plus à tuer le fil de lecture : la lecture bloquée est annulée proprement, et la fermeture ne provoque plus de plantage.
+- Le suivi dort vraiment entre deux relectures au lieu de se réveiller en boucle.
+- Environ un tiers de mémoire en moins par ligne : la ligne brute est reconstruite à la demande.
+- Compteurs d'erreurs et d'avertissements tenus à jour au fil de l'eau, sans recompter tout le journal.
+- Réglages validés au chargement : une valeur invalide revient au défaut au lieu de bloquer le démarrage.
+- La barre de filtres passe sur deux lignes et la barre d'état s'abrège quand la place manque : deux journaux tiennent côte à côte.
 
 ### Corrigé (par rapport à l'ancien FTOCompare)
 - La prévisualisation du plan est calculée en arrière-plan : l'interface ne se fige plus sur un gros projet.

@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..common import icons
+from ..common import theme as common_theme
 from ..common.i18n import tr
 from ..common.theme import THEMES, theme_label
 from ..modules import MODULES, spec
@@ -106,6 +107,9 @@ class MainWindow(QMainWindow):
         self.home = HomePage(context.services, context.settings)
         self.home.tool_requested.connect(self.show_page)
         self.home.project_requested.connect(lambda tool, path: self.handle_command("open-project", [tool, path]))
+        self.home.controller_requested.connect(
+            lambda tool, host: self.handle_command("open-controller", [tool, host])
+        )
         self._pages[HOME_ID] = self.home
         self._stack.addWidget(self.home)
 
@@ -127,7 +131,7 @@ class MainWindow(QMainWindow):
 
         self._build_menus()
         self._restore_layout()
-        context.theme.changed.connect(self._on_theme_changed)
+        common_theme.follow(self, self._on_theme_changed)
 
         start = context.settings.general.last_tool
         self.show_page(start if spec(start) is not None else HOME_ID)

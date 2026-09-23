@@ -6,19 +6,23 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import QWidget
 
-from ..theme import Palette
+from ....common.i18n import tr
+from ....common.theme import Palette
 
 STATE_OFFLINE = "offline"      # aucun automate connecté
 STATE_CONNECTING = "connecting"  # connexion ou reconnexion en cours
 STATE_ONLINE = "online"        # journal lu normalement
 STATE_LOST = "lost"            # connexion perdue
 
-_LABELS = {
-    STATE_OFFLINE: "Aucun automate connecté",
-    STATE_CONNECTING: "Connexion en cours…",
-    STATE_ONLINE: "Connexion établie",
-    STATE_LOST: "Connexion perdue — reconnexion automatique en cours",
-}
+
+
+def _labels() -> dict[str, str]:
+    return {
+        STATE_OFFLINE: tr("No controller connected"),
+        STATE_CONNECTING: tr("Connecting…"),
+        STATE_ONLINE: tr("Connection established"),
+        STATE_LOST: tr("Connection lost — automatic reconnection in progress"),
+    }
 
 
 class ConnectionIndicator(QWidget):
@@ -47,7 +51,7 @@ class ConnectionIndicator(QWidget):
         self.update()
 
     def _refresh_tooltip(self, detail: str = "") -> None:
-        text = _LABELS.get(self._state, self._state)
+        text = _labels().get(self._state, self._state)
         self.setToolTip(f"{text}\n{detail}" if detail else text)
 
     def _colour(self) -> QColor:

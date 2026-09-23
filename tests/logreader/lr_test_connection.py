@@ -29,13 +29,16 @@ from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtWidgets import QApplication
 
 from optixplus.modules.logreader.core import netshare
-from optixplus.modules.logreader import theme
+from optixplus.common import theme
 from optixplus.modules.logreader.core.config import Settings
 from optixplus.modules.logreader.core.discovery import Ipc
 from optixplus.modules.logreader.ui.status_indicator import (
     STATE_LOST, STATE_OFFLINE, STATE_ONLINE, ConnectionIndicator,
 )
-from optixplus.modules.logreader.ui.main_window import MainWindow
+from optixplus.common import i18n as _i18n
+
+_i18n.install("fr")  # les vérifications portent sur les libellés français
+from optixplus.modules.logreader.ui.log_tab import LogTab as MainWindow  # l'onglet reprend la fenêtre d'origine
 from optixplus.modules.logreader.workers import LogWatcher
 
 FAILURES = []

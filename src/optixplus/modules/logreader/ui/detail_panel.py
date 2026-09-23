@@ -14,7 +14,8 @@ from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QPlainTextEdit, QVBoxLayout, QWidget,
 )
 
-from ..theme import Palette
+from ....common.i18n import tr
+from ....common.theme import Palette
 from .log_model import level_label
 
 LEVEL_COLOR_KEYS = {"ERROR": "error", "WARNING": "warning", "INFO": "info"}
@@ -62,7 +63,7 @@ class DetailPanel(QWidget):
         self.message_view.setFrameShape(QFrame.Shape.NoFrame)
         layout.addWidget(self.message_view, 3)
 
-        self.details_title = QLabel("Détails techniques")
+        self.details_title = QLabel(tr("Technical details"))
         self.details_title.setProperty("muted", True)
         layout.addWidget(self.details_title)
 
@@ -94,7 +95,7 @@ class DetailPanel(QWidget):
             self.meta_label.setText("")
             self.message_view.setPlainText("")
             self.message_view.setPlaceholderText(
-                "Sélectionnez une ligne du journal pour en afficher le détail."
+                tr("Select a line of the log to show its details.")
             )
             self.details_title.hide()
             self.details_view.hide()
@@ -108,12 +109,12 @@ class DetailPanel(QWidget):
             f"border-radius: 5px; padding: 3px 10px; font-weight: 700; font-size: 11px;"
         )
 
-        self.timestamp_label.setText(entry.timestamp_text or "horodatage absent")
+        self.timestamp_label.setText(entry.timestamp_text or tr("no timestamp"))
 
-        meta = [f"Source : {entry.source or '—'}"]
+        meta = [tr("Source: {source}").format(source=entry.source or "—")]
         if entry.code:
-            meta.append(f"Code : {entry.code}")
-        meta.append(f"Ligne n° {entry.index + 1}")
+            meta.append(tr("Code: {code}").format(code=entry.code))
+        meta.append(tr("Line no. {n}").format(n=entry.index + 1))
         self.meta_label.setText("     ".join(meta))
 
         self.message_view.setPlainText(entry.message_multiline)
@@ -123,4 +124,4 @@ class DetailPanel(QWidget):
         self.details_view.setVisible(bool(details))
         self.details_view.setPlainText(details)
 
-        self.node_label.setText(f"Nœud : {entry.node_path}" if entry.node_path else "")
+        self.node_label.setText(tr("Node: {path}").format(path=entry.node_path) if entry.node_path else "")

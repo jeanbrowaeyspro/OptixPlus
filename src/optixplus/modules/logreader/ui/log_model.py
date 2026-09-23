@@ -14,6 +14,7 @@ from datetime import datetime
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
 from PySide6.QtGui import QColor
 
+from ....common.i18n import tr, tr_noop
 from ..core.highlight import Highlighter
 from ..core.logparser import KNOWN_LEVELS
 
@@ -33,25 +34,30 @@ COLUMN_NODE = 6
 
 #: Largeurs par défaut. Elles tiennent compte des 34 pixels réservés à droite
 #: de chaque en-tête pour l'entonnoir de filtre et l'indicateur de tri.
+#: (identifiant, titre source anglais, largeur). Le titre est traduit à l'affichage :
+#: utiliser ``columns()`` ou ``column_titles()``.
 COLUMNS = (
-    ("line", "N°", 96),
-    ("timestamp", "Date / heure", 190),
-    ("level", "Niveau", 130),
-    ("source", "Source", 210),
-    ("code", "Code", 104),
-    ("message", "Message", 560),
-    ("node_path", "Chemin du nœud", 320),
+    ("line", tr_noop("No."), 96),
+    ("timestamp", tr_noop("Date / time"), 190),
+    ("level", tr_noop("Level"), 130),
+    ("source", tr_noop("Source"), 210),
+    ("code", tr_noop("Code"), 104),
+    ("message", tr_noop("Message"), 560),
+    ("node_path", tr_noop("Node path"), 320),
 )
 
-LEVEL_LABELS = {
-    "ERROR": "Erreur",
-    "WARNING": "Avertissement",
-    "INFO": "Information",
-}
+
+def columns() -> tuple[tuple[str, str, int], ...]:
+    """Colonnes avec leur titre dans la langue de l'interface."""
+    return tuple((key, tr(title), width) for key, title, width in COLUMNS)
+
+
+def column_titles() -> list[str]:
+    return [title for _key, title, _width in columns()]
 
 
 def level_label(level: str) -> str:
-    return LEVEL_LABELS.get(level, level or "—")
+    return {"ERROR": tr("Error"), "WARNING": tr("Warning"), "INFO": tr("Information")}.get(level, level or "—")
 
 
 class LogTableModel(QAbstractTableModel):
@@ -83,7 +89,7 @@ class LogTableModel(QAbstractTableModel):
     def headerData(self, section: int, orientation, role=Qt.ItemDataRole.DisplayRole):
         if role != Qt.ItemDataRole.DisplayRole or orientation != Qt.Orientation.Horizontal:
             return None
-        return COLUMNS[section][1]
+        return tr(COLUMNS[section][1])
 
     def data(self, index: QModelIndex, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid():

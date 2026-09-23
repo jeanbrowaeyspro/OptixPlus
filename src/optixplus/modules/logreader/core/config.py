@@ -17,6 +17,7 @@ from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 from ....common import dpapi
+from ....common.i18n import tr
 from ....common.settings import _coerce, _default_of
 
 log = logging.getLogger("optixplus.logreader")
@@ -54,22 +55,22 @@ def default_rules() -> list[HighlightRule]:
     """Règles livrées par défaut, évaluées dans l'ordre (première atteinte gagne)."""
     return [
         HighlightRule(
-            name="Erreurs",
+            name=tr("Errors"),
             keywords=["erreur", "error", "exception", "échec", "echec", "fail", "failed", "failure"],
             color="#E53935",
         ),
         HighlightRule(
-            name="Avertissements",
+            name=tr("Warnings"),
             keywords=["warning", "avertissement", "warn", "attention"],
             color="#F4B400",
         ),
         HighlightRule(
-            name="Communication perdue",
+            name=tr("Communication lost"),
             keywords=["timeout", "disconnect", "déconnex", "deconnex", "lost", "perdu", "unreachable", "refused"],
             color="#FB8C00",
         ),
         HighlightRule(
-            name="Succès",
+            name=tr("Success"),
             keywords=["established", "success", "réussi", "reussi", "online", "started", "connected"],
             color="#2E9E5B",
         ),

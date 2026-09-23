@@ -1,8 +1,8 @@
 """Vérifie le catalogue français : chaînes non traduites et entrées orphelines.
 
 Les textes sont extraits du code par analyse syntaxique : premier argument littéral des
-appels ``tr("…")``, deux premiers de ``tr_n("…", "…", n)``, et les champs ``title`` /
-``description`` des ``ModuleSpec`` (traduits à l'affichage).
+appels ``tr("…")`` et ``tr_noop("…")``, deux premiers de ``tr_n("…", "…", n)``, et les champs ``title`` /
+``description`` / ``controller_action`` des ``ModuleSpec`` (traduits à l'affichage).
 
 Usage : ``python tools/i18n_check.py`` (code de sortie 1 s'il manque une traduction).
 """
@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "src" / "optixplus"
 CATALOG = SOURCE / "i18n" / "fr.json"
-SPEC_FIELDS = ("title", "description")
+SPEC_FIELDS = ("title", "description", "controller_action")
 
 
 def _literal(node: ast.AST) -> str | None:
@@ -32,7 +32,7 @@ def extract_file(path: Path) -> set[str]:
             continue
         func = node.func
         name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else ""
-        if name == "tr" and node.args:
+        if name in ("tr", "tr_noop") and node.args:
             if (text := _literal(node.args[0])) is not None:
                 keys.add(text)
         elif name == "tr_n" and len(node.args) >= 2:

@@ -40,6 +40,7 @@ class GeneralSettings:
     window_state: str = ""  # base64 de QMainWindow.saveState()
     show_log_panel: bool = False
     recent_projects: list[str] = field(default_factory=list)
+    recent_controllers: list[dict] = field(default_factory=list)  # [{"host": …, "name": …}]
     last_seen_version: str = ""
 
 

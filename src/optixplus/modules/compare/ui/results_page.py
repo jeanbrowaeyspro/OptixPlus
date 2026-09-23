@@ -225,9 +225,7 @@ class Banner(QFrame):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 8, 12, 8)
         layout.addWidget(self.label)
-        manager = theme.manager()
-        if manager is not None:
-            manager.changed.connect(self._render)
+        theme.follow(self, self._render)
 
     def set_comparison(self, comparison: Comparison) -> None:
         self._comparison = comparison

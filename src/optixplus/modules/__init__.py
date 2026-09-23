@@ -12,6 +12,7 @@ MODULES: tuple[ModuleSpec, ...] = (
         icon="logreader",
         shortcut="Ctrl+1",
         import_path="optixplus.modules.logreader.module:LogReaderModule",
+        controller_action="Open a log…",
     ),
     ModuleSpec(
         id="linkcheck",

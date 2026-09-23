@@ -6,10 +6,9 @@ codées en dur) : elles restent lisibles en clair comme en sombre.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QIcon
 
-from ....common import theme
+from ....common import icons, theme
 from ....common.i18n import tr
 
 
@@ -50,25 +49,9 @@ def couleur_etat_ligne(state: str) -> QColor | None:
     }.get(state)
 
 
-_ICONES: dict[str, QIcon] = {}
-
-
 def pastille(couleur: QColor, taille: int = 12) -> QIcon:
-    """Un disque de couleur, mis en cache."""
-    key = f"{couleur.name()}-{taille}"
-    icon = _ICONES.get(key)
-    if icon is None:
-        pixmap = QPixmap(taille, taille)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setBrush(couleur)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawEllipse(1, 1, taille - 2, taille - 2)
-        painter.end()
-        icon = QIcon(pixmap)
-        _ICONES[key] = icon
-    return icon
+    """Un disque de couleur (voir ``common.icons.pastille``)."""
+    return icons.pastille(couleur, taille)
 
 
 def taille_lisible(octets: int | None) -> str:

@@ -38,6 +38,10 @@ class ModuleSpec:
     # L'outil sait ouvrir un projet FT Optix (commande « open-project ») : il est proposé
     # pour les projets récents de l'accueil.
     opens_projects: bool = False
+    # L'outil sait ouvrir un automate (commande « open-controller », adresse facultative) :
+    # libellé source anglais de l'entrée du tray qui le fait, et outil proposé pour les
+    # automates récents de l'accueil. Vide : l'outil n'ouvre pas d'automate.
+    controller_action: str = ""
 
     def load(self) -> type[ToolModule]:
         return _import(self.import_path)

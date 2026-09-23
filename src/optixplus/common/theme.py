@@ -12,8 +12,10 @@ couvre les cas où Qt ne renseigne pas l'information.
 
 from __future__ import annotations
 
+import weakref
 from dataclasses import dataclass
 
+import shiboken6
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
 
@@ -167,7 +169,8 @@ def build_stylesheet(p: Palette) -> str:
     mode = "dark" if p.dark else "light"
     qss_icon = lambda name: paths.resource_path("icons", "qss", f"{name}-{mode}.svg").as_posix()  # noqa: E731
     arrow_down, arrow_up, check = qss_icon("arrow-down"), qss_icon("arrow-up"), qss_icon("check")
-    dot = qss_icon("dot")
+    dot, chevrons = qss_icon("dot"), qss_icon("chevrons")
+    close_icon, detach_icon = qss_icon("close"), qss_icon("detach")
     hover = "rgba(255, 255, 255, 0.09)" if p.dark else "rgba(0, 0, 0, 0.06)"
     pressed = "rgba(255, 255, 255, 0.16)" if p.dark else "rgba(0, 0, 0, 0.11)"
     return f"""
@@ -203,11 +206,57 @@ def build_stylesheet(p: Palette) -> str:
         background: transparent;
         border-color: transparent;
     }}
+    /* Bouton « » » des actions qui ne tiennent pas dans la barre : bien visible. */
+    QToolBar QToolBarExtension {{
+        padding: 0px;
+        qproperty-icon: url({chevrons});
+    }}
     QToolBar::separator {{
         background: {p.border};
         width: 1px;
         margin: 4px 6px;
     }}
+
+    /* Onglets détachables (Qt Advanced Docking System, Lecteur de logs). Le style par
+       défaut de QtAds est retiré du gestionnaire : ces règles s'appliquent aussi aux
+       fenêtres flottantes. */
+    ads--CDockContainerWidget, ads--CDockAreaWidget {{ background: {p.window}; }}
+    ads--CDockContainerWidget > QSplitter {{ padding: 1px 0; }}
+    ads--CDockContainerWidget ads--CDockSplitter::handle {{ background: {p.border}; }}
+    ads--CDockAreaTitleBar {{
+        background: {p.surface};
+        border-bottom: 1px solid {p.border};
+    }}
+    ads--CDockWidgetTab {{
+        background: {p.surface};
+        border: none;
+        border-right: 1px solid {p.border};
+        border-bottom: 2px solid transparent;
+        padding: 0 2px;
+    }}
+    ads--CDockWidgetTab:hover {{ background: {hover}; }}
+    ads--CDockWidgetTab[activeTab="true"] {{
+        background: {p.window};
+        border-bottom: 2px solid {p.text_muted};
+    }}
+    ads--CDockWidgetTab[activeTab="true"][focused="true"] {{ border-bottom: 2px solid {p.accent}; }}
+    ads--CDockWidgetTab QLabel {{ color: {p.text_muted}; background: transparent; }}
+    ads--CDockWidgetTab[activeTab="true"] QLabel {{ color: {p.text}; }}
+    ads--CDockWidget {{ background: {p.window}; border: none; }}
+    QScrollArea#dockWidgetScrollArea {{ padding: 0px; border: none; }}
+    ads--CTitleBarButton, #tabCloseButton {{
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        padding: 2px;
+        qproperty-iconSize: 12px;
+    }}
+    ads--CTitleBarButton:hover, #tabCloseButton:hover {{ background: {hover}; border-color: {p.border}; }}
+    ads--CTitleBarButton:pressed, #tabCloseButton:pressed {{ background: {pressed}; }}
+    #tabCloseButton, #dockAreaCloseButton {{ qproperty-icon: url({close_icon}); }}
+    #detachGroupButton {{ qproperty-icon: url({detach_icon}); }}
+    #tabsMenuButton {{ qproperty-icon: url({arrow_down}); }}
+    #tabsMenuButton::menu-indicator {{ image: none; }}
 
     QStatusBar {{
         background: {p.surface};
@@ -646,6 +695,33 @@ def install_manager(app, theme: str) -> ThemeManager:
     global _manager
     _manager = ThemeManager(app, theme)
     return _manager
+
+
+def follow(receiver: QObject, slot) -> None:
+    """Appelle ``slot(palette)`` à chaque changement de thème, tant que ``receiver`` existe.
+
+    PySide ne coupe pas la connexion quand le widget est détruit (fenêtre fermée ou
+    reconstruite), et déconnecter une méthode d'un objet détruit échoue : on passe par
+    un relais qui ne garde qu'une référence faible et vérifie l'objet C++.
+    """
+    if _manager is None:
+        return
+    signal = _manager.changed
+    method = weakref.WeakMethod(slot)
+
+    def relay(palette) -> None:
+        bound = method()
+        if bound is not None and shiboken6.isValid(bound.__self__):
+            bound(palette)
+
+    def drop(*_args) -> None:
+        try:
+            signal.disconnect(relay)
+        except (RuntimeError, TypeError):
+            pass
+
+    signal.connect(relay)
+    receiver.destroyed.connect(drop)
 
 
 def manager() -> ThemeManager | None:

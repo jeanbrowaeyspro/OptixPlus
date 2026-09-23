@@ -12,6 +12,7 @@ from datetime import datetime
 
 from PySide6.QtCore import QSortFilterProxyModel, Qt
 
+from ....common.i18n import tr
 from .log_model import SORT_ROLE
 
 #: Valeurs spéciales du filtre par règle de surlignage.
@@ -44,6 +45,11 @@ class LogFilterProxy(QSortFilterProxyModel):
 
     # ----------------------------------------------------------- paramétrage
 
+    def _refilter(self) -> None:
+        """Refiltre les lignes (remplace ``invalidateRowsFilter``, déprécié depuis Qt 6.10)."""
+        self.beginFilterChange()
+        self.endFilterChange(QSortFilterProxyModel.Direction.Rows)
+
     def set_search(self, text: str) -> None:
         text = (text or "").strip().lower()
         if text == self._search:
@@ -52,26 +58,26 @@ class LogFilterProxy(QSortFilterProxyModel):
         # Les termes séparés par des espaces sont cumulatifs (ET), ce qui rend
         # la recherche « codesys error » utile sans syntaxe à apprendre.
         self._search_terms = text.split()
-        self.invalidateRowsFilter()
+        self._refilter()
 
     def set_levels(self, levels) -> None:
         new = None if levels is None else set(levels)
         if new == self._levels:
             return
         self._levels = new
-        self.invalidateRowsFilter()
+        self._refilter()
 
     def set_rule(self, rule_index: int) -> None:
         if rule_index == self._rule:
             return
         self._rule = rule_index
-        self.invalidateRowsFilter()
+        self._refilter()
 
     def set_period(self, start: datetime | None, end: datetime | None) -> None:
         if (start, end) == (self._from, self._to):
             return
         self._from, self._to = start, end
-        self.invalidateRowsFilter()
+        self._refilter()
 
     def set_column_filter(self, column: int, values: set[str] | None, text: str) -> None:
         """Pose ou retire le filtre d'une colonne.
@@ -94,7 +100,7 @@ class LogFilterProxy(QSortFilterProxyModel):
             changed = True
 
         if changed:
-            self.invalidateRowsFilter()
+            self._refilter()
 
     def current_rule(self) -> int:
         """Règle de surlignage actuellement retenue par le filtre."""
@@ -110,7 +116,7 @@ class LogFilterProxy(QSortFilterProxyModel):
         if self._column_values or self._column_text:
             self._column_values.clear()
             self._column_text.clear()
-            self.invalidateRowsFilter()
+            self._refilter()
 
     def reset_filters(self) -> None:
         self._search = ""
@@ -120,7 +126,7 @@ class LogFilterProxy(QSortFilterProxyModel):
         self._from = self._to = None
         self._column_values.clear()
         self._column_text.clear()
-        self.invalidateRowsFilter()
+        self._refilter()
 
     @property
     def has_active_filters(self) -> bool:
@@ -183,43 +189,44 @@ class LogFilterProxy(QSortFilterProxyModel):
         if self._levels is not None:
             from .log_model import level_label
 
-            parts.append("Niveaux : " + ", ".join(sorted(level_label(l) for l in self._levels)))
+            parts.append(tr("Levels: {levels}").format(levels=", ".join(sorted(level_label(l) for l in self._levels))))
         if self._rule == RULE_NONE:
-            parts.append("Surlignage : lignes non surlignées")
+            parts.append(tr("Highlighting: lines not highlighted"))
         elif self._rule != RULE_ANY:
-            parts.append(f"Surlignage : {rule_names.get(self._rule, self._rule)}")
+            parts.append(tr("Highlighting: {rule}").format(rule=rule_names.get(self._rule, self._rule)))
         if self._from:
-            parts.append("À partir du " + self._from.strftime("%d/%m/%Y %H:%M:%S"))
+            parts.append(tr("From {date}").format(date=self._from.strftime("%d/%m/%Y %H:%M:%S")))
         if self._to:
-            parts.append("Jusqu'au " + self._to.strftime("%d/%m/%Y %H:%M:%S"))
+            parts.append(tr("Until {date}").format(date=self._to.strftime("%d/%m/%Y %H:%M:%S")))
         if self._search:
-            parts.append(f"Recherche : « {self._search} »")
+            parts.append(tr("Search: “{text}”").format(text=self._search))
 
-        from .log_model import COLUMNS
+        from .log_model import column_titles
 
+        titles = column_titles()
         for column in sorted(set(self._column_values) | set(self._column_text)):
-            title = COLUMNS[column][1] if column < len(COLUMNS) else str(column)
+            title = titles[column] if column < len(titles) else str(column)
             values = self._column_values.get(column)
             needle = self._column_text.get(column)
             if values is not None:
                 if len(values) <= 4:
-                    detail = ", ".join(sorted(v or "(vide)" for v in values))
+                    detail = ", ".join(sorted(v or tr("(empty)") for v in values))
                 else:
-                    detail = f"{len(values)} valeurs retenues"
+                    detail = tr("{n} values kept").format(n=len(values))
                 parts.append(f"{title} : {detail}")
             if needle:
-                parts.append(f"{title} contient « {needle} »")
+                parts.append(tr("{column} contains “{text}”").format(column=title, text=needle))
         return " | ".join(parts)
 
     def sort_summary(self) -> str:
         """Description lisible du tri courant."""
         column = self.sortColumn()
         if column < 0:
-            return "ordre du fichier (chronologique)"
-        from .log_model import COLUMNS
+            return tr("file order (chronological)")
+        from .log_model import column_titles
 
-        direction = "croissant" if self.sortOrder() == Qt.SortOrder.AscendingOrder else "décroissant"
-        return f"{COLUMNS[column][1]} {direction}"
+        direction = tr("ascending") if self.sortOrder() == Qt.SortOrder.AscendingOrder else tr("descending")
+        return f"{column_titles()[column]} {direction}"
 
     def visible_entries(self) -> list:
         """Entrées visibles, dans l'ordre d'affichage (pour l'export)."""

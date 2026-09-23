@@ -19,9 +19,11 @@ from PySide6.QtWidgets import (
 )
 
 from ..core.config import Credential, HighlightRule, Settings, default_hosts, default_rules
-from ..theme import THEME_LABELS, THEME_SYSTEM, THEME_DARK, THEME_LIGHT
+from ....common.i18n import tr
 
-SCOPE_LABELS = {"line": "Ligne entière", "message": "Message seul"}
+
+def scope_labels() -> dict[str, str]:
+    return {"line": tr("Whole line"), "message": tr("Message only")}
 
 RULE_COLUMN_ENABLED = 0
 RULE_COLUMN_NAME = 1
@@ -54,7 +56,7 @@ class SettingsDialog(QDialog):
         self.original = settings
         self.settings = copy.deepcopy(settings)
 
-        self.setWindowTitle("Paramètres")
+        self.setWindowTitle(tr("Log Reader settings"))
         self.setMinimumSize(760, 560)
         self._build()
         self._load()
@@ -67,18 +69,18 @@ class SettingsDialog(QDialog):
         layout.setSpacing(12)
 
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._build_general_tab(), "Général")
-        self.tabs.addTab(self._build_hosts_tab(), "Automates")
-        self.tabs.addTab(self._build_credentials_tab(), "Identifiants")
-        self.tabs.addTab(self._build_rules_tab(), "Surlignage")
+        self.tabs.addTab(self._build_general_tab(), tr("General"))
+        self.tabs.addTab(self._build_hosts_tab(), tr("Controllers"))
+        self.tabs.addTab(self._build_credentials_tab(), tr("Credentials"))
+        self.tabs.addTab(self._build_rules_tab(), tr("Highlighting"))
         layout.addWidget(self.tabs, 1)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Enregistrer")
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(tr("Save"))
         buttons.button(QDialogButtonBox.StandardButton.Ok).setProperty("accent", True)
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Annuler")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(tr("Cancel"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -91,18 +93,16 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(14, 16, 14, 14)
         layout.setSpacing(14)
 
-        appearance = QGroupBox("Apparence")
-        form = QFormLayout(appearance)
+        display = QGroupBox(tr("Display"))
+        form = QFormLayout(display)
         form.setSpacing(10)
-        self.theme_combo = QComboBox()
-        for value in (THEME_SYSTEM, THEME_LIGHT, THEME_DARK):
-            self.theme_combo.addItem(THEME_LABELS[value], value)
-        form.addRow("Thème", self.theme_combo)
-        self.autoscroll_check = QCheckBox("Suivre automatiquement les nouvelles lignes")
+        self.autoscroll_check = QCheckBox(tr("Automatically follow the new lines"))
         form.addRow("", self.autoscroll_check)
-        layout.addWidget(appearance)
+        self.reopen_check = QCheckBox(tr("Reopen the logs of the previous session"))
+        form.addRow("", self.reopen_check)
+        layout.addWidget(display)
 
-        live = QGroupBox("Suivi en direct")
+        live = QGroupBox(tr("Live following"))
         form = QFormLayout(live)
         form.setSpacing(10)
 
@@ -110,36 +110,36 @@ class SettingsDialog(QDialog):
         self.poll_spin.setRange(100, 30000)
         self.poll_spin.setSingleStep(100)
         self.poll_spin.setSuffix(" ms")
-        form.addRow("Période de relecture", self.poll_spin)
+        form.addRow(tr("Reading period"), self.poll_spin)
 
         self.ping_spin = QSpinBox()
         self.ping_spin.setRange(100, 10000)
         self.ping_spin.setSingleStep(100)
         self.ping_spin.setSuffix(" ms")
-        form.addRow("Délai d'attente du ping", self.ping_spin)
+        form.addRow(tr("Ping timeout"), self.ping_spin)
 
         self.max_rows_spin = QSpinBox()
         self.max_rows_spin.setRange(0, 5_000_000)
         self.max_rows_spin.setSingleStep(10_000)
-        self.max_rows_spin.setSpecialValueText("illimité")
-        form.addRow("Lignes conservées en mémoire", self.max_rows_spin)
+        self.max_rows_spin.setSpecialValueText(tr("unlimited"))
+        self.max_rows_spin.setToolTip(tr("Per tab: the oldest lines are dropped beyond this limit."))
+        form.addRow(tr("Lines kept in memory (per tab)"), self.max_rows_spin)
 
-        self.remember_check = QCheckBox("Se reconnecter au dernier automate utilisé")
+        self.remember_check = QCheckBox(tr("Remember the last controller used"))
         form.addRow("", self.remember_check)
         layout.addWidget(live)
 
-        location = QGroupBox("Emplacement du journal sur l'automate")
+        location = QGroupBox(tr("Location of the log on the controller"))
         form = QFormLayout(location)
         form.setSpacing(10)
         self.share_edit = QLineEdit()
-        form.addRow("Nom du partage", self.share_edit)
+        form.addRow(tr("Share name"), self.share_edit)
         self.subdir_edit = QLineEdit()
-        form.addRow("Sous-dossier", self.subdir_edit)
+        form.addRow(tr("Subfolder"), self.subdir_edit)
         self.filename_edit = QLineEdit()
-        form.addRow("Fichier de log", self.filename_edit)
+        form.addRow(tr("Log file"), self.filename_edit)
         hint = QLabel(
-            "Le chemin complet est de la forme "
-            "\\\\<adresse>\\<partage>\\<sous-dossier>\\<fichier>."
+            tr("The full path is of the form {pattern}.").format(pattern="\\\\<address>\\<share>\\<subfolder>\\<file>")
         )
         hint.setProperty("muted", True)
         hint.setWordWrap(True)
@@ -158,8 +158,10 @@ class SettingsDialog(QDialog):
         layout.setSpacing(10)
 
         description = QLabel(
-            "Adresses testées à chaque recherche d'automate. Elles sont sondées "
-            "en parallèle : une liste un peu longue ne ralentit pas le démarrage."
+            tr(
+                "Addresses tested at each controller search. They are probed in parallel: "
+                "a somewhat long list does not slow the start down."
+            )
         )
         description.setProperty("muted", True)
         description.setWordWrap(True)
@@ -174,25 +176,25 @@ class SettingsDialog(QDialog):
 
         entry = QHBoxLayout()
         self.host_edit = QLineEdit()
-        self.host_edit.setPlaceholderText("Adresse IP ou nom de machine, puis Entrée")
+        self.host_edit.setPlaceholderText(tr("IP address or machine name, then Enter"))
         self.host_edit.returnPressed.connect(self._add_host)
         entry.addWidget(self.host_edit, 1)
-        add = QPushButton("Ajouter")
+        add = QPushButton(tr("Add"))
         add.clicked.connect(self._add_host)
         entry.addWidget(add)
         layout.addLayout(entry)
 
         actions = QHBoxLayout()
         for label, slot in (
-            ("Monter", lambda: self._move_list_item(self.hosts_list, -1)),
-            ("Descendre", lambda: self._move_list_item(self.hosts_list, 1)),
-            ("Supprimer", self._remove_host),
+            (tr("Move up"), lambda: self._move_list_item(self.hosts_list, -1)),
+            (tr("Move down"), lambda: self._move_list_item(self.hosts_list, 1)),
+            (tr("Remove"), self._remove_host),
         ):
             button = QPushButton(label)
             button.clicked.connect(slot)
             actions.addWidget(button)
         actions.addStretch(1)
-        restore = QPushButton("Rétablir la liste par défaut")
+        restore = QPushButton(tr("Restore the default list"))
         restore.clicked.connect(self._restore_hosts)
         actions.addWidget(restore)
         layout.addLayout(actions)
@@ -245,10 +247,11 @@ class SettingsDialog(QDialog):
         layout.setSpacing(10)
 
         description = QLabel(
-            "Identifiants essayés dans l'ordre lors de la connexion au partage. "
-            "La session Windows en cours est toujours tentée en premier. "
-            "Les mots de passe sont chiffrés par la DPAPI Windows : ils ne sont "
-            "lisibles que par votre compte, sur ce poste."
+            tr(
+                "Credentials tried in order when connecting to the share. The current Windows session "
+                "is always tried first. Passwords are encrypted by the Windows DPAPI: only your account, "
+                "on this computer, can read them."
+            )
         )
         description.setProperty("muted", True)
         description.setWordWrap(True)
@@ -256,7 +259,7 @@ class SettingsDialog(QDialog):
 
         self.credentials_table = QTableWidget(0, 4)
         self.credentials_table.setHorizontalHeaderLabels(
-            ["Actif", "Libellé", "Utilisateur", "Mot de passe"]
+            [tr("Active"), tr("Label"), tr("User"), tr("Password")]
         )
         header = self.credentials_table.horizontalHeader()
         header.setSectionResizeMode(CREDENTIAL_COLUMN_ENABLED, QHeaderView.ResizeMode.ResizeToContents)
@@ -268,16 +271,16 @@ class SettingsDialog(QDialog):
 
         actions = QHBoxLayout()
         for label, slot in (
-            ("Ajouter", self._add_credential),
-            ("Supprimer", self._remove_credential),
-            ("Monter", lambda: self._move_table_row(self.credentials_table, -1)),
-            ("Descendre", lambda: self._move_table_row(self.credentials_table, 1)),
+            (tr("Add"), self._add_credential),
+            (tr("Remove"), self._remove_credential),
+            (tr("Move up"), lambda: self._move_table_row(self.credentials_table, -1)),
+            (tr("Move down"), lambda: self._move_table_row(self.credentials_table, 1)),
         ):
             button = QPushButton(label)
             button.clicked.connect(slot)
             actions.addWidget(button)
         actions.addStretch(1)
-        self.show_passwords_check = QCheckBox("Afficher les mots de passe")
+        self.show_passwords_check = QCheckBox(tr("Show the passwords"))
         self.show_passwords_check.toggled.connect(self._refresh_password_visibility)
         actions.addWidget(self.show_passwords_check)
         layout.addLayout(actions)
@@ -325,10 +328,11 @@ class SettingsDialog(QDialog):
         layout.setSpacing(10)
 
         description = QLabel(
-            "Une ligne contenant l'un des mots-clés d'une règle prend sa couleur. "
-            "Les règles sont évaluées de haut en bas : la première qui correspond "
-            "l'emporte. La teinte choisie est automatiquement éclaircie ou "
-            "assombrie selon le thème."
+            tr(
+                "A line containing one of the keywords of a rule takes its colour. Rules are evaluated from "
+                "top to bottom: the first one that matches wins. The chosen tint is automatically lightened "
+                "or darkened according to the theme."
+            )
         )
         description.setProperty("muted", True)
         description.setWordWrap(True)
@@ -336,7 +340,7 @@ class SettingsDialog(QDialog):
 
         self.rules_table = QTableWidget(0, 6)
         self.rules_table.setHorizontalHeaderLabels(
-            ["Actif", "Nom", "Couleur", "Mots-clés (séparés par des virgules)", "Mot entier", "Portée"]
+            [tr("Active"), tr("Name"), tr("Colour"), tr("Keywords (comma separated)"), tr("Whole word"), tr("Scope")]
         )
         header = self.rules_table.horizontalHeader()
         header.setSectionResizeMode(RULE_COLUMN_ENABLED, QHeaderView.ResizeMode.ResizeToContents)
@@ -351,17 +355,17 @@ class SettingsDialog(QDialog):
 
         actions = QHBoxLayout()
         for label, slot in (
-            ("Ajouter", self._add_rule),
-            ("Supprimer", self._remove_rule),
-            ("Couleur…", self._pick_color),
-            ("Monter", lambda: self._move_table_row(self.rules_table, -1)),
-            ("Descendre", lambda: self._move_table_row(self.rules_table, 1)),
+            (tr("Add"), self._add_rule),
+            (tr("Remove"), self._remove_rule),
+            (tr("Colour…"), self._pick_color),
+            (tr("Move up"), lambda: self._move_table_row(self.rules_table, -1)),
+            (tr("Move down"), lambda: self._move_table_row(self.rules_table, 1)),
         ):
             button = QPushButton(label)
             button.clicked.connect(slot)
             actions.addWidget(button)
         actions.addStretch(1)
-        restore = QPushButton("Rétablir les règles par défaut")
+        restore = QPushButton(tr("Restore the default rules"))
         restore.clicked.connect(self._restore_rules)
         actions.addWidget(restore)
         layout.addLayout(actions)
@@ -385,7 +389,7 @@ class SettingsDialog(QDialog):
         self.rules_table.setItem(row, RULE_COLUMN_WHOLE_WORD, _checkbox_item(rule.whole_word))
 
         scope = QComboBox()
-        for value, label in SCOPE_LABELS.items():
+        for value, label in scope_labels().items():
             scope.addItem(label, value)
         scope_index = scope.findData(rule.scope)
         scope.setCurrentIndex(scope_index if scope_index >= 0 else 0)
@@ -404,7 +408,7 @@ class SettingsDialog(QDialog):
         item.setForeground(QColor("#101114" if luminance > 150 else "#FFFFFF"))
 
     def _add_rule(self) -> None:
-        self._append_rule_row(HighlightRule(name="Nouvelle règle", keywords=[], color="#7C4DFF"))
+        self._append_rule_row(HighlightRule(name=tr("New rule"), keywords=[], color="#7C4DFF"))
         self.rules_table.setCurrentCell(self.rules_table.rowCount() - 1, RULE_COLUMN_NAME)
 
     def _remove_rule(self) -> None:
@@ -422,7 +426,7 @@ class SettingsDialog(QDialog):
             return
         item = self.rules_table.item(row, RULE_COLUMN_COLOR)
         chosen = QColorDialog.getColor(
-            QColor(item.text()), self, "Couleur de surlignage"
+            QColor(item.text()), self, tr("Highlighting colour")
         )
         if not chosen.isValid():
             return
@@ -432,8 +436,8 @@ class SettingsDialog(QDialog):
     def _restore_rules(self) -> None:
         confirm = QMessageBox.question(
             self,
-            "Rétablir les règles par défaut",
-            "Les règles de surlignage actuelles seront remplacées. Continuer ?",
+            tr("Restore the default rules"),
+            tr("The current highlighting rules will be replaced. Continue?"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -470,9 +474,8 @@ class SettingsDialog(QDialog):
 
     def _load(self) -> None:
         s = self.settings
-        index = self.theme_combo.findData(s.theme)
-        self.theme_combo.setCurrentIndex(index if index >= 0 else 0)
         self.autoscroll_check.setChecked(s.autoscroll)
+        self.reopen_check.setChecked(s.reopen_logs)
         self.poll_spin.setValue(s.poll_interval_ms)
         self.ping_spin.setValue(s.ping_timeout_ms)
         self.max_rows_spin.setValue(s.max_rows)
@@ -493,8 +496,8 @@ class SettingsDialog(QDialog):
     def result_settings(self) -> Settings:
         """Réglages issus de la boîte, à appliquer après ``accept()``."""
         s = self.settings
-        s.theme = self.theme_combo.currentData()
         s.autoscroll = self.autoscroll_check.isChecked()
+        s.reopen_logs = self.reopen_check.isChecked()
         s.poll_interval_ms = self.poll_spin.value()
         s.ping_timeout_ms = self.ping_spin.value()
         s.max_rows = self.max_rows_spin.value()

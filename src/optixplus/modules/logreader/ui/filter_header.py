@@ -20,7 +20,8 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QPushButton, QStyle, QVBoxLayout,
 )
 
-from ..theme import Palette, popup_stylesheet
+from ....common.i18n import tr
+from ....common.theme import Palette, popup_stylesheet
 
 #: Largeur réservée à droite de chaque en-tête pour l'entonnoir et la flèche.
 INDICATOR_ZONE = 36
@@ -218,11 +219,11 @@ class ColumnFilterPopup(QFrame):
 
         sort_row = QHBoxLayout()
         sort_row.setSpacing(6)
-        ascending = QPushButton("Trier A → Z")
+        ascending = QPushButton(tr("Sort A → Z"))
         ascending.clicked.connect(
             lambda: self._sort(Qt.SortOrder.AscendingOrder)
         )
-        descending = QPushButton("Trier Z → A")
+        descending = QPushButton(tr("Sort Z → A"))
         descending.clicked.connect(
             lambda: self._sort(Qt.SortOrder.DescendingOrder)
         )
@@ -231,7 +232,7 @@ class ColumnFilterPopup(QFrame):
         layout.addLayout(sort_row)
 
         self.contains_edit = QLineEdit(text)
-        self.contains_edit.setPlaceholderText("Contient le texte…")
+        self.contains_edit.setPlaceholderText(tr("Contains the text…"))
         self.contains_edit.setClearButtonEnabled(True)
         layout.addWidget(self.contains_edit)
 
@@ -240,8 +241,7 @@ class ColumnFilterPopup(QFrame):
 
         if truncated:
             notice = QLabel(
-                "Trop de valeurs différentes dans cette colonne pour les lister. "
-                "Utilisez le filtre « contient » ci-dessus."
+                tr("Too many different values in this column to list them. Use the “contains” filter above.")
             )
             notice.setWordWrap(True)
             notice.setProperty("muted", True)
@@ -251,18 +251,18 @@ class ColumnFilterPopup(QFrame):
             self.search_edit = None
         else:
             self.search_edit = QLineEdit()
-            self.search_edit.setPlaceholderText("Rechercher une valeur…")
+            self.search_edit.setPlaceholderText(tr("Search for a value…"))
             self.search_edit.setClearButtonEnabled(True)
             self.search_edit.textChanged.connect(self._filter_value_list)
             layout.addWidget(self.search_edit)
 
-            self.select_all = QCheckBox("Tout sélectionner")
+            self.select_all = QCheckBox(tr("Select all"))
             self.select_all.setTristate(True)
             self.select_all.clicked.connect(self._toggle_all)
             layout.addWidget(self.select_all)
 
             for value, count in values:
-                item = QListWidgetItem(f"{value or '(vide)'}    ·  {count}")
+                item = QListWidgetItem(f"{value or tr('(empty)')}    ·  {count}")
                 item.setData(Qt.ItemDataRole.UserRole, value)
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                 checked = selected is None or value in selected
@@ -276,15 +276,15 @@ class ColumnFilterPopup(QFrame):
 
         buttons = QHBoxLayout()
         buttons.setSpacing(6)
-        clear = QPushButton("Effacer")
-        clear.setToolTip("Retire le filtre de cette colonne.")
+        clear = QPushButton(tr("Clear"))
+        clear.setToolTip(tr("Removes the filter of this column."))
         clear.clicked.connect(self._clear)
         buttons.addWidget(clear)
         buttons.addStretch(1)
-        cancel = QPushButton("Annuler")
+        cancel = QPushButton(tr("Cancel"))
         cancel.clicked.connect(self.close)
         buttons.addWidget(cancel)
-        apply_button = QPushButton("Appliquer")
+        apply_button = QPushButton(tr("Apply"))
         apply_button.setProperty("accent", True)
         apply_button.setDefault(True)
         apply_button.clicked.connect(self._apply)

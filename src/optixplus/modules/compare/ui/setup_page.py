@@ -176,9 +176,7 @@ class SetupPage(QWidget):
         self.warning.setFrameShape(QFrame.Shape.StyledPanel)
         self.warning.setObjectName("warning")
         self._style_warning()
-        manager = theme.manager()
-        if manager is not None:
-            manager.changed.connect(self._style_warning)
+        theme.follow(self, self._style_warning)
         self.warning_label = QLabel()
         self.warning_label.setWordWrap(True)
         self.warning_label.setTextFormat(Qt.TextFormat.RichText)

@@ -27,10 +27,13 @@ OUT = tempfile.mkdtemp(prefix="ftolog_export_")
 from PySide6.QtCore import QEventLoop, Qt, QTimer
 from PySide6.QtWidgets import QApplication
 
-from optixplus.modules.logreader import theme
+from optixplus.common import theme
 from optixplus.modules.logreader.core.config import Settings
 from optixplus.modules.logreader.core.discovery import Ipc
-from optixplus.modules.logreader.ui.main_window import MainWindow
+from optixplus.common import i18n as _i18n
+
+_i18n.install("fr")  # les vérifications portent sur les libellés français
+from optixplus.modules.logreader.ui.log_tab import LogTab as MainWindow  # l'onglet reprend la fenêtre d'origine
 
 
 def pump(ms):
@@ -71,7 +74,7 @@ def main():
     from optixplus.modules.logreader.core import netshare
     real_unc = netshare.unc_path
     netshare.unc_path = lambda host, share: os.path.join(root, share)
-    import optixplus.modules.logreader.ui.main_window as mw
+    import optixplus.modules.logreader.session as mw
     mw.netshare.unc_path = netshare.unc_path
 
     window.connect_to(ipc)

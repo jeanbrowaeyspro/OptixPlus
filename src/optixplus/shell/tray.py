@@ -54,6 +54,11 @@ class TrayIcon(QObject):
         for module in MODULES:
             action = self._add(module.icon, tr(module.title))
             action.triggered.connect(lambda _c=False, mid=module.id: self._controller.open_tool(mid))
+            if module.controller_action:
+                open_controller = self._add("plus", tr(module.controller_action))
+                open_controller.triggered.connect(
+                    lambda _c=False, mid=module.id: self._controller.handle_message(["open-controller", mid])
+                )
         self.menu.addSeparator()
         settings_action = self._add("settings", tr("Settings…"))
         settings_action.triggered.connect(self._controller.open_settings)

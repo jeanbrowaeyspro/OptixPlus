@@ -12,6 +12,7 @@ exemple) : une référence est gardée jusqu'à sa fin, pour que Qt ne détruise
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from collections.abc import Callable
 from typing import Any
@@ -79,9 +80,28 @@ def retire(thread: QThread) -> None:
     thread.finished.connect(_done)
 
 
-def wait_retired(timeout_ms: int = 3000) -> None:
-    """À la fermeture : laisse aux threads abandonnés une chance de finir proprement."""
+def wait_retired(timeout_ms: int = 3000) -> bool:
+    """À la fermeture : laisse aux threads abandonnés une chance de finir proprement.
+
+    Renvoie faux si un thread tourne encore (bloqué dans une E/S non annulable).
+    """
     deadline = QDeadlineTimer(timeout_ms)
+    done = True
     for thread in list(_retired):
         if not thread.wait(deadline):
             log.warning("Un thread d'arrière-plan ne s'est pas terminé à temps")
+            done = False
+    return done
+
+
+def exit_code(code: int) -> int:
+    """Code de sortie du processus, en quittant tout de suite si un thread reste bloqué.
+
+    Détruire un ``QThread`` encore actif à l'arrêt de Python fait planter le processus
+    (0xC0000409). Tout est déjà enregistré à ce stade : on vide les journaux et on
+    sort directement plutôt que de laisser Windows signaler un plantage.
+    """
+    if any(thread.isRunning() for thread in _retired):
+        logging.shutdown()
+        os._exit(code)
+    return code

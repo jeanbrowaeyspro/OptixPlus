@@ -32,6 +32,7 @@ import time
 
 from PySide6.QtCore import QMutex, QMutexLocker, QThread, Signal
 
+from ...common.i18n import tr
 from .core import discovery, export, logreader, netshare
 from .core.logreader import LogFollower, PollResult
 
@@ -218,7 +219,7 @@ class LogWatcher(QThread):
         self._report_error(result.error)
         self._connected = not result.error
         self.connectionChanged.emit(
-            self._connected, result.error or "journal lu"
+            self._connected, result.error or tr("log read")
         )
         self.initialLoaded.emit(result)
 

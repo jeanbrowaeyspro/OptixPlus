@@ -25,6 +25,7 @@ from openpyxl.cell import WriteOnlyCell
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from ....common.i18n import tr, tr_noop
 from .colors import parse_hex, to_hex
 from .highlight import Highlighter, rule_style
 
@@ -45,14 +46,15 @@ class Column:
 
 
 COLUMNS = [
-    Column("line", "N° ligne", 10),
-    Column("timestamp", "Date / heure", 21),
-    Column("level", "Niveau", 11),
-    Column("source", "Source", 30),
-    Column("code", "Code", 9),
-    Column("message", "Message", 70, wrap=True),
-    Column("details", "Détails", 45, wrap=True),
-    Column("node_path", "Chemin du nœud", 60),
+    # Titres sources anglais, traduits au moment de l'export (langue de l'interface).
+    Column("line", tr_noop("Line no."), 10),
+    Column("timestamp", tr_noop("Date / time"), 21),
+    Column("level", tr_noop("Level"), 11),
+    Column("source", tr_noop("Source"), 30),
+    Column("code", tr_noop("Code"), 9),
+    Column("message", tr_noop("Message"), 70, wrap=True),
+    Column("details", tr_noop("Details"), 45, wrap=True),
+    Column("node_path", tr_noop("Node path"), 60),
 ]
 
 
@@ -117,7 +119,7 @@ def export_xlsx(path: str, entries, highlighter: Highlighter,
 
     header_cells = []
     for column in COLUMNS:
-        cell = WriteOnlyCell(sheet, value=column.title)
+        cell = WriteOnlyCell(sheet, value=tr(column.title))
         cell.fill = header_fill
         cell.font = header_font
         cell.border = header_border
@@ -188,23 +190,23 @@ def _append_info_sheet(workbook: Workbook, context: ExportContext, exported: int
         right.alignment = Alignment(vertical="top", wrap_text=True)
         sheet.append([left, right])
 
-    row("Export du journal FT Optix", "", title_font)
+    row(tr("FT Optix log export"), "", title_font)
     row()
-    row("Date de l'export", datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+    row(tr("Export date"), datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
     row("IPC", context.ipc_name or "—")
-    row("Adresse", context.host or "—")
-    row("Projet Optix", context.project or "—")
-    row("Fichier source", context.source_path or "—")
-    row("Lignes exportées", exported)
+    row(tr("Address"), context.host or "—")
+    row(tr("Optix project"), context.project or "—")
+    row(tr("Source file"), context.source_path or "—")
+    row(tr("Exported lines"), exported)
     if truncated:
-        row("Lignes non exportées", f"{truncated} (limite d'une feuille Excel atteinte)")
-    row("Filtres appliqués", context.filter_summary or "aucun")
-    row("Tri appliqué", context.sort_summary or "ordre du fichier")
+        row(tr("Lines not exported"), tr("{n} (limit of an Excel sheet reached)").format(n=truncated))
+    row(tr("Applied filters"), context.filter_summary or tr("none"))
+    row(tr("Applied sorting"), context.sort_summary or tr("file order"))
     row()
-    row("Légende des couleurs", "")
+    row(tr("Colour legend"), "")
     for index, rule in enumerate(highlighter.active_rules):
         style = rule_style(rule.color, dark=False)
-        name = WriteOnlyCell(sheet, value=rule.name or f"Règle {index + 1}")
+        name = WriteOnlyCell(sheet, value=rule.name or tr("Rule {n}").format(n=index + 1))
         name.fill = PatternFill("solid", fgColor=_argb(style.background))
         name.font = Font(color=_argb(style.foreground), bold=True)
         keywords = WriteOnlyCell(sheet, value=", ".join(rule.keywords))
@@ -218,7 +220,7 @@ def export_csv(path: str, entries, on_progress=None) -> str:
     total = len(entries)
     with open(path, "w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, delimiter=";", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow([column.title for column in COLUMNS])
+        writer.writerow([tr(column.title) for column in COLUMNS])
         for written, entry in enumerate(entries, start=1):
             values = []
             for column in COLUMNS:

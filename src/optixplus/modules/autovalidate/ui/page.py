@@ -90,9 +90,7 @@ class AutoValidatePage(QWidget):
         self._load(service.settings)
         self.refresh_state()
         self._recolor()
-        manager = theme.manager()
-        if manager is not None:
-            manager.changed.connect(self._recolor)
+        theme.follow(self, self._recolor)
 
     # ---- réglages ----------------------------------------------------------------
     def _build_settings(self) -> QWidget:

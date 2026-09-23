@@ -109,7 +109,7 @@ Le mode est détecté au démarrage, dans cet ordre : argument `--decouverte` ou
   - pas de tray ; la surveillance est désactivée par défaut, mais activable à la main tant que la fenêtre est ouverte ;
   - fermer la fenêtre arrête le processus ;
   - aucune écriture dans le registre, aucun démarrage automatique.
-- **Instance unique** : un mutex `Local\OptixPlus_SingleInstance` et un `QLocalServer`. Un second lancement envoie sa ligne de commande à la première instance, par exemple `show`, `open-tool logreader` ou `open-log <hôte>`, puis s'arrête. La première instance affiche sa fenêtre et la met au premier plan.
+- **Instance unique** : un mutex `Local\OptixPlus_SingleInstance` et un `QLocalServer`. Un second lancement envoie sa ligne de commande à la première instance, par exemple `show`, `open-tool logreader` ou `open-controller logreader <hôte>`, puis s'arrête. La première instance affiche sa fenêtre et la met au premier plan.
 - **Démarrage avec Windows** : une case dans les Paramètres, reprise de `startup.py` (clé Run `OptixPlus`) et proposée aussi par l'installateur.
 
 ## 6. Coquille et modules

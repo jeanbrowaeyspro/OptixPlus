@@ -28,6 +28,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from ctypes import wintypes
 from dataclasses import dataclass, field
 
+from ....common.i18n import tr
 from . import netshare
 
 # --------------------------------------------------------------------- ping
@@ -212,7 +213,7 @@ class Ipc:
     share_accessible: bool = False
     log_available: bool = False
     credential_label: str = ""
-    status: str = "non testé"
+    status: str = field(default_factory=lambda: tr("not tested"))
 
     @property
     def display_name(self) -> str:
@@ -236,7 +237,7 @@ def probe_host(host: str, share: str, log_relative_path: str, credentials,
     elif tcp_probe(host, 445, ping_timeout_ms / 1000.0):
         result.reachable, result.icmp_filtered = True, True
     else:
-        result.status = "aucune réponse"
+        result.status = tr("no answer")
         return result
 
     # Le nom NetBIOS ne demande pas d'authentification : on l'obtient même si
@@ -250,13 +251,13 @@ def probe_host(host: str, share: str, log_relative_path: str, credentials,
         return result
 
     result.share_accessible = True
-    result.credential_label = credential.username if credential else "session Windows"
+    result.credential_label = credential.username if credential else tr("Windows session")
     result.project, result.runtime_version = read_runtime_info(host, share)
 
     log_path = os.path.join(netshare.unc_path(host, share), log_relative_path)
     result.log_available = os.path.isfile(log_path)
     if not result.log_available:
-        result.status = f"partage accessible mais {log_relative_path} est introuvable"
+        result.status = tr("share accessible but {path} cannot be found").format(path=log_relative_path)
     return result
 
 
@@ -282,7 +283,7 @@ def discover(hosts, share: str, log_relative_path: str, credentials,
             try:
                 ipc = future.result()
             except Exception as exc:  # pragma: no cover - filet de sécurité
-                ipc = Ipc(host=host, status=f"erreur inattendue : {exc}")
+                ipc = Ipc(host=host, status=tr("unexpected error: {error}").format(error=exc))
             results[host] = ipc
             if on_result:
                 on_result(ipc)

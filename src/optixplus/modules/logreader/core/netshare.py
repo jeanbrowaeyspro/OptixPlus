@@ -10,6 +10,8 @@ from __future__ import annotations
 import ctypes
 from ctypes import wintypes
 
+from ....common.i18n import tr
+
 RESOURCETYPE_DISK = 0x00000001
 
 NO_ERROR = 0
@@ -31,16 +33,17 @@ _CREDENTIAL_ERRORS = frozenset(
     {ERROR_ACCESS_DENIED, ERROR_INVALID_PASSWORD, ERROR_LOGON_FAILURE, ERROR_SESSION_CREDENTIAL_CONFLICT}
 )
 
-_MESSAGES = {
-    ERROR_ACCESS_DENIED: "accès refusé (identifiants incorrects ou droits insuffisants)",
-    ERROR_BAD_NET_NAME: "le partage n'existe pas sur cette machine",
-    ERROR_BAD_NETPATH: "chemin réseau introuvable",
-    ERROR_INVALID_PASSWORD: "mot de passe incorrect",
-    ERROR_LOGON_FAILURE: "nom d'utilisateur ou mot de passe incorrect",
-    ERROR_SESSION_CREDENTIAL_CONFLICT: "une session est déjà ouverte vers cette machine avec d'autres identifiants",
-    ERROR_NETWORK_UNREACHABLE: "réseau injoignable",
-    ERROR_NO_NET_OR_BAD_PATH: "machine injoignable ou chemin invalide",
-}
+def _messages() -> dict[int, str]:
+    return {
+        ERROR_ACCESS_DENIED: tr("access denied (wrong credentials or insufficient rights)"),
+        ERROR_BAD_NET_NAME: tr("the share does not exist on this machine"),
+        ERROR_BAD_NETPATH: tr("network path not found"),
+        ERROR_INVALID_PASSWORD: tr("wrong password"),
+        ERROR_LOGON_FAILURE: tr("wrong user name or password"),
+        ERROR_SESSION_CREDENTIAL_CONFLICT: tr("a session is already open to this machine with other credentials"),
+        ERROR_NETWORK_UNREACHABLE: tr("network unreachable"),
+        ERROR_NO_NET_OR_BAD_PATH: tr("machine unreachable or invalid path"),
+    }
 
 
 class NETRESOURCEW(ctypes.Structure):
@@ -67,9 +70,10 @@ _mpr.WNetCancelConnection2W.restype = wintypes.DWORD
 
 def error_message(code: int) -> str:
     """Message lisible pour un code d'erreur Win32 réseau."""
-    if code in _MESSAGES:
-        return _MESSAGES[code]
-    return f"erreur Windows {code}"
+    messages = _messages()
+    if code in messages:
+        return messages[code]
+    return tr("Windows error {code}").format(code=code)
 
 
 def is_credential_error(code: int) -> bool:
@@ -122,10 +126,10 @@ def connect_with_fallback(
     refuse tout nouvel identifiant vers un serveur déjà monté.
     """
     if on_attempt:
-        on_attempt("session Windows courante")
+        on_attempt(tr("current Windows session"))
     code = connect(host, share)
     if code == NO_ERROR or code == ERROR_ALREADY_ASSIGNED:
-        return True, "connecté avec la session Windows courante", None
+        return True, tr("connected with the current Windows session"), None
 
     last_message = error_message(code)
     for credential in credentials:
@@ -136,7 +140,7 @@ def connect_with_fallback(
             disconnect(host, share)
             code = connect(host, share, credential.username, credential.password)
         if code in (NO_ERROR, ERROR_ALREADY_ASSIGNED):
-            return True, f"connecté en tant que « {credential.username} »", credential
+            return True, tr("connected as “{user}”").format(user=credential.username), credential
         last_message = error_message(code)
         if not is_credential_error(code):
             # Machine injoignable ou partage absent : inutile d'essayer les

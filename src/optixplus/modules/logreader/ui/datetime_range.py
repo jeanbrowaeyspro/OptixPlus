@@ -21,7 +21,8 @@ from PySide6.QtWidgets import (
     QPushButton, QSizePolicy, QSpinBox, QVBoxLayout, QWidget,
 )
 
-from ..theme import Palette, popup_stylesheet
+from ....common.i18n import tr
+from ....common.theme import Palette, popup_stylesheet
 
 #: Pas de la grille des minutes. Cinq minutes suffisent pour cadrer une
 #: recherche ; la saisie précise en dessous couvre le reste.
@@ -57,7 +58,7 @@ class DatePickerPopup(QFrame):
 
         shortcuts = QHBoxLayout()
         shortcuts.setSpacing(5)
-        today = QPushButton("Aujourd'hui")
+        today = QPushButton(tr("Today"))
         today.clicked.connect(lambda: self._pick(QDate.currentDate()))
         shortcuts.addWidget(today)
         yesterday = QPushButton("Hier")
@@ -98,7 +99,7 @@ class TimePickerPopup(QFrame):
         self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.preview)
 
-        layout.addWidget(self._section_label("Heure"))
+        layout.addWidget(self._section_label(tr("Hour")))
         hours = QGridLayout()
         hours.setSpacing(3)
         for hour in range(24):
@@ -108,7 +109,7 @@ class TimePickerPopup(QFrame):
             hours.addWidget(button, hour // 6, hour % 6)
         layout.addLayout(hours)
 
-        layout.addWidget(self._section_label("Minute"))
+        layout.addWidget(self._section_label(tr("Minute")))
         minutes = QGridLayout()
         minutes.setSpacing(3)
         for position, minute in enumerate(range(0, 60, MINUTE_STEP)):
@@ -118,7 +119,7 @@ class TimePickerPopup(QFrame):
             minutes.addWidget(button, position // 6, position % 6)
         layout.addLayout(minutes)
 
-        layout.addWidget(self._section_label("Saisie précise"))
+        layout.addWidget(self._section_label(tr("Exact entry")))
         precise = QHBoxLayout()
         precise.setSpacing(5)
         self.hour_spin = self._spin(23)
@@ -247,12 +248,12 @@ class DateTimeField(QWidget):
         layout.setSpacing(4)
 
         self.date_button = QPushButton()
-        self.date_button.setToolTip("Choisir la date")
+        self.date_button.setToolTip(tr("Choose the date"))
         self.date_button.clicked.connect(self._open_date_picker)
         layout.addWidget(self.date_button)
 
         self.time_button = QPushButton()
-        self.time_button.setToolTip("Choisir l'heure")
+        self.time_button.setToolTip(tr("Choose the time"))
         self.time_button.clicked.connect(self._open_time_picker)
         layout.addWidget(self.time_button)
 

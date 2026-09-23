@@ -70,6 +70,30 @@ def themed_action(action, name: str):
     return action
 
 
+_PASTILLES: dict[str, QIcon] = {}
+
+
+def pastille(couleur, taille: int = 12) -> QIcon:
+    """Un disque de couleur (état, voyant), mis en cache par couleur et taille."""
+    from PySide6.QtGui import QColor
+
+    couleur = QColor(couleur)
+    key = f"{couleur.name()}-{taille}"
+    icon = _PASTILLES.get(key)
+    if icon is None:
+        pixmap = QPixmap(taille, taille)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(couleur)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(1, 1, taille - 2, taille - 2)
+        painter.end()
+        icon = QIcon(pixmap)
+        _PASTILLES[key] = icon
+    return icon
+
+
 def app_icon(suspended: bool = False) -> QIcon:
     """Icône de l'application (fenêtres, tray)."""
     name = "app_suspended" if suspended else "app"
