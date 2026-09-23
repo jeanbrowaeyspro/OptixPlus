@@ -11,6 +11,10 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - Icône dans la zone de notification en mode installé.
 - Interface bilingue français / anglais, qui suit la langue de Windows ; chaque texte affiché est vérifié dans les deux langues. La ligne de commande suit la même langue que la fenêtre.
 - Thèmes Système, Clair et Sombre.
+- Mises à jour par les Releases GitHub : recherche automatique (au démarrage, tous les jours ou toutes les semaines) ou à la demande depuis le menu Aide, le tray et les Paramètres ; préversions en option.
+  - Notes de version affichées avant de choisir : Installer maintenant, Plus tard ou Ignorer cette version.
+  - Installateur téléchargé puis vérifié par son empreinte SHA-256 avant tout lancement.
+- Fenêtre Nouveautés au premier lancement d'une nouvelle version, et à tout moment depuis le menu Aide.
 - Outil **Validation auto** (ex-OptixAutoValidate) : validation automatique de la boîte « Le projet existe déjà » de FT Optix Studio.
   - Détection par événements Windows au lieu d'un balayage des fenêtres toutes les 150 ms : consommation quasi nulle au repos.
   - Réglages et journal de la surveillance réunis sur une seule page ; carte sur l'accueil ; état dans la barre d'état et l'infobulle du tray.

@@ -12,14 +12,12 @@ couvre les cas où Qt ne renseigne pas l'information.
 
 from __future__ import annotations
 
-import weakref
 from dataclasses import dataclass
 
-import shiboken6
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
 
-from . import paths
+from . import paths, signals
 from .i18n import tr
 
 THEME_SYSTEM = "system"
@@ -698,30 +696,9 @@ def install_manager(app, theme: str) -> ThemeManager:
 
 
 def follow(receiver: QObject, slot) -> None:
-    """Appelle ``slot(palette)`` à chaque changement de thème, tant que ``receiver`` existe.
-
-    PySide ne coupe pas la connexion quand le widget est détruit (fenêtre fermée ou
-    reconstruite), et déconnecter une méthode d'un objet détruit échoue : on passe par
-    un relais qui ne garde qu'une référence faible et vérifie l'objet C++.
-    """
-    if _manager is None:
-        return
-    signal = _manager.changed
-    method = weakref.WeakMethod(slot)
-
-    def relay(palette) -> None:
-        bound = method()
-        if bound is not None and shiboken6.isValid(bound.__self__):
-            bound(palette)
-
-    def drop(*_args) -> None:
-        try:
-            signal.disconnect(relay)
-        except (RuntimeError, TypeError):
-            pass
-
-    signal.connect(relay)
-    receiver.destroyed.connect(drop)
+    """Appelle ``slot(palette)`` à chaque changement de thème, tant que ``receiver`` existe."""
+    if _manager is not None:
+        signals.follow(_manager.changed, receiver, slot)
 
 
 def manager() -> ThemeManager | None:

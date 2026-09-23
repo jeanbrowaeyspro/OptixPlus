@@ -61,8 +61,15 @@ class SingleInstance(QObject):
         assert self._server is not None
         while self._server.hasPendingConnections():
             socket = self._server.nextPendingConnection()
-            socket.readyRead.connect(lambda s=socket: self._read(s))
+            # Méthode liée plutôt que fonction anonyme : pas de cycle de références qui
+            # laisserait le ramasse-miettes détruire ces objets Qt à un moment arbitraire.
+            socket.readyRead.connect(self._on_ready_read)
             socket.disconnected.connect(socket.deleteLater)
+
+    def _on_ready_read(self) -> None:
+        socket = self.sender()
+        if isinstance(socket, QLocalSocket):
+            self._read(socket)
 
     def _read(self, socket: QLocalSocket) -> None:
         while socket.canReadLine():
@@ -95,7 +102,9 @@ class SingleInstance(QObject):
 
     def release(self) -> None:
         if self._server is not None:
+            self._server.newConnection.disconnect(self._on_new_connection)
             self._server.close()
+            self._server.deleteLater()  # avec ses connexions encore ouvertes, par Qt
             self._server = None
         win32.close_handle(self._mutex)
         self._mutex = 0

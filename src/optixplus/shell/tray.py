@@ -33,6 +33,8 @@ class TrayIcon(QObject):
         self.tray.setContextMenu(self.menu)
         controller.context.theme.changed.connect(self._refresh_icons)
         self.tray.activated.connect(self._on_activated)
+        self._on_message_click = None
+        self.tray.messageClicked.connect(self._on_message_clicked)
         self.refresh()
         self.tray.show()
 
@@ -62,6 +64,8 @@ class TrayIcon(QObject):
         self.menu.addSeparator()
         settings_action = self._add("settings", tr("Settings…"))
         settings_action.triggered.connect(self._controller.open_settings)
+        update_action = self._add("refresh", tr("Check for updates…"))
+        update_action.triggered.connect(lambda: self._controller.check_for_updates())
         about_action = self._add("info", tr("About OptixPlus"))
         about_action.triggered.connect(self._controller.open_about)
         self.menu.addSeparator()
@@ -97,8 +101,15 @@ class TrayIcon(QObject):
         lines = [f"{APP_NAME} {__version__}"] + [s.status_text() for s in services if s.status_text()]
         self.tray.setToolTip("\n".join(lines))
 
-    def notify(self, message: str, title: str = APP_NAME, msecs: int = 3000) -> None:
+    def notify(self, message: str, title: str = APP_NAME, msecs: int = 3000, on_click=None) -> None:
+        """Bulle du tray ; ``on_click`` : action si l'utilisateur clique sur cette bulle."""
+        self._on_message_click = on_click
         self.tray.showMessage(title, message, QSystemTrayIcon.MessageIcon.Information, msecs)
+
+    def _on_message_clicked(self) -> None:
+        action, self._on_message_click = self._on_message_click, None
+        if action is not None:
+            action()
 
     def _on_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):

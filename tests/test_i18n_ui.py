@@ -141,9 +141,17 @@ def _interface_texts(tmp_path: Path, monkeypatch, language: str) -> set[str]:
         texts |= _texts_of(ReaderSettingsDialog(ReaderSettings(), reader))
         texts |= _texts_of(ConnectDialog(ReaderSettings(), reader.tabs[0].palette_, reader, auto_connect=False))
 
+        from optixplus.shell.updates import UpdateDialog
+        from optixplus.update.github import Asset, Release, Version
+
+        release = Release(Version.parse("9.9.9"), "v9.9.9", "9.9.9", "notes", "https://example.invalid", "",
+                          (Asset("OptixPlus-Setup-9.9.9.exe", "u"), Asset("OptixPlus-Setup-9.9.9.exe.sha256", "u")))
+        for can_install in (True, False):
+            texts |= _texts_of(UpdateDialog(release, can_install, window))
         controller.open_settings()
         controller.open_about()
-        for dialog in (controller._settings_dialog, controller._about_dialog):
+        controller.open_whats_new(full=True)
+        for dialog in (controller._settings_dialog, controller._about_dialog, controller._changelog_dialog):
             texts |= _texts_of(dialog)
             dialog.close()
         window.show_page("home")

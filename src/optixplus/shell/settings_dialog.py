@@ -12,24 +12,35 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QListWidget,
     QMessageBox,
+    QPushButton,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from ..common import i18n, startup
+from ..common import i18n, signals, startup
 from ..common.i18n import tr
 from ..common.settings import LANGUAGES
 from ..common.theme import THEMES, theme_label
+from ..update.github import FREQUENCIES, FREQUENCY_DAILY, FREQUENCY_STARTUP, FREQUENCY_WEEKLY
 from .context import AppContext
 
 log = logging.getLogger("optixplus.settings")
 
 
+def frequency_labels() -> dict[str, str]:
+    return {
+        FREQUENCY_STARTUP: tr("At startup only"),
+        FREQUENCY_DAILY: tr("Every day"),
+        FREQUENCY_WEEKLY: tr("Every week"),
+    }
+
+
 class GeneralPage(QWidget):
-    """Langue, thème, démarrage avec Windows."""
+    """Langue, thème, démarrage avec Windows, mises à jour."""
 
     def __init__(self, context: AppContext, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -64,9 +75,55 @@ class GeneralPage(QWidget):
             self.autostart.setToolTip(tr("Only available when OptixPlus is installed."))
         form.addRow("", self.autostart)
 
+        heading = QLabel(tr("Updates"))
+        heading.setProperty("heading", True)
+        form.addRow(heading)
+        updates = context.controller.updates
+        self._updates = updates
+        self.auto_update = QCheckBox(tr("Check for updates automatically"))
+        self.auto_update.setChecked(updates.settings.auto_check)
+        form.addRow("", self.auto_update)
+        self.frequency = QComboBox()
+        for code, label in frequency_labels().items():
+            self.frequency.addItem(label, code)
+        self.frequency.setCurrentIndex(max(0, self.frequency.findData(updates.settings.frequency)))
+        self.auto_update.toggled.connect(self.frequency.setEnabled)
+        self.frequency.setEnabled(self.auto_update.isChecked())
+        form.addRow(tr("Frequency"), self.frequency)
+        self.prereleases = QCheckBox(tr("Include pre-releases"))
+        self.prereleases.setToolTip(tr("Also offers test versions published before an official release."))
+        self.prereleases.setChecked(updates.settings.include_prereleases)
+        form.addRow("", self.prereleases)
+        self.last_check = QLabel()
+        self.last_check.setProperty("muted", True)
+        self.check_button = QPushButton(tr("Check now"))
+        self.check_button.setToolTip(tr("Asks GitHub whether a newer version of OptixPlus is published."))
+        self.check_button.clicked.connect(self._check_now)
+        check_row = QHBoxLayout()
+        check_row.addWidget(self.last_check, 1)
+        check_row.addWidget(self.check_button)
+        form.addRow(tr("Last check"), check_row)
+        signals.follow(updates.busy_changed, self, self._refresh_update_state)
+        self._refresh_update_state()
+
+    def _refresh_update_state(self, *_args) -> None:
+        self.last_check.setText(self._updates.last_check_text())
+        self.check_button.setEnabled(not self._updates.busy)
+
+    def _check_now(self) -> None:
+        self._apply_update_settings()  # la vérification tient compte des préversions cochées
+        self._updates.check(interactive=True)
+
+    def _apply_update_settings(self) -> None:
+        s = self._updates.settings
+        s.auto_check = self.auto_update.isChecked()
+        s.frequency = self.frequency.currentData() if self.frequency.currentData() in FREQUENCIES else FREQUENCY_DAILY
+        s.include_prereleases = self.prereleases.isChecked()
+
     def apply(self) -> bool:
         """Applique les choix ; renvoie vrai si la langue effective change."""
         general = self._context.settings.general
+        self._apply_update_settings()
         language_changed = False
         language = self.language.currentData()
         if language != general.language:

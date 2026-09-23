@@ -38,6 +38,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     mode.add_argument("--decouverte", action="store_true", help="mode découverte (sans tray)")
     parser.add_argument("--demarrage", action="store_true", help="lancement par Windows, fenêtre masquée")
     parser.add_argument("--outil", metavar="ID", help="outil à ouvrir")
+    parser.add_argument("--apres-maj", action="store_true", help="relance par l'installateur après une mise à jour")
     args, _unknown = parser.parse_known_args(argv)
     return args
 
@@ -136,6 +137,9 @@ def main(argv: list[str] | None = None) -> int:
     app.setWindowIcon(icons.app_icon())
     controller = AppController(app, settings, theme, mode, instance)
     controller.start_services()
+    controller.start_updates()
+    # Première ouverture d'une nouvelle version (ou relance après mise à jour) : Nouveautés.
+    controller.whats_new_pending = args.apres_maj or settings.general.last_seen_version != __version__
     app.setQuitOnLastWindowClosed(False)
 
     if not (args.demarrage and controller.tray is not None):

@@ -186,6 +186,12 @@ class MainWindow(QMainWindow):
         view_menu.addAction(log_action)
 
         help_menu = bar.addMenu(tr("&Help"))
+        update_action = self._icon_action(help_menu, "refresh", tr("Check for updates…"))
+        update_action.setToolTip(tr("Asks GitHub whether a newer version of OptixPlus is published."))
+        update_action.triggered.connect(lambda: controller.check_for_updates())
+        news_action = self._icon_action(help_menu, "news", tr("What's new"))
+        news_action.triggered.connect(lambda: controller.open_whats_new(full=True))
+        help_menu.addSeparator()
         about_action = self._icon_action(help_menu, "info", tr("About OptixPlus"))
         about_action.triggered.connect(controller.open_about)
 

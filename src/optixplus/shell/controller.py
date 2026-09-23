@@ -8,15 +8,17 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QObject, Qt
+from PySide6.QtCore import QObject, Qt, QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon, QWidget
 
-from ..common import i18n, qt_translation, workers
+from ..common import i18n, qt_translation, signals, workers
 from ..common.i18n import tr
 from ..common.settings import Settings
 from ..common.single_instance import SingleInstance
 from ..common.theme import ThemeManager
+from ..version import __version__
 from .context import AppContext, LaunchMode
+from .updates import UpdateManager
 
 log = logging.getLogger("optixplus.app")
 
@@ -36,10 +38,14 @@ class AppController(QObject):
         self._window = None
         self._settings_dialog: QWidget | None = None
         self._about_dialog: QWidget | None = None
+        self._changelog_dialog: QWidget | None = None
+        #: Nouveautés à montrer à la première ouverture de la fenêtre (nouvelle version).
+        self.whats_new_pending = False
         self._quitting = False
         self._rebuilding = False
         self.tray = None
         self._create_services()
+        self.updates = UpdateManager(self)
         if mode is LaunchMode.INSTALLED:
             if QSystemTrayIcon.isSystemTrayAvailable():
                 from .tray import TrayIcon
@@ -89,6 +95,9 @@ class AppController(QObject):
             self._window = MainWindow(self.context)
             self._window.closed.connect(self._on_window_closed)
             self._window.show()
+            if self.whats_new_pending:
+                self.whats_new_pending = False
+                QTimer.singleShot(0, self._show_news_of_this_version)
         window = self._window
         if window.isMinimized():
             window.setWindowState(window.windowState() & ~Qt.WindowState.WindowMinimized)
@@ -136,13 +145,19 @@ class AppController(QObject):
 
         window = self._window
         about_open = self._is_open(self._about_dialog)
+        news_state = self._changelog_dialog.snapshot() if self._is_open(self._changelog_dialog) else None
+        update_dialog = self.updates.dialog
+        update_state = update_dialog.snapshot() if self._is_open(update_dialog) else None
         if window is None:
-            self._reopen_dialogs(settings_state, about_open)
+            self._reopen_dialogs(settings_state, about_open, news_state, update_state)
             return
         snapshot = window.snapshot()
         if about_open:
             self._about_dialog.close()
             self._about_dialog = None
+        for dialog in (self._changelog_dialog, update_dialog):
+            if self._is_open(dialog):
+                dialog.close()
         self._rebuilding = True
         try:
             closed = window.close_for_rebuild() if snapshot is not None else window.close()
@@ -156,11 +171,23 @@ class AppController(QObject):
         rebuilt = self.show_main_window()
         if snapshot is not None:
             rebuilt.restore(snapshot)
-        self._reopen_dialogs(settings_state, about_open)
+        self._reopen_dialogs(settings_state, about_open, news_state, update_state)
 
-    def _reopen_dialogs(self, settings_state: dict | None, about_open: bool) -> None:
+    def _reopen_dialogs(
+        self,
+        settings_state: dict | None,
+        about_open: bool,
+        news_state: dict | None = None,
+        update_state: dict | None = None,
+    ) -> None:
         if about_open:
             self.open_about()
+        if news_state is not None:
+            self.open_whats_new(state=news_state)
+        if update_state is not None:
+            dialog = self.updates.open_dialog(update_state["release"])
+            if dialog is not None:
+                dialog.restore(update_state)
         if settings_state is not None:
             self.open_settings()
             if self._settings_dialog is not None:
@@ -191,8 +218,7 @@ class AppController(QObject):
 
         dialog = SettingsDialog(self.context, self._window)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        dialog.destroyed.connect(lambda: setattr(self, "_settings_dialog", None))
-        self._settings_dialog = dialog
+        signals.track(self, "_settings_dialog", dialog)
         self._show(dialog)
 
     def open_about(self) -> None:
@@ -202,9 +228,35 @@ class AppController(QObject):
 
         dialog = AboutDialog(self._window)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        dialog.destroyed.connect(lambda: setattr(self, "_about_dialog", None))
-        self._about_dialog = dialog
+        signals.track(self, "_about_dialog", dialog)
         self._show(dialog)
+
+    # ---- mises à jour et nouveautés -----------------------------------------------
+    def start_updates(self) -> None:
+        self.updates.start()
+
+    def check_for_updates(self) -> None:
+        self.updates.check(interactive=True)
+
+    def open_whats_new(self, full: bool = False, last_seen: str = "", state: dict | None = None) -> None:
+        if self._raise_existing(self._changelog_dialog):
+            return
+        from .changelog_dialog import ChangelogDialog
+
+        dialog = ChangelogDialog(last_seen, full, self._window)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        signals.track(self, "_changelog_dialog", dialog)
+        if state is not None:
+            dialog.restore(state)
+        self._show(dialog)
+
+    def _show_news_of_this_version(self) -> None:
+        general = self.context.settings.general
+        last_seen = general.last_seen_version
+        general.last_seen_version = __version__
+        self.context.settings.save()
+        log.info("Nouveautés de la version %s (dernière vue : %s)", __version__, last_seen or "aucune")
+        self.open_whats_new(last_seen=last_seen)
 
     # ---- demandes externes ---------------------------------------------------------
     def handle_message(self, message: list[str]) -> None:
@@ -234,5 +286,6 @@ class AppController(QObject):
         self._app.quit()
 
     def _on_about_to_quit(self) -> None:
+        self.updates.shutdown()
         self._stop_services()
         workers.wait_retired()
