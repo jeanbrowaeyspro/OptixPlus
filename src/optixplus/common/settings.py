@@ -135,6 +135,16 @@ class Settings:
             self._sections[name] = section_from_dict(cls, self._raw.get(name))
         return self._sections[name]
 
+    def store(self, name: str) -> dict[str, Any]:
+        """Section libre (clé → valeur JSON), pour les données sans schéma fixe : historique,
+        arbitrages mémorisés… Le dictionnaire renvoyé est modifié sur place puis enregistré
+        par ``save()``."""
+        value = self._raw.get(name)
+        if not isinstance(value, dict):
+            value = {}
+            self._raw[name] = value
+        return value
+
     @property
     def general(self) -> GeneralSettings:
         return self.section(GeneralSettings)

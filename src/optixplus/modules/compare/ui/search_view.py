@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ....common.i18n import tr
 from ..core.progress import Cancelled
 from ..core.scan import Inventory
 from ..core.search import SearchHit, search_inventory
@@ -57,7 +58,10 @@ class SearchWorker(QThread):
 class SearchView(QWidget):
     hit_activated = Signal(str, str, int)  # side, rel, line_no
 
-    COLONNES = ("Côté", "Fichier", "Ligne", "Texte")
+    @staticmethod
+    def colonnes() -> list[str]:
+        return [tr("Side"), tr("File"), tr("Line"), tr("Text")]
+
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -66,18 +70,18 @@ class SearchView(QWidget):
         self.hits: list[SearchHit] = []
 
         self.input = QLineEdit()
-        self.input.setPlaceholderText("Texte à chercher dans les deux modèles (Entrée pour lancer)…")
+        self.input.setPlaceholderText(tr("Text to search in both models (Enter to start)…"))
         self.input.returnPressed.connect(self.start)
-        self.regex = QCheckBox("Expression régulière")
-        self.casse = QCheckBox("Respecter la casse")
-        self.only_nodes = QCheckBox("Nodes/ seulement")
+        self.regex = QCheckBox(tr("Regular expression"))
+        self.casse = QCheckBox(tr("Match case"))
+        self.only_nodes = QCheckBox(tr("Nodes/ only"))
         self.only_nodes.setChecked(True)
-        self.button = QPushButton("Chercher")
+        self.button = QPushButton(tr("Find"))
         self.button.clicked.connect(self.start)
         self.status = QLabel("")
 
-        self.model = QStandardItemModel(0, len(self.COLONNES), self)
-        self.model.setHorizontalHeaderLabels(self.COLONNES)
+        self.model = QStandardItemModel(0, 4, self)
+        self.model.setHorizontalHeaderLabels(self.colonnes())
         self.table = QTableView()
         self.table.setModel(self.model)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -114,7 +118,7 @@ class SearchView(QWidget):
         if not motif:
             return
         self.button.setEnabled(False)
-        self.status.setText("Recherche en cours…")
+        self.status.setText(tr("Search in progress…"))
         self.worker = SearchWorker(self.inventory, motif, self.regex.isChecked(), self.casse.isChecked(), self.only_nodes.isChecked(), self)
         self.worker.progressed.connect(lambda current, i, n: self.status.setText(f"{i}/{n}  {current}"))
         self.worker.finished_hits.connect(self._on_hits)
@@ -125,18 +129,23 @@ class SearchView(QWidget):
         self.hits = hits
         self.model.removeRows(0, self.model.rowCount())
         for k, hit in enumerate(hits):
-            items = [QStandardItem(hit.side), QStandardItem(hit.rel), QStandardItem(str(hit.line_no)), QStandardItem(hit.text)]
+            side = tr("runtime") if hit.side == "runtime" else tr("project")
+            items = [QStandardItem(side), QStandardItem(hit.rel), QStandardItem(str(hit.line_no)), QStandardItem(hit.text)]
             items[2].setData(hit.line_no, Qt.ItemDataRole.UserRole)
             for item in items:
                 item.setData(k, Qt.ItemDataRole.UserRole + 1)
             self.model.appendRow(items)
         self.table.resizeColumnsToContents()
         n_r = sum(1 for h in hits if h.side == "runtime")
-        self.status.setText(f"{len(hits)} occurrence(s) : {n_r} côté runtime, {len(hits) - n_r} côté projet")
+        self.status.setText(
+            tr("{n} occurrence(s): {runtime} on the runtime side, {project} on the project side").format(
+                n=len(hits), runtime=n_r, project=len(hits) - n_r
+            )
+        )
         self.button.setEnabled(True)
 
     def _on_failed(self, message: str) -> None:
-        self.status.setText(f"Recherche impossible : {message}")
+        self.status.setText(tr("Search impossible: {error}").format(error=message))
         self.button.setEnabled(True)
 
     def _on_double_click(self, index) -> None:

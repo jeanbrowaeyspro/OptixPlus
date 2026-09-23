@@ -14,6 +14,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from ....common.i18n import tr
 from .extractors.generated_cs import braces_balanced
 from .lines import split_lines
 
@@ -99,4 +100,4 @@ def check_braces(rel: str, raw: bytes) -> str | None:
         return None
     if braces_balanced(split_lines(raw).lines):
         return None
-    return f"{rel} : accolades déséquilibrées après élagage"
+    return tr("{file}: unbalanced braces after pruning").format(file=rel)

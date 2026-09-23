@@ -24,17 +24,27 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ....common import theme
+from ....common.i18n import tr
 from ..core.diffing import Opcode
 
 CONTEXTE = 3
 
-FOND: dict[str, QColor] = {
-    "insert": QColor(46, 125, 50, 70),
-    "delete": QColor(198, 40, 40, 70),
-    "replace": QColor(239, 108, 0, 70),
-    "vide": QColor(128, 128, 128, 40),
-    "pli": QColor(128, 128, 128, 25),
-}
+
+
+def fond(kind: str) -> QColor:
+    """Fond translucide d'une ligne de diff, dérivé des couleurs du thème (clair ou sombre)."""
+    p = theme.current()
+    base, alpha = {
+        "insert": (p.success, 70),
+        "delete": (p.error, 70),
+        "replace": (p.warning, 70),
+        "vide": (p.text_muted, 40),
+        "pli": (p.text_muted, 25),
+    }.get(kind, (p.text_muted, 25))
+    color = QColor(base)
+    color.setAlpha(alpha)
+    return color
 
 
 @dataclass(slots=True)
@@ -50,7 +60,10 @@ class DiffRow:
 
 
 class DiffModel(QAbstractTableModel):
-    COLONNES = ("N°", "Projet", "N°", "Runtime")
+    @staticmethod
+    def colonnes() -> tuple[str, ...]:
+        return (tr("No."), tr("Project"), tr("No."), tr("Runtime"))
+
     COL_A_NO, COL_A, COL_B_NO, COL_B = range(4)
 
     def __init__(self, parent=None) -> None:
@@ -141,7 +154,7 @@ class DiffModel(QAbstractTableModel):
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole):  # noqa: N802
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
-            return self.COLONNES[section]
+            return self.colonnes()[section]
         return None
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
@@ -151,7 +164,7 @@ class DiffModel(QAbstractTableModel):
         col = index.column()
         if role == Qt.ItemDataRole.DisplayRole:
             if r.kind == "pli":
-                return f"… {r.pli_taille} lignes identiques (cliquer pour déplier) …" if col == self.COL_A else ""
+                return "… " + tr("{n} identical lines (click to unfold)").format(n=r.pli_taille) + " …" if col == self.COL_A else ""
             if col == self.COL_A_NO:
                 return str(r.a_no) if r.a_no else ""
             if col == self.COL_B_NO:
@@ -162,13 +175,13 @@ class DiffModel(QAbstractTableModel):
                 return r.b_text.decode("utf-8", "replace").replace("\t", "    ") if r.b_text is not None else ""
         elif role == Qt.ItemDataRole.BackgroundRole:
             if r.kind == "pli":
-                return QBrush(FOND["pli"])
+                return QBrush(fond("pli"))
             if r.kind == "equal":
                 return None
             side_a = col in (self.COL_A_NO, self.COL_A)
             if side_a and r.a_text is None or not side_a and r.b_text is None:
-                return QBrush(FOND["vide"])
-            return QBrush(FOND[r.kind])
+                return QBrush(fond("vide"))
+            return QBrush(fond(r.kind))
         elif role == Qt.ItemDataRole.FontRole:
             font = QFont(self._mono)
             if r.kind == "pli":
@@ -177,7 +190,7 @@ class DiffModel(QAbstractTableModel):
         elif role == Qt.ItemDataRole.TextAlignmentRole and col in (self.COL_A_NO, self.COL_B_NO):
             return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         elif role == Qt.ItemDataRole.ForegroundRole and col in (self.COL_A_NO, self.COL_B_NO):
-            return QBrush(QColor(128, 128, 128))
+            return QBrush(QColor(theme.current().text_muted))
         return None
 
 
@@ -207,12 +220,12 @@ class DiffView(QWidget):
         self.table.clicked.connect(self._on_click)
         self.table.selectionModel().currentRowChanged.connect(self._on_current)
 
-        self.prev_button = QPushButton("◀ Hunk précédent")
-        self.next_button = QPushButton("Hunk suivant ▶")
+        self.prev_button = QPushButton("◀ " + tr("Previous hunk"))
+        self.next_button = QPushButton(tr("Next hunk") + " ▶")
         self.prev_button.clicked.connect(self.previous_hunk)
         self.next_button.clicked.connect(self.next_hunk)
         self.position = QLabel("")
-        self.fold_box = QCheckBox("Replier les zones identiques")
+        self.fold_box = QCheckBox(tr("Fold identical areas"))
         self.fold_box.setChecked(True)
         self.fold_box.toggled.connect(self._toggle_fold)
         self.title = QLabel("")

@@ -108,3 +108,14 @@ def comparison(couple_reel: tuple[Path, Path]):
 
     runtime, projet = couple_reel
     return compare(runtime, projet)
+
+
+@pytest.fixture(autouse=True, scope="package")
+def _interface_en_francais():
+    """Les tests d'origine vérifient les libellés français : l'interface est mise en français."""
+    from optixplus.common import i18n, logging_setup
+
+    logging_setup.configure(to_file=False)
+    i18n.install("fr")
+    yield
+    i18n.install("en")

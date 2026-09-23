@@ -11,6 +11,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ....common.i18n import tr
 from .diffing import Hunk, Opcode, compute_opcodes, hunks_from_opcodes
 from .extractors.generated_cs import guid_to_name
 from .extractors.module_xml import TypesDelta, compare_type_guids, describe_type_mappings
@@ -228,7 +229,7 @@ def compare(
         result.optix = delta
         if entry.status == "different" and delta.seulement_statistiques:
             entry.attendu = True
-            entry.raison_attendu = "seules les statistiques diffèrent (recalculées par l'IDE à l'ouverture)"
+            entry.raison_attendu = tr("only the statistics differ (recomputed by the IDE when opening)")
         break
 
     # 2. Diff de chaque fichier texte différent.
@@ -245,7 +246,7 @@ def compare(
 
     # 3. Vues spécialisées.
     check_cancel(cancel)
-    report(progress, "analyse", "tags CoDeSys et traductions", 0, 4)
+    report(progress, "analyse", tr("CoDeSys tags and translations"), 0, 4)
     for rel, fd in result.diffs.items():
         if not fd.entry.is_yaml:
             continue
@@ -255,7 +256,7 @@ def compare(
             result.translations[rel] = compare_translations(fd.projet.lines, fd.runtime.lines)
 
     check_cancel(cancel)
-    report(progress, "analyse", "types utilisateur", 1, 4)
+    report(progress, "analyse", tr("user types"), 1, 4)
     module = inventory.get(USER_DEFINED_MODULE)
     if module is not None and module.status in ("identique", "different"):
         result.types = compare_type_guids(
@@ -289,7 +290,7 @@ def compare(
         result.netlogic.sources_projet = {c: sources[c] for c in result.netlogic.projet_seul if c in sources}
 
     check_cancel(cancel)
-    report(progress, "analyse", "fichiers orphelins", 3, 4)
+    report(progress, "analyse", tr("orphan files"), 3, 4)
     nodes_root = result.optix.projet.nodes_root if result.optix else ""
     projet_yaml = [e.rel for e in inventory.entries if e.is_yaml and e.rel.startswith("Nodes/") and e.size_projet is not None]
     runtime_yaml = [e.rel for e in inventory.entries if e.is_yaml and e.rel.startswith("Nodes/") and e.size_runtime is not None]

@@ -14,8 +14,8 @@ from .markdown import build_markdown
 
 _STYLE = """
 body { font-family: Segoe UI, Arial, sans-serif; margin: 2em auto; max-width: 1200px; color: #212121; }
-h1 { border-bottom: 2px solid #1976d2; padding-bottom: .2em; }
-h2 { color: #1976d2; margin-top: 1.6em; }
+h1 { border-bottom: 2px solid #7C3AED; padding-bottom: .2em; }
+h2 { color: #6D28D9; margin-top: 1.6em; }
 h3 { margin-top: 1.2em; }
 table { border-collapse: collapse; margin: .5em 0 1em; font-size: 90%; }
 th, td { border: 1px solid #bdbdbd; padding: .25em .6em; vertical-align: top; text-align: left; }
@@ -81,5 +81,8 @@ def markdown_to_html(md: str, titre: str = "Rapport") -> str:
     )
 
 
-def build_html(c: Comparison, titre: str = "FTOCompare — rapport de comparaison") -> str:
+def build_html(c: Comparison, titre: str | None = None) -> str:
+    from ....common.i18n import tr
+
+    titre = titre or tr("OptixPlus — comparison report")
     return markdown_to_html(build_markdown(c, titre), titre)

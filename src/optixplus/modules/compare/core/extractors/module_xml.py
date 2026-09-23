@@ -13,6 +13,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING
 from dataclasses import dataclass, field
 
+from .....common.i18n import tr
+
 if TYPE_CHECKING:
     from ..nodes import SemanticHunk
 
@@ -133,7 +135,7 @@ def describe_type_mappings(
                 genre="type",
                 noeuds=[nom],
                 chemin=f"TypeMappings/{block.guid}",
-                detail=f"TypeMapping guid={block.guid} présent côté projet seulement",
+                detail=tr("TypeMapping guid={guid} present on the project side only").format(guid=block.guid),
                 nb_lignes_projet=block.end - block.line,
             )
         )
@@ -149,7 +151,7 @@ def describe_type_mappings(
                 genre="type",
                 noeuds=[nom],
                 chemin=f"TypeMappings/{block.guid}",
-                detail=f"TypeMapping guid={block.guid} présent côté runtime seulement (nom inconnu côté projet)",
+                detail=tr("TypeMapping guid={guid} present on the runtime side only (name unknown on the project side)").format(guid=block.guid),
                 nb_lignes_runtime=block.end - block.line,
             )
         )

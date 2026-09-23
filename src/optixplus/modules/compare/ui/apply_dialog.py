@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ....common import theme
+from ....common.i18n import tr
 from ..core.analysis import Comparison
 from ..core.apply import ApplyError, ApplyReport, apply_preview, check_locks
 from ..core.plan import Plan, Preview
@@ -25,7 +27,14 @@ from ..core.progress import Cancelled, Progress
 
 log = logging.getLogger(__name__)
 
-LIBELLE_PHASE = {"sauvegarde": "Sauvegarde", "ecriture": "Écriture et vérification", "integrite": "Contrôle d'intégrité"}
+
+
+def phase_label(phase: str) -> str:
+    return {
+        "sauvegarde": tr("Backup"),
+        "ecriture": tr("Writing and verification"),
+        "integrite": tr("Integrity check"),
+    }.get(phase, phase)
 
 
 class ApplyWorker(QThread):
@@ -51,7 +60,7 @@ class ApplyWorker(QThread):
                 cancel=lambda: self._cancel,
             )
         except (ApplyError, Cancelled) as exc:
-            self.failed.emit(str(exc) or "Annulé — les fichiers déjà écrits ont été restaurés.")
+            self.failed.emit(str(exc) or tr("Cancelled — the files already written were restored."))
         except Exception as exc:  # noqa: BLE001
             log.exception("Échec inattendu de l'application")
             self.failed.emit(f"{type(exc).__name__} : {exc}")
@@ -60,28 +69,30 @@ class ApplyWorker(QThread):
 
 
 def format_report(rapport: ApplyReport) -> str:
-    lines = [f"Sauvegarde : {rapport.backup_dir}" if rapport.backup_dir else "Aucune sauvegarde (rien à écrire)."]
-    lines.append(f"\nFichiers écrits et vérifiés par hash ({len(rapport.ecrits)}) :")
+    lines = [
+        tr("Backup: {folder}").format(folder=rapport.backup_dir) if rapport.backup_dir else tr("No backup (nothing to write).")
+    ]
+    lines.append("\n" + tr("Files written and verified by hash ({n}):").format(n=len(rapport.ecrits)))
     lines += [f"  ✔ {rel}  md5 {md5}" for rel, md5 in rapport.ecrits]
     if rapport.deplaces:
-        lines.append(f"\nFichiers déplacés au rebut ({len(rapport.deplaces)}) :")
+        lines.append("\n" + tr("Files moved to the discard folder ({n}):").format(n=len(rapport.deplaces)))
         lines += [f"  → {rel}  ⇒  {dest}" for rel, dest in rapport.deplaces]
     if rapport.erreurs:
-        lines.append("\nERREURS :")
+        lines.append("\n" + tr("ERRORS:"))
         lines += [f"  ✖ {e}" for e in rapport.erreurs]
     if rapport.avertissements:
-        lines.append("\nAvertissements :")
+        lines.append("\n" + tr("Warnings:"))
         lines += [f"  ⚠ {a}" for a in rapport.avertissements]
     if rapport.references:
-        lines.append(f"\nRéférences restantes ({len(rapport.references)}) :")
+        lines.append("\n" + tr("Remaining references ({n}):").format(n=len(rapport.references)))
         lines += [f"  {r.rel} l.{r.line_no} — {r.name} : {r.text}" for r in rapport.references[:50]]
     if rapport.orphelins_restants:
-        lines.append("\nYAML non référencés :")
+        lines.append("\n" + tr("Unreferenced YAML files:"))
         lines += [f"  {rel}" for rel in rapport.orphelins_restants]
     if rapport.a_faire:
-        lines.append("\nReste à faire à la main :")
+        lines.append("\n" + tr("Still to do by hand:"))
         lines += [f"  • {a}" for a in rapport.a_faire]
-    lines.append(f"\nDurée : {rapport.duree_s:.1f} s")
+    lines.append("\n" + tr("Duration: {seconds:.1f} s").format(seconds=rapport.duree_s))
     return "\n".join(lines)
 
 
@@ -92,7 +103,7 @@ class ApplyDialog(QDialog):
 
     def __init__(self, preview: Preview, plan: Plan, comparison: Comparison, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Appliquer le plan")
+        self.setWindowTitle(tr("Apply the plan"))
         self.resize(900, 650)
         self.preview, self.plan, self.comparison = preview, plan, comparison
         self.worker: ApplyWorker | None = None
@@ -101,20 +112,24 @@ class ApplyDialog(QDialog):
         rels = [c.rel for c in preview.changes] + (preview.orphelins if plan.deplacer_orphelins else [])
         locked = check_locks(comparison.projet_root, rels)
         intro = [
-            f"<b>{len(preview.changes)}</b> fichier(s) seront écrits dans <code>{comparison.projet_root}</code>, "
-            f"après sauvegarde dans un dossier frère horodaté.",
+            tr("<b>{n}</b> file(s) will be written in <code>{folder}</code>, after a backup in a timestamped sibling folder.").format(
+                n=len(preview.changes), folder=comparison.projet_root
+            ),
         ]
         if locked:
             intro.append(
-                f'<span style="color:#c62828"><b>Fichiers verrouillés</b> ({len(locked)}) — le projet est probablement '
-                f"ouvert dans FT Optix : {', '.join(locked[:5])}</span>"
+                f'<span style="color:{theme.current().error}">'
+                + tr("<b>Locked files</b> ({n}) — the project is probably open in FT Optix: {files}").format(
+                    n=len(locked), files=", ".join(locked[:5])
+                )
+                + "</span>"
             )
         else:
-            intro.append("Aucun verrou détecté sur les fichiers à écrire.")
+            intro.append(tr("No lock detected on the files to write."))
         self.intro = QLabel("<br>".join(intro))
         self.intro.setTextFormat(Qt.TextFormat.RichText)
         self.intro.setWordWrap(True)
-        self.confirm = QCheckBox("Je confirme que le projet est fermé dans FT Optix")
+        self.confirm = QCheckBox(tr("I confirm that the project is closed in FT Optix"))
         self.confirm.toggled.connect(self._update_buttons)
         self.phase = QLabel("")
         self.bar = QProgressBar()
@@ -122,8 +137,9 @@ class ApplyDialog(QDialog):
         self.bar.setValue(0)
         self.output = QTextEdit()
         self.output.setReadOnly(True)
-        self.output.setPlaceholderText("Le rapport d'application s'affichera ici.")
-        self.start_button = QPushButton("Appliquer maintenant")
+        self.output.setPlaceholderText(tr("The application report will be shown here."))
+        self.start_button = QPushButton(tr("Apply now"))
+        self.start_button.setProperty("accent", True)
         self.start_button.clicked.connect(self.start)
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         self.buttons.rejected.connect(self.reject)
@@ -151,11 +167,11 @@ class ApplyDialog(QDialog):
         self.worker.failed.connect(self._on_failed)
         self.start_button.setEnabled(False)
         self.confirm.setEnabled(False)
-        self.output.setPlainText("Application en cours…")
+        self.output.setPlainText(tr("Applying…"))
         self.worker.start()
 
     def _on_progress(self, phase: str, current: str, index: int, total: int) -> None:
-        self.phase.setText(f"<b>{LIBELLE_PHASE.get(phase, phase)}</b>  {current}")
+        self.phase.setText(f"<b>{phase_label(phase)}</b>  {current}")
         self.bar.setRange(0, max(total, 1))
         self.bar.setValue(min(index, max(total, 1)))
 
@@ -163,15 +179,17 @@ class ApplyDialog(QDialog):
         self.report = rapport
         self.bar.setRange(0, 1)
         self.bar.setValue(1)
-        self.phase.setText("<b>Terminé</b>" if rapport.succes else "<b>Terminé avec erreurs</b>")
+        self.phase.setText("<b>" + (tr("Done") if rapport.succes else tr("Done with errors")) + "</b>")
         self.output.setPlainText(format_report(rapport))
         self.applied.emit(rapport)
 
     def _on_failed(self, message: str) -> None:
         self.bar.setRange(0, 1)
         self.bar.setValue(0)
-        self.phase.setText('<b style="color:#c62828">Échec — projet restauré</b>')
-        self.output.setPlainText(f"ÉCHEC : {message}\n\nRien n'a été laissé dans un état partiel.")
+        self.phase.setText(f'<b style="color:{theme.current().error}">' + tr("Failed — project restored") + "</b>")
+        self.output.setPlainText(
+            tr("FAILED: {error}").format(error=message) + "\n\n" + tr("Nothing was left in a partial state.")
+        )
         log.error("Application échouée : %s", message)
         self.worker = None
         self.confirm.setEnabled(True)
@@ -180,5 +198,5 @@ class ApplyDialog(QDialog):
     def closeEvent(self, event) -> None:  # noqa: N802
         if self.worker is not None and self.worker.isRunning():
             self.worker.request_cancel()
-            self.worker.wait(10000)
+            self.worker.wait()  # l'annulation restaure les fichiers déjà écrits : on attend la fin
         super().closeEvent(event)

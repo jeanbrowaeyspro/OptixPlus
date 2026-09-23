@@ -24,20 +24,9 @@ from PySide6.QtWidgets import (
 )
 
 from ...core.analysis import Comparison
-from ..style import COULEUR_ETAT, COULEUR_SENS
-
-LIBELLE_ETAT_LIGNE = {
-    "identique": "identique",
-    "runtime_seul": "runtime seul",
-    "projet_seul": "projet seul",
-    "modifie": "modifié",
-}
-COULEUR_ETAT_LIGNE = {
-    "identique": COULEUR_ETAT["identique"],
-    "runtime_seul": COULEUR_SENS["ajout_runtime"],
-    "projet_seul": COULEUR_SENS["branche_projet"],
-    "modifie": COULEUR_SENS["valeur_modifiee"],
-}
+from .....common.i18n import tr
+from ...core.labels import line_state_label
+from ..style import couleur_etat_ligne
 ROLE_ETAT = Qt.ItemDataRole.UserRole + 3
 
 
@@ -70,10 +59,10 @@ class TableView(QWidget):
         self.note.setWordWrap(True)
         self.note.setTextFormat(Qt.TextFormat.RichText)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Filtrer…")
+        self.search.setPlaceholderText(tr("Filter…"))
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(self.proxy.setFilterFixedString)
-        self.only_gaps = QCheckBox("Écarts seuls")
+        self.only_gaps = QCheckBox(tr("Differences only"))
         self.only_gaps.setChecked(True)
         self.only_gaps.toggled.connect(self._toggle)
         self.counter = QLabel("")
@@ -101,7 +90,7 @@ class TableView(QWidget):
         self.model.removeRows(0, self.model.rowCount())
         for values, etat in rows:
             items = [QStandardItem(str(v)) for v in values]
-            couleur = COULEUR_ETAT_LIGNE.get(etat)
+            couleur = couleur_etat_ligne(etat)
             for item in items:
                 item.setData(etat, ROLE_ETAT)
                 if couleur is not None and etat != "identique":
@@ -125,8 +114,8 @@ class TableView(QWidget):
 class TagsView(TableView):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(
-            ["Nom", "Type", "DataType", "SymbolName", "Chemin", "État"],
-            "Tags CoDeSys des deux côtés, indexés par <b>SymbolName</b> : quelles variables l'automate a gagné ou perdu.",
+            [tr("Name"), tr("Type"), "DataType", "SymbolName", tr("Path"), tr("State")],
+            tr("CoDeSys tags on both sides, indexed by <b>SymbolName</b>: which variables the controller gained or lost."),
             parent,
         )
 
@@ -136,13 +125,13 @@ class TagsView(TableView):
             for r in delta.rows:
                 tag = r.ref
                 dtype = tag.data_type + (f"[{tag.array}]" if tag.array else "")
-                rows.append(((tag.name, tag.type, dtype, r.symbol, tag.path, LIBELLE_ETAT_LIGNE[r.etat]), r.etat))
+                rows.append(((tag.name, tag.type, dtype, r.symbol, tag.path, line_state_label(r.etat)), r.etat))
         self.set_rows(rows)
 
 
 class TranslationsView(TableView):
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(["Clé", "État"], "", parent)
+        super().__init__([tr("Key"), tr("State")], "", parent)
 
     def load(self, comparison: Comparison) -> None:
         rows = []
@@ -150,11 +139,13 @@ class TranslationsView(TableView):
         header: list[str] = []
         for rel, delta in comparison.translations.items():
             dp, dr = delta.dimensions_projet, delta.dimensions_runtime
-            coh_p = "cohérent" if delta.projet and delta.projet.coherent else "INCOHÉRENT"
-            coh_r = "cohérent" if delta.runtime and delta.runtime.coherent else "INCOHÉRENT"
+            coh_p = tr("consistent") if delta.projet and delta.projet.coherent else tr("INCONSISTENT")
+            coh_r = tr("consistent") if delta.runtime and delta.runtime.coherent else tr("INCONSISTENT")
             notes.append(
-                f"<b>{rel}</b> — Dimensions projet <b>{list(dp) if dp else '?'}</b> ({coh_p}), "
-                f"runtime <b>{list(dr) if dr else '?'}</b> ({coh_r})"
+                f"<b>{rel}</b> — "
+                + tr("Project dimensions <b>{project}</b> ({project_state}), runtime <b>{runtime}</b> ({runtime_state})").format(
+                    project=list(dp) if dp else "?", project_state=coh_p, runtime=list(dr) if dr else "?", runtime_state=coh_r
+                )
             )
             table = delta.runtime or delta.projet
             if table is not None and not header:
@@ -171,20 +162,22 @@ class TranslationsView(TableView):
                     etat = "modifie"
                 else:
                     etat = "identique"
-                rows.append(((key, *row[1:], LIBELLE_ETAT_LIGNE[etat]), etat))
+                rows.append(((key, *row[1:], line_state_label(etat)), etat))
         self.model.clear()
-        self.colonnes = ["Clé", *header, "État"]
+        self.colonnes = [tr("Key"), *header, tr("State")]
         self.model.setHorizontalHeaderLabels(self.colonnes)
-        self.note.setText("<br>".join(notes) if notes else "Aucun dictionnaire de traductions divergent.")
+        self.note.setText("<br>".join(notes) if notes else tr("No diverging translation dictionary."))
         self.set_rows(rows)
 
 
 class TypesView(TableView):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(
-            ["GUID", "Nom", "État"],
-            "GUID de <b>UserDefinedModule.xml</b>, résolus en noms via <b>TypeConstants.cs</b>. "
-            "L'élagage se fait toujours par GUID, jamais par nom.",
+            ["GUID", tr("Name"), tr("State")],
+            tr(
+                "GUIDs of <b>UserDefinedModule.xml</b>, resolved into names via <b>TypeConstants.cs</b>. "
+                "Pruning is always done by GUID, never by name."
+            ),
             parent,
         )
 
@@ -201,16 +194,18 @@ class TypesView(TableView):
                     etat = "runtime_seul"
                 else:
                     etat = "identique"
-                rows.append(((guid, names.get(guid, "?"), LIBELLE_ETAT_LIGNE[etat]), etat))
+                rows.append(((guid, names.get(guid, "?"), line_state_label(etat)), etat))
         self.set_rows(rows)
 
 
 class StatsView(TableView):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(
-            ["Statistique", "Projet", "Runtime"],
-            "Statistiques du <b>.optix</b> : purement informatives, recalculées par l'IDE à l'ouverture. "
-            "Jamais un critère de comparaison.",
+            [tr("Statistic"), tr("Project"), tr("Runtime")],
+            tr(
+                "Statistics of the <b>.optix</b> file: for information only, recomputed by the IDE when opening. "
+                "Never a comparison criterion."
+            ),
             parent,
         )
         self.only_gaps.setChecked(False)
@@ -227,10 +222,12 @@ class StatsView(TableView):
 class NetLogicView(TableView):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(
-            ["Classe", "Source côté projet", "État"],
-            "Classes présentes dans chaque DLL NetLogic (table TypeDef des métadonnées CLI). "
-            "Les logiques référencent les types par chaîne : un type retiré ne casse pas la compilation, "
-            "mais <code>Project.Current.Find(…)</code> renverra <code>null</code>.",
+            [tr("Class"), tr("Source on the project side"), tr("State")],
+            tr(
+                "Classes present in each NetLogic DLL (TypeDef table of the CLI metadata). "
+                "Logics reference types by string: a removed type does not break the build, "
+                "but <code>Project.Current.Find(…)</code> will return <code>null</code>."
+            ),
             parent,
         )
 
@@ -239,13 +236,13 @@ class NetLogicView(TableView):
         nl = comparison.netlogic
         if nl is not None:
             if nl.erreur:
-                self.note.setText(f"Lecture des DLL impossible : {nl.erreur}")
+                self.note.setText(tr("Cannot read the DLLs: {error}").format(error=nl.erreur))
             r_set, p_set = set(nl.runtime), set(nl.projet)
             for name in nl.projet + [c for c in nl.runtime if c not in p_set]:
                 etat = "projet_seul" if name not in r_set else "runtime_seul" if name not in p_set else "identique"
-                rows.append(((name, nl.sources_projet.get(name, ""), LIBELLE_ETAT_LIGNE[etat]), etat))
+                rows.append(((name, nl.sources_projet.get(name, ""), line_state_label(etat)), etat))
         else:
-            self.note.setText("Aucune DLL NetLogic commune aux deux côtés.")
+            self.note.setText(tr("No NetLogic DLL common to both sides."))
         self.set_rows(rows)
 
 
@@ -259,20 +256,20 @@ class SpecializedTabs(QTabWidget):
         self.types = TypesView()
         self.stats = StatsView()
         self.netlogic = NetLogicView()
-        self.addTab(self.tags, "Tags CoDeSys")
-        self.addTab(self.translations, "Traductions")
-        self.addTab(self.types, "Types utilisateur")
-        self.addTab(self.stats, "Statistiques .optix")
+        self.addTab(self.tags, tr("CoDeSys tags"))
+        self.addTab(self.translations, tr("Translations"))
+        self.addTab(self.types, tr("User types"))
+        self.addTab(self.stats, tr(".optix statistics"))
         self.addTab(self.netlogic, "NetLogic")
 
     def load(self, comparison: Comparison) -> None:
         for view in (self.tags, self.translations, self.types, self.stats, self.netlogic):
             view.load(comparison)
-        self.setTabText(0, f"Tags CoDeSys ({sum(len(d.ecarts()) for d in comparison.tags.values())})")
+        self.setTabText(0, f"{tr('CoDeSys tags')} ({sum(len(d.ecarts()) for d in comparison.tags.values())})")
         n_tr = sum(len(d.runtime_seul) + len(d.projet_seul) + len(d.modifies) for d in comparison.translations.values())
-        self.setTabText(1, f"Traductions ({n_tr})")
+        self.setTabText(1, f"{tr('Translations')} ({n_tr})")
         n_ty = len(comparison.types.projet_seul) + len(comparison.types.runtime_seul) if comparison.types else 0
-        self.setTabText(2, f"Types utilisateur ({n_ty})")
+        self.setTabText(2, f"{tr('User types')} ({n_ty})")
         n_nl = len(comparison.netlogic.projet_seul) + len(comparison.netlogic.runtime_seul) if comparison.netlogic else 0
         self.setTabText(4, f"NetLogic ({n_nl})")
 

@@ -16,8 +16,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from optixplus.modules.compare.core.analysis import compare  # noqa: E402
 from optixplus.modules.compare.core.progress import Cancelled  # noqa: E402
 from optixplus.modules.compare.core.search import compile_pattern, search_inventory  # noqa: E402
-from optixplus.modules.compare.ui.main_window import MainWindow  # noqa: E402
-from optixplus.modules.compare.ui.theme import apply_theme  # noqa: E402
+from optixplus.modules.compare.ui.page import ComparePage as MainWindow  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 RUNTIME = FIXTURES / "runtime" / "IHM_Demo"
@@ -83,35 +82,6 @@ def test_onglet_recherche_pilote_la_vue_diff(app: QApplication, demo, tmp_path: 
     window.close()
 
 
-def test_theme_systeme_sombre_clair_persistant(app: QApplication, tmp_path: Path) -> None:
-    settings = QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
-    window = MainWindow(settings)
-    assert window.theme == "systeme"
-    window.set_theme("sombre")
-    assert settings.value("theme") == "sombre" and window.theme_actions["sombre"].isChecked()
-    assert app.palette().color(app.palette().ColorRole.Window).lightness() < 100
-    window.set_theme("clair")
-    assert settings.value("theme") == "clair" and window.theme_actions["clair"].isChecked()
-    assert app.palette().color(app.palette().ColorRole.Window).lightness() > 200
-    assert app.palette().color(app.palette().ColorRole.Text).lightness() < 60
-    window.close()
-    autre = MainWindow(settings)
-    assert autre.theme == "clair"
-    autre.theme_actions["systeme"].trigger()
-    assert settings.value("theme") == "systeme" and autre.theme == "systeme"
-    autre.close()
-    apply_theme(app, "systeme")
-
-
-def test_ancien_reglage_theme_sombre_repris(app: QApplication, tmp_path: Path) -> None:
-    settings = QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
-    settings.setValue("theme_sombre", True)
-    window = MainWindow(settings)
-    assert window.theme == "sombre"
-    window.set_theme("systeme")
-    window.close()
-
-
 def test_relancer_la_comparaison_conserve_le_plan(app: QApplication, tmp_path: Path) -> None:
     settings = QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
     window = MainWindow(settings)
@@ -130,7 +100,7 @@ def test_relancer_la_comparaison_conserve_le_plan(app: QApplication, tmp_path: P
     app.processEvents()
     assert window.comparison is not premiere and window.stack.currentWidget() is window.results_page
     assert window.results_page.plan.nb_pris() == 3
-    assert "Décisions conservées : 3" in window.statusBar().currentMessage()
+    assert "Décisions conservées : 3" in window.status.text()
     window.close()
 
 

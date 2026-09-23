@@ -1,60 +1,54 @@
-"""Couleurs, pastilles et libellés partagés par les vues."""
+"""Couleurs et pastilles partagées par les vues ; les libellés sont dans ``core.labels``.
+
+Les couleurs viennent de la palette du thème d'OptixPlus (et non plus de couleurs Material
+codées en dur) : elles restent lisibles en clair comme en sombre.
+"""
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 
-# État d'un fichier (inventaire)
-COULEUR_ETAT: dict[str, QColor] = {
-    "identique": QColor("#9e9e9e"),
-    "different": QColor("#f57c00"),
-    "runtime_seul": QColor("#1976d2"),
-    "projet_seul": QColor("#7b1fa2"),
-    "attendu": QColor("#bdbdbd"),
-}
-LIBELLE_ETAT: dict[str, str] = {
-    "identique": "identique",
-    "different": "différent",
-    "runtime_seul": "runtime seul",
-    "projet_seul": "projet seul",
-    "attendu": "attendu",
-}
+from ....common import theme
+from ....common.i18n import tr
 
-# Sens d'un hunk (résumé sémantique)
-COULEUR_SENS: dict[str, QColor] = {
-    "ajout_runtime": QColor("#2e7d32"),
-    "branche_projet": QColor("#c62828"),
-    "valeur_modifiee": QColor("#ef6c00"),
-    "mixte": QColor("#6a1b9a"),
-    "non_significatif": QColor("#9e9e9e"),
-    "identique": QColor("#9e9e9e"),
-}
-SYMBOLE_SENS: dict[str, str] = {
-    "ajout_runtime": "➕",
-    "branche_projet": "➖",
-    "valeur_modifiee": "✏️",
-    "mixte": "⇄",
-    "non_significatif": "·",
-    "identique": "=",
-}
-LIBELLE_SENS: dict[str, str] = {
-    "ajout_runtime": "ajout runtime",
-    "branche_projet": "branche projet",
-    "valeur_modifiee": "valeur modifiée",
-    "mixte": "mixte",
-    "non_significatif": "non significatif",
-    "identique": "identique",
-}
-LIBELLE_GENRE: dict[str, str] = {
-    "bloc": "bloc",
-    "fichier": "référence de fichier",
-    "valeur": "valeur",
-    "id": "identifiant",
-    "dimensions": "compteur dérivé",
-    "lignes": "lignes",
-    "deplacement": "déplacement",
-}
+
+def couleur_etat(status: str) -> QColor:
+    """Couleur de l'état d'un fichier (inventaire)."""
+    p = theme.current()
+    return QColor(
+        {
+            "identique": p.text_muted,
+            "different": p.warning,
+            "runtime_seul": p.info,
+            "projet_seul": p.accent,
+            "attendu": p.text_muted,
+        }.get(status, p.text_muted)
+    )
+
+
+def couleur_sens(sens: str) -> QColor:
+    """Couleur du sens d'un écart : vert ajout, rouge branche projet, orange valeur."""
+    p = theme.current()
+    return QColor(
+        {
+            "ajout_runtime": p.success,
+            "branche_projet": p.error,
+            "valeur_modifiee": p.warning,
+            "mixte": p.accent,
+        }.get(sens, p.text_muted)
+    )
+
+
+def couleur_etat_ligne(state: str) -> QColor | None:
+    """Couleur d'une ligne des vues spécialisées."""
+    return {
+        "identique": couleur_etat("identique"),
+        "runtime_seul": couleur_sens("ajout_runtime"),
+        "projet_seul": couleur_sens("branche_projet"),
+        "modifie": couleur_sens("valeur_modifiee"),
+    }.get(state)
+
 
 _ICONES: dict[str, QIcon] = {}
 
@@ -81,7 +75,7 @@ def taille_lisible(octets: int | None) -> str:
     if octets is None:
         return "—"
     if octets < 1024:
-        return f"{octets} o"
+        return tr("{n} B").format(n=octets)
     if octets < 1024 * 1024:
-        return f"{octets / 1024:.1f} Ko"
-    return f"{octets / (1024 * 1024):.2f} Mo"
+        return tr("{n:.1f} KB").format(n=octets / 1024)
+    return tr("{n:.2f} MB").format(n=octets / (1024 * 1024))

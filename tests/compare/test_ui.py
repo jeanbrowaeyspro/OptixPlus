@@ -17,8 +17,8 @@ pytest.importorskip("PySide6")
 from PySide6.QtCore import QEventLoop, QSettings, QTimer  # noqa: E402
 from PySide6.QtWidgets import QApplication, QTreeWidgetItem  # noqa: E402
 
-from optixplus.modules.compare.ui.main_window import MainWindow, ProgressPage  # noqa: E402
-from optixplus.modules.compare.ui.results_page import BRANCHE_ATTENDUS, ROLE_KIND  # noqa: E402
+from optixplus.modules.compare.ui.page import ComparePage as MainWindow, ProgressPage  # noqa: E402
+from optixplus.modules.compare.ui.results_page import ROLE_KIND, branche_attendus  # noqa: E402
 from optixplus.modules.compare.ui.semantic_view import SemanticModel  # noqa: E402
 from optixplus.modules.compare.ui.setup_page import SetupPage  # noqa: E402
 from optixplus.modules.compare.ui.workers import CompareWorker  # noqa: E402
@@ -187,7 +187,7 @@ def test_bandeau_et_arbre(window: MainWindow) -> None:
     assert _find(root, "Orphelin.yaml").text(2) == "projet seul"
     assert _find(root, "logo.svg") is None, "filtre « divergences seules »"
 
-    attendus = [tree.topLevelItem(k) for k in range(tree.topLevelItemCount()) if tree.topLevelItem(k).text(0) == BRANCHE_ATTENDUS]
+    attendus = [tree.topLevelItem(k) for k in range(tree.topLevelItemCount()) if tree.topLevelItem(k).text(0) == branche_attendus()]
     assert len(attendus) == 1 and not attendus[0].isExpanded()
     assert attendus[0].data(0, ROLE_KIND) == "attendus"
     noms = {attendus[0].child(k).text(0) for k in range(attendus[0].childCount())}
@@ -247,12 +247,14 @@ def test_modele_semantique_affichage(window: MainWindow) -> None:
 def test_nouvelle_comparaison_et_journal(window: MainWindow) -> None:
     window.action_new.trigger()
     assert window.stack.currentWidget() is window.setup_page
-    assert "Comparaison" in window.log_panel.toPlainText()
+    from optixplus.common.logging_setup import memory_handler
+
+    assert any("Comparaison" in text for text, _level in memory_handler().buffer)
 
 
 def test_export_rapport(window: MainWindow, tmp_path: Path) -> None:
     md = window.export_report(str(tmp_path / "rapport.md"))
     html = window.export_report(str(tmp_path / "rapport.html"))
-    assert md and Path(md).read_text(encoding="utf-8").startswith("# FTOCompare")
+    assert md and Path(md).read_text(encoding="utf-8").startswith("# OptixPlus")
     assert html and Path(html).read_text(encoding="utf-8").startswith("<!DOCTYPE html>")
     assert window.action_export.isEnabled()

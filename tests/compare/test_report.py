@@ -20,7 +20,7 @@ def demo():
 
 def test_markdown_complet(demo) -> None:
     md = build_markdown(demo)
-    assert md.startswith("# FTOCompare")
+    assert md.startswith("# OptixPlus — rapport de comparaison")
     for section in ("## 1. Synthèse", "## 2. Fichiers divergents", "## 3. Résumé sémantique", "## 4. Vues spécialisées"):
         assert section in md
     assert "`1.3.2.9-Stable`" in md and "✅ identiques" in md

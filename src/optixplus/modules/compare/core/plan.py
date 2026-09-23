@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from ....common.i18n import tr
 from .analysis import TYPE_CONSTANTS, UI_TYPE_DEFINITIONS, USER_DEFINED_MODULE, Comparison, FileDiff
 from .diffing import Opcode, compute_opcodes, merge_lines
 from .extractors.generated_cs import prune_type_constants, prune_ui_type_definitions
@@ -31,11 +32,6 @@ log = logging.getLogger(__name__)
 
 Decision = Literal["ignorer", "prendre_runtime", "garder_projet"]
 DECISIONS: tuple[Decision, ...] = ("ignorer", "prendre_runtime", "garder_projet")
-LIBELLE_DECISION: dict[str, str] = {
-    "ignorer": "Ignorer",
-    "prendre_runtime": "Prendre le runtime",
-    "garder_projet": "Garder le projet",
-}
 HunkKey = tuple[str, Opcode]
 
 REBUT_DIR = "_FTOCompare_Rebut"
@@ -302,7 +298,7 @@ def build_preview(plan: Plan, comparison: Comparison) -> Preview:
             rel=rel,
             old=fd.projet.to_bytes(),
             new=b"",
-            origine="alignement complet sur le runtime" if complet else "décisions",
+            origine=tr("full alignment on the runtime") if complet else tr("decisions"),
         )
         for s in fd.semantic:
             if s.hunk.as_opcode() not in retained_keys:
@@ -318,7 +314,7 @@ def build_preview(plan: Plan, comparison: Comparison) -> Preview:
         if rel in comparison.translations:
             new_lines, fixed = fix_dimensions(new_lines)
             if fixed:
-                change.notes.append(f"Dimensions recalculées : {fixed[0]} → {fixed[1]}")
+                change.notes.append(tr("Dimensions recomputed: {before} → {after}").format(before=fixed[0], after=fixed[1]))
         change.new = TextFile(lines=new_lines, eol=fd.projet.eol, final_eol=fd.projet.final_eol, bom=fd.projet.bom).to_bytes()
         if fd.entry.is_yaml:
             avant = _file_refs(fd.projet.lines, rel)
@@ -326,7 +322,7 @@ def build_preview(plan: Plan, comparison: Comparison) -> Preview:
             for ref in sorted(avant - apres):
                 if (projet_root / ref).is_file():
                     preview.orphelins.append(ref)
-                    change.notes.append(f"{ref} devient orphelin")
+                    change.notes.append(tr("{name} becomes an orphan").format(name=ref))
         if change.new != change.old:
             preview.changes.append(change)
 
@@ -341,8 +337,10 @@ def build_preview(plan: Plan, comparison: Comparison) -> Preview:
         if len(after_list) != len(after):
             doublons = sorted({g for g in after_list if after_list.count(g) > 1})
             preview.avertissements.append(
-                f"{USER_DEFINED_MODULE} : {len(doublons)} GUID en double après fusion — ne pas appliquer en l'état "
-                "(un TypeMapping déplacé a été pris pour un ajout)."
+                tr(
+                    "{file}: {n} duplicate GUID(s) after merging — do not apply as is "
+                    "(a moved TypeMapping was taken for an addition)."
+                ).format(file=USER_DEFINED_MODULE, n=len(doublons))
             )
         removed = sorted(before - after)
         if removed:
@@ -357,16 +355,22 @@ def build_preview(plan: Plan, comparison: Comparison) -> Preview:
                 new = TextFile(lines=pruned, eol=tf.eol, final_eol=tf.final_eol, bom=tf.bom).to_bytes()
                 old = tf.to_bytes()
                 if new != old:
-                    change = FileChange(rel=rel, old=old, new=new, origine="dérivé : élagage par GUID", nb_retraits=len(removed))
-                    change.notes.append(f"{len(removed)} type(s) retiré(s) : " + ", ".join(n for _g, n in preview.types_retires))
+                    change = FileChange(rel=rel, old=old, new=new, origine=tr("derived: pruning by GUID"), nb_retraits=len(removed))
+                    change.notes.append(
+                        tr("{n} type(s) removed: {names}").format(
+                            n=len(removed), names=", ".join(n for _g, n in preview.types_retires)
+                        )
+                    )
                     erreur = check_braces(rel, new)
                     if erreur:
                         preview.avertissements.append(erreur)
                     preview.changes.append(change)
             if comparison.netlogic is not None and comparison.netlogic.sources_projet:
                 preview.avertissements.append(
-                    "Des types sont retirés : les logiques qui les cherchent par chaîne "
-                    "(Project.Current.Find(\"…\")) renverront null à l'exécution. Compilation intacte."
+                    tr(
+                        "Types are removed: the logics that look for them by string "
+                        "(Project.Current.Find(\"…\")) will return null at run time. The build is intact."
+                    )
                 )
 
     if plan.copier_statistiques and comparison.optix is not None:
@@ -376,7 +380,7 @@ def build_preview(plan: Plan, comparison: Comparison) -> Preview:
                 r = read_text_file(comparison.runtime_root / entry.rel)
                 new = TextFile(lines=copy_statistics(p.lines, r.lines), eol=p.eol, final_eol=p.final_eol, bom=p.bom).to_bytes()
                 if new != p.to_bytes():
-                    preview.changes.append(FileChange(entry.rel, p.to_bytes(), new, "statistiques .optix (cosmétique)"))
+                    preview.changes.append(FileChange(entry.rel, p.to_bytes(), new, tr(".optix statistics (cosmetic)")))
                 break
 
     preview.noms_retires = sorted({n for n in removed_names if n not in {nm for _g, nm in preview.types_retires}})
@@ -386,11 +390,17 @@ def build_preview(plan: Plan, comparison: Comparison) -> Preview:
         preview.references = [r for r in preview.references if r.rel not in plan.alignement_complet or r.rel not in overrides]
         if preview.references:
             preview.avertissements.append(
-                f"{len(preview.references)} référence(s) restante(s) à des nœuds ou types retirés — à vérifier avant d'appliquer."
+                tr("{n} remaining reference(s) to removed nodes or types — check before applying.").format(n=len(preview.references))
             )
     if preview.orphelins:
-        action = "déplacés dans " + REBUT_DIR if plan.deplacer_orphelins else "laissés en place (ignorés par Optix)"
-        preview.avertissements.append(f"{len(preview.orphelins)} fichier(s) YAML deviennent orphelins : {action}.")
+        action = (
+            tr("moved to {folder}").format(folder=REBUT_DIR)
+            if plan.deplacer_orphelins
+            else tr("left in place (ignored by Optix)")
+        )
+        preview.avertissements.append(
+            tr("{n} YAML file(s) become orphans: {action}.").format(n=len(preview.orphelins), action=action)
+        )
     return preview
 
 

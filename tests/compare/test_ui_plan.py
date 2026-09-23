@@ -17,7 +17,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 from optixplus.modules.compare.core.analysis import compare  # noqa: E402
 from optixplus.modules.compare.core.lines import md5_of_file  # noqa: E402
 from optixplus.modules.compare.ui.apply_dialog import format_report  # noqa: E402
-from optixplus.modules.compare.ui.main_window import MainWindow  # noqa: E402
+from optixplus.modules.compare.ui.page import ComparePage as MainWindow  # noqa: E402
 from optixplus.modules.compare.ui.results_page import ResultsPage  # noqa: E402
 from optixplus.modules.compare.ui.semantic_view import SemanticModel  # noqa: E402
 
@@ -110,6 +110,7 @@ def test_previsualisation_puis_application_et_restauration(app: QApplication, co
 
     dialog = page.open_plan_dialog()
     assert dialog is not None
+    assert dialog.wait_ready()  # la prévisualisation est calculée en arrière-plan
     assert dialog.files.count() == 2 and "2</b> fichier(s)" in dialog.summary.text()
     assert dialog.diff.nb_hunks() >= 1 and dialog.apply_button.isEnabled()
     dialog.files.setCurrentRow(1)
@@ -120,15 +121,19 @@ def test_previsualisation_puis_application_et_restauration(app: QApplication, co
     assert dialog.save_plan_file(plan_path) == plan_path
     page.plan.tout_ignorer(page.comparison)
     dialog.refresh()
+    assert dialog.wait_ready()
     assert dialog.files.count() == 0 and not dialog.apply_button.isEnabled()
     assert dialog.load_plan_file(plan_path) == []
+    assert dialog.wait_ready()
     assert page.plan.nb_pris() == 3 and dialog.files.count() == 2
     assert page.semantic.preview_button.isEnabled()
 
     # Options dérivées.
     dialog.copy_stats.setChecked(True)
+    assert dialog.wait_ready()
     assert dialog.files.count() == 3 and any("optix" in dialog.files.item(k).text() for k in range(3))
     dialog.copy_stats.setChecked(False)
+    assert dialog.wait_ready()
 
     # Application : confirmation obligatoire, puis rapport, puis proposition de relance (refusée ici).
     apply_dialog = page.open_apply_dialog(dialog.preview, dialog)
@@ -172,6 +177,7 @@ def test_application_refusee_si_verrou(app: QApplication, couple: tuple[Path, Pa
         page.set_comparison(compare(runtime, projet))
         page.semantic.mass_action("ajouts", tout=True)
         dialog = page.open_plan_dialog()
+        assert dialog.wait_ready()
         apply_dialog = page.open_apply_dialog(dialog.preview, dialog)
         assert "verrouillés" in apply_dialog.intro.text()
         apply_dialog.confirm.setChecked(True)

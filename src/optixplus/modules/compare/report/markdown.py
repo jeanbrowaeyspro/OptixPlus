@@ -1,6 +1,8 @@
 """Rapport Markdown : synthèse, inventaire, résumé sémantique complet, vues spécialisées.
 
-Le niveau de détail visé est celui de ``docs/cas-reel.md``.
+Le niveau de détail visé est celui de ``docs/cas-reel.md`` (FTOCompare). Le rapport est
+rédigé dans la langue de l'interface au moment de l'export ; les libellés d'état et de sens
+viennent de ``core.labels``, source unique partagée avec l'interface.
 """
 
 from __future__ import annotations
@@ -8,10 +10,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from datetime import datetime
 
+from ....common.i18n import tr
 from ..core.analysis import Comparison, FileDiff
-from ..core.diffing import LIBELLE_SENS
-
-SYMBOLE = {"ajout_runtime": "➕", "branche_projet": "➖", "valeur_modifiee": "✏️"}
+from ..core.labels import SYMBOLE_SENS, etat_label, sens_label
 
 
 def _cell(text: object) -> str:
@@ -28,21 +29,21 @@ def table(header: Iterable[str], rows: Iterable[Iterable[object]]) -> str:
 
 def _section_synthese(c: Comparison) -> str:
     s = c.synthese()
-    compat = "✅ identiques" if s.versions_compatibles else "⚠️ **différentes — résultats à interpréter avec prudence**"
+    compat = "✅ " + tr("identical (versions)") if s.versions_compatibles else "⚠️ **" + tr("different — interpret the results with care") + "**"
     rows = [
-        ("Runtime (référence)", str(c.runtime_root)),
-        ("Projet (à corriger)", str(c.projet_root)),
-        ("Version IDE", f"runtime `{s.version_runtime}` ⇄ projet `{s.version_projet}` — {compat}"),
-        ("Fichiers comparés", f"{s.nb_fichiers_compares} (dont {s.nb_yaml_communs} YAML)"),
-        ("Divergences", f"{s.nb_divergents} (dont {s.nb_yaml_divergents} YAML)"),
-        ("➕ Ajouts runtime", s.nb_ajouts_runtime),
-        ("➖ Branche projet", s.nb_branche_projet),
-        ("✏️ Valeurs modifiées", s.nb_valeurs_modifiees),
-        ("Écarts non significatifs", s.nb_non_significatifs),
-        ("Fichiers attendus d'un seul côté", s.nb_attendus),
-        ("Durée de l'analyse", f"{s.duree_s:.1f} s"),
+        (tr("Runtime (reference)"), str(c.runtime_root)),
+        (tr("Project (to fix)"), str(c.projet_root)),
+        (tr("IDE version"), tr("runtime `{runtime}` ⇄ project `{project}`").format(runtime=s.version_runtime, project=s.version_projet) + f" — {compat}"),
+        (tr("Compared files"), tr("{n} (including {yaml} YAML)").format(n=s.nb_fichiers_compares, yaml=s.nb_yaml_communs)),
+        (tr("Differences"), tr("{n} (including {yaml} YAML)").format(n=s.nb_divergents, yaml=s.nb_yaml_divergents)),
+        ("➕ " + tr("Runtime additions"), s.nb_ajouts_runtime),
+        ("➖ " + tr("Project branch"), s.nb_branche_projet),
+        ("✏️ " + tr("Modified values"), s.nb_valeurs_modifiees),
+        (tr("Non-significant differences"), s.nb_non_significatifs),
+        (tr("Files expected on one side only"), s.nb_attendus),
+        (tr("Analysis duration"), f"{s.duree_s:.1f} s"),
     ]
-    return "## 1. Synthèse\n\n" + table(("", ""), rows)
+    return "## 1. " + tr("Summary") + "\n\n" + table(("", ""), rows)
 
 
 def _section_inventaire(c: Comparison) -> str:
@@ -50,16 +51,28 @@ def _section_inventaire(c: Comparison) -> str:
     rows = []
     for e in inv.divergents():
         fd = c.diffs.get(e.rel)
-        sens = LIBELLE_SENS.get(fd.sens, fd.sens) if fd else {"runtime_seul": "runtime seul", "projet_seul": "projet seul"}.get(e.status, e.status)
-        rows.append((f"`{e.rel}`", sens, e.size_projet if e.size_projet is not None else "—", e.size_runtime if e.size_runtime is not None else "—", len(fd.significatifs) if fd else ""))
-    out = ["## 2. Fichiers divergents", "", table(("Fichier", "Sens", "Taille projet", "Taille runtime", "Écarts"), rows)]
+        sens = sens_label(fd.sens) if fd else etat_label(e.status)
+        rows.append(
+            (
+                f"`{e.rel}`",
+                sens,
+                e.size_projet if e.size_projet is not None else "—",
+                e.size_runtime if e.size_runtime is not None else "—",
+                len(fd.significatifs) if fd else "",
+            )
+        )
+    out = [
+        "## 2. " + tr("Diverging files"),
+        "",
+        table((tr("File"), tr("Direction"), tr("Project size"), tr("Runtime size"), tr("Differences")), rows),
+    ]
     orphelins = c.orphelins_projet + c.orphelins_runtime
     if orphelins:
-        out += ["", "⚠️ YAML orphelins (non référencés par un `- File:`) :", ""]
+        out += ["", "⚠️ " + tr("Orphan YAML files (not referenced by a `- File:`):"), ""]
         out += [f"- `{rel}`" for rel in orphelins]
     attendus = inv.attendus()
     if attendus:
-        out += ["", f"### Différences structurelles normales ({len(attendus)} fichiers, non comptées)", ""]
+        out += ["", "### " + tr("Normal structural differences ({n} files, not counted)").format(n=len(attendus)), ""]
         raisons: dict[str, int] = {}
         for e in attendus:
             raisons[e.raison_attendu] = raisons.get(e.raison_attendu, 0) + 1
@@ -68,62 +81,107 @@ def _section_inventaire(c: Comparison) -> str:
 
 
 def _section_semantique(c: Comparison) -> str:
-    out = ["## 3. Résumé sémantique", ""]
+    out = ["## 3. " + tr("Semantic summary"), ""]
     for rel, fd in c.diffs.items():
-        out.append(f"### `{rel}` — {LIBELLE_SENS.get(fd.sens, fd.sens)}")
+        out.append(f"### `{rel}` — {sens_label(fd.sens)}")
         out.append("")
         rows = []
         for s in fd.semantic:
-            sens = f"{SYMBOLE.get(s.sens, '')} {LIBELLE_SENS[s.sens]}" if s.significatif else "· non significatif"
+            sens = f"{SYMBOLE_SENS.get(s.sens, '')} {sens_label(s.sens)}" if s.significatif else "· " + sens_label("non_significatif")
             rows.append((sens, ", ".join(f"`{n}`" for n in s.noeuds) or "—", s.chemin, s.detail))
-        out.append(table(("Sens", "Nœud", "Chemin", "Détail"), rows))
+        out.append(table((tr("Direction"), tr("Node"), tr("Path"), tr("Detail")), rows))
         out.append("")
     return "\n".join(out)
 
 
 def _section_specialisees(c: Comparison) -> str:
-    out = ["## 4. Vues spécialisées", ""]
+    out = ["## 4. " + tr("Specialised views"), ""]
     for rel, d in c.tags.items():
-        out += [f"### Tags CoDeSys — `{rel}`", ""]
+        out += [f"### {tr('CoDeSys tags')} — `{rel}`", ""]
         if d.runtime_seul:
-            out += ["Présents dans le **runtime**, absents du projet :", ""]
-            out.append(table(("Tag", "Type", "DataType", "SymbolName", "Membres"), [(t.name, t.type, t.data_type + (f"[{t.array}]" if t.array else ""), f"`{t.symbol}`", ", ".join(t.membres)) for t in d.runtime_seul]))
+            out += [tr("Present in the **runtime**, missing from the project:"), ""]
+            out.append(
+                table(
+                    ("Tag", tr("Type"), "DataType", "SymbolName", tr("Members")),
+                    [
+                        (t.name, t.type, t.data_type + (f"[{t.array}]" if t.array else ""), f"`{t.symbol}`", ", ".join(t.membres))
+                        for t in d.runtime_seul
+                    ],
+                )
+            )
             out.append("")
         if d.projet_seul:
-            out += ["Présents dans le **projet**, absents du runtime :", ""]
-            out.append(table(("Tag", "Type", "SymbolName", "Membres"), [(t.name, t.type, f"`{t.symbol}`", ", ".join(t.membres)) for t in d.projet_seul]))
+            out += [tr("Present in the **project**, missing from the runtime:"), ""]
+            out.append(
+                table(
+                    ("Tag", tr("Type"), "SymbolName", tr("Members")),
+                    [(t.name, t.type, f"`{t.symbol}`", ", ".join(t.membres)) for t in d.projet_seul],
+                )
+            )
             out.append("")
         if d.modifies:
-            out += ["Modifiés (type, DataType ou dimensions) :", ""]
-            out.append(table(("SymbolName", "Projet", "Runtime"), [(r.symbol, " ".join(r.projet.signature()), " ".join(r.runtime.signature())) for r in d.modifies if r.projet and r.runtime]))
+            out += [tr("Modified (type, DataType or dimensions):"), ""]
+            out.append(
+                table(
+                    ("SymbolName", tr("Project"), tr("Runtime")),
+                    [(r.symbol, " ".join(r.projet.signature()), " ".join(r.runtime.signature())) for r in d.modifies if r.projet and r.runtime],
+                )
+            )
             out.append("")
     for rel, d in c.translations.items():
-        out += [f"### Traductions — `{rel}`", "", f"Dimensions : projet `{list(d.dimensions_projet or ())}` ⇄ runtime `{list(d.dimensions_runtime or ())}`", ""]
+        out += [
+            f"### {tr('Translations')} — `{rel}`",
+            "",
+            tr("Dimensions: project `{project}` ⇄ runtime `{runtime}`").format(
+                project=list(d.dimensions_projet or ()), runtime=list(d.dimensions_runtime or ())
+            ),
+            "",
+        ]
         header = (d.runtime or d.projet).header if (d.runtime or d.projet) else []
+        key = [tr("key")]
         if d.runtime_seul:
-            out += ["Lignes présentes côté runtime seulement :", "", table(header or ["clé"], d.runtime_seul), ""]
+            out += [tr("Lines present on the runtime side only:"), "", table(header or key, d.runtime_seul), ""]
         if d.projet_seul:
-            out += ["Lignes présentes côté projet seulement :", "", table(header or ["clé"], d.projet_seul), ""]
+            out += [tr("Lines present on the project side only:"), "", table(header or key, d.projet_seul), ""]
         if d.modifies:
-            out += ["Lignes modifiées (projet puis runtime) :", "", table(header or ["clé"], [r for pair in d.modifies for r in pair]), ""]
+            out += [tr("Modified lines (project then runtime):"), "", table(header or key, [r for pair in d.modifies for r in pair]), ""]
     if c.types is not None and (c.types.projet_seul or c.types.runtime_seul):
-        out += ["### Types utilisateur — `ProjectFiles/UserDefinedModule.xml`", "", f"{len(c.types.projet)} TypeMapping côté projet, {len(c.types.runtime)} côté runtime.", ""]
-        rows = [(g, c.type_names.get(g, "?"), "projet seul") for g in c.types.projet_seul] + [(g, c.type_names.get(g, "?"), "runtime seul") for g in c.types.runtime_seul]
-        out += [table(("GUID", "Nom", "État"), rows), ""]
+        out += [
+            f"### {tr('User types')} — `ProjectFiles/UserDefinedModule.xml`",
+            "",
+            tr("{project} TypeMapping on the project side, {runtime} on the runtime side.").format(
+                project=len(c.types.projet), runtime=len(c.types.runtime)
+            ),
+            "",
+        ]
+        rows = [(g, c.type_names.get(g, "?"), etat_label("projet_seul")) for g in c.types.projet_seul] + [
+            (g, c.type_names.get(g, "?"), etat_label("runtime_seul")) for g in c.types.runtime_seul
+        ]
+        out += [table(("GUID", tr("Name"), tr("State")), rows), ""]
     if c.netlogic is not None and (c.netlogic.projet_seul or c.netlogic.runtime_seul):
-        out += ["### NetLogic — classes des DLL", ""]
-        rows = [(n, c.netlogic.sources_projet.get(n, ""), "projet seul") for n in c.netlogic.projet_seul] + [(n, "", "runtime seul") for n in c.netlogic.runtime_seul]
-        out += [table(("Classe", "Source projet", "État"), rows), ""]
+        out += ["### " + tr("NetLogic — DLL classes"), ""]
+        rows = [(n, c.netlogic.sources_projet.get(n, ""), etat_label("projet_seul")) for n in c.netlogic.projet_seul] + [
+            (n, "", etat_label("runtime_seul")) for n in c.netlogic.runtime_seul
+        ]
+        out += [table((tr("Class"), tr("Project source"), tr("State")), rows), ""]
     if c.optix is not None:
-        out += ["### Statistiques `.optix` (informatives, recalculées par l'IDE)", "", table(("Statistique", "Projet", "Runtime"), [(k, "" if p is None else p, "" if r is None else r) for k, p, r in c.optix.stats_rows()]), ""]
+        out += [
+            "### " + tr("`.optix` statistics (for information, recomputed by the IDE)"),
+            "",
+            table(
+                (tr("Statistic"), tr("Project"), tr("Runtime")),
+                [(k, "" if p is None else p, "" if r is None else r) for k, p, r in c.optix.stats_rows()],
+            ),
+            "",
+        ]
     return "\n".join(out)
 
 
-def build_markdown(c: Comparison, titre: str = "FTOCompare — rapport de comparaison") -> str:
+def build_markdown(c: Comparison, titre: str | None = None) -> str:
     parts = [
-        f"# {titre}",
+        f"# {titre or tr('OptixPlus — comparison report')}",
         "",
-        f"Généré le {datetime.now():%Y-%m-%d %H:%M} par FTOCompare.",
+        tr("Generated on {date} by OptixPlus (Compare).").format(date=f"{datetime.now():%Y-%m-%d %H:%M}"),
         "",
         _section_synthese(c),
         "",
@@ -138,7 +196,9 @@ def build_markdown(c: Comparison, titre: str = "FTOCompare — rapport de compar
 
 def diffs_summary(diffs: Iterable[FileDiff]) -> str:
     """Résumé court multi-fichiers, réutilisé par les boîtes de dialogue."""
-    lines = []
-    for fd in diffs:
-        lines.append(f"{fd.rel} : {fd.nb_ajouts_runtime} ajouts, {fd.nb_branche_projet} retraits, {fd.nb_valeurs_modifiees} valeurs")
-    return "\n".join(lines)
+    return "\n".join(
+        tr("{file}: {additions} additions, {removals} removals, {values} values").format(
+            file=fd.rel, additions=fd.nb_ajouts_runtime, removals=fd.nb_branche_projet, values=fd.nb_valeurs_modifiees
+        )
+        for fd in diffs
+    )

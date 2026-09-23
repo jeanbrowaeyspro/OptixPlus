@@ -25,6 +25,7 @@ from bisect import bisect_right
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from ....common.i18n import tr, tr_n
 from .diffing import Hunk, Opcode, Sens
 
 _NODE_RE = re.compile(rb"^( *)(- )?(Name|File): ?(.*)$")
@@ -217,17 +218,20 @@ class SemanticHunk:
     @property
     def libelle(self) -> str:
         """Une ligne lisible : « bloc `Fault_X` présent côté projet uniquement — 22 lignes »."""
-        noms = ", ".join(f"`{n}`" for n in self.noeuds) if self.noeuds else "(sans nœud)"
+        noms = ", ".join(f"`{n}`" for n in self.noeuds) if self.noeuds else tr("(no node)")
         if self.genre in ("bloc", "fichier"):
             ou = {
-                "ajout_runtime": "présent côté runtime uniquement",
-                "branche_projet": "présent côté projet uniquement",
-                "valeur_modifiee": "différent des deux côtés",
+                "ajout_runtime": tr("present on the runtime side only"),
+                "branche_projet": tr("present on the project side only"),
+                "valeur_modifiee": tr("different on both sides"),
             }[self.sens]
-            quoi = "référence de fichier" if self.genre == "fichier" else ("bloc" if len(self.noeuds) == 1 else "blocs")
+            if self.genre == "fichier":
+                quoi = tr("file reference")
+            else:
+                quoi = tr_n("block", "blocks", len(self.noeuds))
             return f"{quoi} {noms} {ou} — {self.detail}"
         if self.genre == "id":
-            return f"identifiant de {noms} — {self.detail}"
+            return tr("identifier of {names}").format(names=noms) + f" — {self.detail}"
         return f"{noms} — {self.detail}"
 
 
@@ -285,8 +289,8 @@ def _describe_block(index: NodeIndex, node: NodeRef) -> str:
         dtype = f" {dt}" if dt and node_type != "TagStructure" else ""
         arr = f"[{dims.strip('[]')}]" if dims else ""
         return f"{genre} {node_type}{dtype}{arr} — {symbol or '?'}"
-    what = props.get("Supertype") or node_type or "nœud"
-    return f"bloc {what}, {node.nb_lignes} lignes"
+    what = props.get("Supertype") or node_type or tr("node")
+    return tr("block {what}, {n} lines").format(what=what, n=node.nb_lignes)
 
 
 def structure_symbol(index: NodeIndex, node: NodeRef) -> str | None:
@@ -331,9 +335,9 @@ def describe_hunk(hunk: Hunk, a_index: NodeIndex, b_index: NodeIndex) -> Semanti
             genre="id",
             noeuds=[node.name] if node else [],
             chemin=node.path if node else "",
-            detail="identifiant présent côté projet seulement, à conserver"
+            detail=tr("identifier present on the project side only, to keep")
             if sens == "branche_projet"
-            else "identifiant présent côté runtime seulement",
+            else tr("identifier present on the runtime side only"),
             significatif=False,
             nb_lignes_projet=nb_a,
             nb_lignes_runtime=nb_b,
@@ -351,7 +355,7 @@ def describe_hunk(hunk: Hunk, a_index: NodeIndex, b_index: NodeIndex) -> Semanti
                 noeuds=[node.name] if node else [],
                 chemin=node.path if node else "",
                 detail=f"Dimensions [{ma.group(1).decode()},{ma.group(2).decode()}] → "
-                f"[{mb.group(1).decode()},{mb.group(2).decode()}] (recalculé à partir des lignes)",
+                f"[{mb.group(1).decode()},{mb.group(2).decode()}] " + tr("(recomputed from the lines)"),
                 significatif=False,
                 nb_lignes_projet=nb_a,
                 nb_lignes_runtime=nb_b,
@@ -370,15 +374,15 @@ def describe_hunk(hunk: Hunk, a_index: NodeIndex, b_index: NodeIndex) -> Semanti
         genre = "fichier" if all(n.kind == "file" for n in tops) else "bloc"
         if len(tops) == 1:
             detail = (
-                f"{first.name} devient orphelin" if genre == "fichier" else _describe_block(block_index, first)
+                tr("{name} becomes an orphan").format(name=first.name) if genre == "fichier" else _describe_block(block_index, first)
             )
             if sens == "valeur_modifiee":
                 other = b_index.node_at(hunk.j1)
-                detail += f" ; côté runtime : {other.name if other else '?'}"
+                detail += " ; " + tr("runtime side: {name}").format(name=other.name if other else "?")
         elif len(tops) <= 5:
             detail = " ; ".join(f"{n.name} ({_describe_block(block_index, n)})" for n in tops)
         else:
-            detail = f"{len(tops)} blocs, {end - start} lignes"
+            detail = tr("{blocks} blocks, {lines} lines").format(blocks=len(tops), lines=end - start)
         return SemanticHunk(
             hunk=hunk,
             sens=sens,
@@ -415,7 +419,7 @@ def describe_hunk(hunk: Hunk, a_index: NodeIndex, b_index: NodeIndex) -> Semanti
         genre="lignes",
         noeuds=[],
         chemin="",
-        detail=f"projet l.{hunk.i1 + 1}-{hunk.i2} ⇄ runtime l.{hunk.j1 + 1}-{hunk.j2}",
+        detail=tr("project l.{p1}-{p2} ⇄ runtime l.{r1}-{r2}").format(p1=hunk.i1 + 1, p2=hunk.i2, r1=hunk.j1 + 1, r2=hunk.j2),
         nb_lignes_projet=nb_a,
         nb_lignes_runtime=nb_b,
     )
@@ -435,15 +439,17 @@ def _describe_value_change(eff_a: list[bytes], eff_b: list[bytes], sens: Sens) -
         return " ; ".join(parts)
     if sens == "ajout_runtime":
         lines = eff_b
-        where = "ajoutée(s) côté runtime"
-    elif sens == "branche_projet":
+        if len(lines) == 1:
+            return tr("line added on the runtime side: {line}").format(line=f"`{lines[0].strip().decode('utf-8', 'replace')}`")
+        return tr("{n} lines added on the runtime side").format(n=len(lines))
+    if sens == "branche_projet":
         lines = eff_a
-        where = "présente(s) côté projet seulement"
-    else:
-        return f"{len(eff_a)} ligne(s) projet ⇄ {len(eff_b)} ligne(s) runtime"
-    if len(lines) == 1:
-        return f"ligne {where} : `{lines[0].strip().decode('utf-8', 'replace')}`"
-    return f"{len(lines)} lignes {where}"
+        if len(lines) == 1:
+            return tr("line present on the project side only: {line}").format(
+                line=f"`{lines[0].strip().decode('utf-8', 'replace')}`"
+            )
+        return tr("{n} lines present on the project side only").format(n=len(lines))
+    return tr("{project} project line(s) ⇄ {runtime} runtime line(s)").format(project=len(eff_a), runtime=len(eff_b))
 
 
 # ---------------------------------------------------------------------------
@@ -534,7 +540,10 @@ def _mark_moves(semantic: list[SemanticHunk], a: Sequence[bytes], b: Sequence[by
         for hunk, where in ((s, "projet"), (other, "runtime")):
             hunk.genre = "deplacement"
             hunk.significatif = False
-            hunk.detail = f"bloc déplacé sans modification ({hunk.nb_lignes_projet or hunk.nb_lignes_runtime} lignes) — {hunk.detail}"
+            hunk.detail = (
+                tr("block moved without change ({n} lines)").format(n=hunk.nb_lignes_projet or hunk.nb_lignes_runtime)
+                + f" — {hunk.detail}"
+            )
 
 
 def _guid_detail(lines: Sequence[bytes]) -> str:

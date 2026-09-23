@@ -13,6 +13,8 @@ import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .....common.i18n import tr
+
 log = logging.getLogger(__name__)
 
 _MODULE, _TYPEREF, _TYPEDEF, _FIELD, _METHODDEF = 0x00, 0x01, 0x02, 0x04, 0x06
@@ -51,7 +53,7 @@ def _rva_to_offset(sections: list[tuple[int, int, int]], rva: int) -> int:
     for va, size, raw in sections:
         if va <= rva < va + size:
             return rva - va + raw
-    raise DllError(f"RVA {rva:#x} hors des sections")
+    raise DllError(tr("RVA {rva} outside the sections").format(rva=f"{rva:#x}"))
 
 
 def _read_cstring(data: bytes, off: int) -> str:
@@ -62,10 +64,10 @@ def _read_cstring(data: bytes, off: int) -> str:
 def read_typedefs(data: bytes) -> list[TypeDef]:
     """Les ``TypeDef`` d'un assembly .NET, dans l'ordre de la table."""
     if data[:2] != b"MZ":
-        raise DllError("pas un exécutable PE")
+        raise DllError(tr("not a PE executable"))
     pe = _u32(data, 0x3C)
     if data[pe : pe + 4] != b"PE\x00\x00":
-        raise DllError("signature PE absente")
+        raise DllError(tr("PE signature missing"))
     coff = pe + 4
     n_sections = _u16(data, coff + 2)
     opt_size = _u16(data, coff + 16)
@@ -73,10 +75,10 @@ def read_typedefs(data: bytes) -> list[TypeDef]:
     magic = _u16(data, opt)
     dir_off = opt + (96 if magic == 0x10B else 112 if magic == 0x20B else -1)
     if dir_off < 0:
-        raise DllError("en-tête optionnel inconnu")
+        raise DllError(tr("unknown optional header"))
     cli_rva = _u32(data, dir_off + 14 * 8)
     if cli_rva == 0:
-        raise DllError("pas d'en-tête CLI : DLL non .NET")
+        raise DllError(tr("no CLI header: not a .NET DLL"))
     sec = opt + opt_size
     sections: list[tuple[int, int, int]] = []
     for k in range(n_sections):
@@ -88,7 +90,7 @@ def read_typedefs(data: bytes) -> list[TypeDef]:
     meta_rva = _u32(data, cli + 8)
     root = _rva_to_offset(sections, meta_rva)
     if _u32(data, root) != 0x424A5342:
-        raise DllError("signature des métadonnées absente")
+        raise DllError(tr("metadata signature missing"))
     ver_len = _u32(data, root + 12)
     p = root + 16 + ver_len
     n_streams = _u16(data, p + 2)
@@ -102,7 +104,7 @@ def read_typedefs(data: bytes) -> list[TypeDef]:
         p = name_end + 1
         p = (p + 3) & ~3
     if "#~" not in streams or "#Strings" not in streams:
-        raise DllError("flux #~ ou #Strings absent")
+        raise DllError(tr("#~ or #Strings stream missing"))
     tables, _ = streams["#~"]
     strings_off, _ = streams["#Strings"]
 

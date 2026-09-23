@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QTreeWidget,
     QTreeWidgetItem,
+    QTreeWidgetItemIterator,
     QVBoxLayout,
     QWidget,
 )
@@ -30,11 +31,18 @@ from .plan_dialog import PlanDialog
 from .search_view import SearchView
 from .semantic_view import SemanticRow, SemanticView
 from .specialized.views import SpecializedTabs
-from .style import COULEUR_ETAT, COULEUR_SENS, LIBELLE_ETAT, LIBELLE_SENS, pastille, taille_lisible
+from ....common import theme
+from ....common.i18n import tr
+from ..core.labels import etat_label, sens_label
+from .style import couleur_etat, couleur_sens, pastille, taille_lisible
 
 ROLE_REL = Qt.ItemDataRole.UserRole
 ROLE_KIND = Qt.ItemDataRole.UserRole + 1  # "file" | "dir" | "root" | "attendus"
-BRANCHE_ATTENDUS = "Différences structurelles normales"
+
+
+def branche_attendus() -> str:
+    """Libellé de la branche des fichiers attendus d'un seul côté."""
+    return tr("Normal structural differences")
 
 
 @dataclass(slots=True)
@@ -51,7 +59,7 @@ class FileTree(QTreeWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setHeaderLabels(["Fichier", "Hunks", "État", "Projet", "Runtime"])
+        self.setHeaderLabels([tr("File"), tr("Hunks"), tr("State"), tr("Project"), tr("Runtime")])
         self.setAlternatingRowColors(True)
         self.setUniformRowHeights(True)
         self.setIndentation(14)
@@ -84,7 +92,7 @@ class FileTree(QTreeWidget):
         if self.comparison is None:
             return
         inv = self.comparison.inventory
-        root = QTreeWidgetItem(["Tous les fichiers", "", "", "", ""])
+        root = QTreeWidgetItem([tr("All files"), "", "", "", ""])
         root.setData(0, ROLE_KIND, "root")
         root.setData(0, ROLE_REL, "")
         self.addTopLevelItem(root)
@@ -111,33 +119,33 @@ class FileTree(QTreeWidget):
                 continue
             if entry.attendu:
                 if attendus_item is None:
-                    attendus_item = QTreeWidgetItem([BRANCHE_ATTENDUS, "", "", "", ""])
+                    attendus_item = QTreeWidgetItem([branche_attendus(), "", "", "", ""])
                     attendus_item.setData(0, ROLE_KIND, "attendus")
                     attendus_item.setData(0, ROLE_REL, "")
-                    attendus_item.setIcon(0, pastille(COULEUR_ETAT["attendu"]))
-                item = QTreeWidgetItem(attendus_item, [entry.rel, "", LIBELLE_ETAT[entry.status], "", ""])
+                    attendus_item.setIcon(0, pastille(couleur_etat("attendu")))
+                item = QTreeWidgetItem(attendus_item, [entry.rel, "", etat_label(entry.status), "", ""])
                 item.setToolTip(0, entry.raison_attendu)
-                item.setForeground(0, COULEUR_ETAT["attendu"])
-                item.setIcon(0, pastille(COULEUR_ETAT["attendu"]))
+                item.setForeground(0, couleur_etat("attendu"))
+                item.setIcon(0, pastille(couleur_etat("attendu")))
                 item.setData(0, ROLE_KIND, "file")
                 item.setData(0, ROLE_REL, entry.rel)
                 self._fill_sizes(item, entry)
                 continue
             parent_rel = entry.rel.rsplit("/", 1)[0] if "/" in entry.rel else ""
             parent = dir_item(parent_rel)
-            item = QTreeWidgetItem(parent, [entry.name, "", LIBELLE_ETAT[entry.status], "", ""])
+            item = QTreeWidgetItem(parent, [entry.name, "", etat_label(entry.status), "", ""])
             item.setData(0, ROLE_KIND, "file")
             item.setData(0, ROLE_REL, entry.rel)
-            item.setIcon(0, pastille(COULEUR_ETAT[entry.status]))
+            item.setIcon(0, pastille(couleur_etat(entry.status)))
             self._fill_sizes(item, entry)
             diff = self.comparison.diffs.get(entry.rel)
             if diff is not None:
                 nb = len(diff.significatifs)
                 total_hunks += nb
                 item.setText(1, str(nb))
-                item.setText(2, LIBELLE_SENS.get(diff.sens, diff.sens))
-                item.setForeground(2, COULEUR_SENS.get(diff.sens, COULEUR_SENS["identique"]))
-                item.setToolTip(0, f"{entry.rel}\n{nb} écart(s) significatif(s), {len(diff.semantic)} hunk(s)")
+                item.setText(2, sens_label(diff.sens))
+                item.setForeground(2, couleur_sens(diff.sens))
+                item.setToolTip(0, entry.rel + "\n" + tr("{significant} significant difference(s), {hunks} hunk(s)").format(significant=nb, hunks=len(diff.semantic)))
                 rel_dir = parent_rel
                 while True:
                     dirs[rel_dir].files.append(entry.rel)
@@ -193,6 +201,18 @@ class FileTree(QTreeWidget):
         item = self.currentItem()
         return item.data(0, ROLE_REL) if item is not None else ""
 
+    def select_rel(self, rel: str) -> bool:
+        """Sélectionne l'élément (fichier ou dossier) de chemin relatif ``rel`` ; vrai s'il existe."""
+        iterator = QTreeWidgetItemIterator(self)
+        while iterator.value() is not None:
+            item = iterator.value()
+            if item.data(0, ROLE_REL) == rel:
+                self.setCurrentItem(item)
+                self.scrollToItem(item)
+                return True
+            iterator += 1
+        return False
+
 
 class Banner(QFrame):
     """Le bandeau de synthèse au-dessus des résultats."""
@@ -204,32 +224,52 @@ class Banner(QFrame):
         self.label.setTextFormat(Qt.TextFormat.RichText)
         self.label.setWordWrap(True)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setContentsMargins(12, 8, 12, 8)
         layout.addWidget(self.label)
+        manager = theme.manager()
+        if manager is not None:
+            manager.changed.connect(self._render)
 
     def set_comparison(self, comparison: Comparison) -> None:
+        self._comparison = comparison
+        self._render()
+
+    def _render(self, _palette=None) -> None:
+        comparison = getattr(self, "_comparison", None)
+        if comparison is None:
+            return
         s = comparison.synthese()
-        versions = f"runtime <b>{s.version_runtime or '?'}</b> ⇄ projet <b>{s.version_projet or '?'}</b>"
+        pal = theme.current()
+        versions = tr("runtime <b>{runtime}</b> ⇄ project <b>{project}</b>").format(
+            runtime=s.version_runtime or "?", project=s.version_projet or "?"
+        )
         if not s.versions_compatibles:
-            versions += ' <span style="color:#c62828"><b>— versions IDE différentes, prudence</b></span>'
-            self.setStyleSheet("Banner { border: 2px solid #ef6c00; border-radius: 4px; }")
+            versions += f' <span style="color:{pal.error}"><b>— {tr("different IDE versions, be careful")}</b></span>'
+            self.setStyleSheet(f"Banner {{ border: 2px solid {pal.warning}; border-radius: 8px; background: {pal.surface}; }}")
         else:
-            self.setStyleSheet("Banner { border: 1px solid palette(mid); border-radius: 4px; }")
-        c = COULEUR_SENS
+            self.setStyleSheet(f"Banner {{ border: 1px solid {pal.border}; border-radius: 8px; background: {pal.surface}; }}")
+
+        def colored(sens: str, symbol: str, text: str) -> str:
+            return f'<span style="color:{couleur_sens(sens).name()}">{symbol} {text}</span>'
+
         parts = [
-            f"Versions IDE : {versions}",
-            f"<b>{s.nb_fichiers_compares}</b> fichiers comparés, dont <b>{s.nb_yaml_communs}</b> YAML",
-            f"<b>{s.nb_divergents}</b> divergences (<b>{s.nb_yaml_divergents}</b> YAML)",
-            f'<span style="color:{c["ajout_runtime"].name()}">➕ <b>{s.nb_ajouts_runtime}</b> ajouts runtime</span>',
-            f'<span style="color:{c["branche_projet"].name()}">➖ <b>{s.nb_branche_projet}</b> branche projet</span>',
-            f'<span style="color:{c["valeur_modifiee"].name()}">✏️ <b>{s.nb_valeurs_modifiees}</b> valeurs modifiées</span>',
-            f'<span style="color:#9e9e9e">{s.nb_non_significatifs} non significatifs</span>',
-            f"{s.nb_attendus} fichiers attendus d'un seul côté",
+            tr("IDE versions: {versions}").format(versions=versions),
+            tr("<b>{files}</b> files compared, including <b>{yaml}</b> YAML").format(
+                files=s.nb_fichiers_compares, yaml=s.nb_yaml_communs
+            ),
+            tr("<b>{n}</b> differences (<b>{yaml}</b> YAML)").format(n=s.nb_divergents, yaml=s.nb_yaml_divergents),
+            colored("ajout_runtime", "➕", tr("<b>{n}</b> runtime additions").format(n=s.nb_ajouts_runtime)),
+            colored("branche_projet", "➖", tr("<b>{n}</b> project branch").format(n=s.nb_branche_projet)),
+            colored("valeur_modifiee", "✏️", tr("<b>{n}</b> modified values").format(n=s.nb_valeurs_modifiees)),
+            f'<span style="color:{pal.text_muted}">'
+            + tr("{n} not significant").format(n=s.nb_non_significatifs)
+            + "</span>",
+            tr("{n} files expected on one side only").format(n=s.nb_attendus),
             f"{s.duree_s:.1f} s",
         ]
         if comparison.orphelins_projet or comparison.orphelins_runtime:
             n = len(comparison.orphelins_projet) + len(comparison.orphelins_runtime)
-            parts.append(f'<span style="color:#c62828">⚠ {n} YAML orphelin(s) non référencé(s)</span>')
+            parts.append(f'<span style="color:{pal.error}">⚠ ' + tr("{n} unreferenced orphan YAML file(s)").format(n=n) + "</span>")
         self.label.setText("  ·  ".join(parts))
 
 
@@ -249,10 +289,10 @@ class ResultsPage(QWidget):
         self.tree.selection_changed.connect(self._on_files_selected)
 
         self.filter_combo = QComboBox()
-        self.filter_combo.addItems(["Divergences seules", "Tout"])
+        self.filter_combo.addItems([tr("Differences only"), tr("Everything")])
         self.filter_combo.currentIndexChanged.connect(self._apply_filter)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Rechercher un fichier…")
+        self.search.setPlaceholderText(tr("Search for a file…"))
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(self._apply_filter)
         filters = QHBoxLayout()
@@ -270,13 +310,13 @@ class ResultsPage(QWidget):
         self.diff = DiffView()
         self._diff_rel = ""
         self.tabs = QTabWidget()
-        self.tabs.addTab(self.semantic, "Résumé sémantique")
-        self.tabs.addTab(self.diff, "Diff")
+        self.tabs.addTab(self.semantic, tr("Semantic summary"))
+        self.tabs.addTab(self.diff, tr("Diff"))
         self.specialized = SpecializedTabs()
-        self.tabs.addTab(self.specialized, "Vues spécialisées")
+        self.tabs.addTab(self.specialized, tr("Specialised views"))
         self.search_view = SearchView()
         self.search_view.hit_activated.connect(self.show_hit)
-        self.tabs.addTab(self.search_view, "Recherche")
+        self.tabs.addTab(self.search_view, tr("Search"))
         self.semantic.hunk_activated.connect(self.open_diff_tab)
         self.semantic.preview_requested.connect(self.open_plan_dialog)
 
@@ -286,15 +326,19 @@ class ResultsPage(QWidget):
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 5)
         splitter.setSizes([520, 880])
+        self.splitter = splitter
 
-        self.relaunch_button = QPushButton("⟳ Relancer la comparaison (F5)")
-        self.relaunch_button.setToolTip("Recompare le même couple, par exemple après une modification dans FT Optix. Les décisions du plan sont conservées.")
+        self.relaunch_button = QPushButton("⟳ " + tr("Relaunch the comparison (F5)"))
+        self.relaunch_button.setToolTip(
+            tr("Compares the same pair again, for instance after a change in FT Optix. The plan decisions are kept.")
+        )
         self.relaunch_button.clicked.connect(self.relaunch_requested)
         top = QHBoxLayout()
         top.addWidget(self.banner, 1)
         top.addWidget(self.relaunch_button, 0, Qt.AlignmentFlag.AlignTop)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 12, 16, 4)
         layout.addLayout(top)
         layout.addWidget(splitter, 1)
 
@@ -306,6 +350,25 @@ class ResultsPage(QWidget):
         self.specialized.load(comparison)
         self.search_view.set_inventory(comparison.inventory)
         self.tree.set_comparison(comparison)
+
+    def snapshot(self) -> dict:
+        """Affichage courant : filtre, recherche, onglet, fichier sélectionné, séparation."""
+        return {
+            "filter": self.filter_combo.currentIndex(),
+            "search": self.search.text(),
+            "tab": self.tabs.currentIndex(),
+            "rel": self.tree.current_rel(),
+            "splitter": self.splitter.sizes(),
+        }
+
+    def restore(self, state: dict) -> None:
+        self.filter_combo.setCurrentIndex(state.get("filter", 0))
+        self.search.setText(state.get("search", ""))
+        if state.get("rel"):
+            self.tree.select_rel(state["rel"])
+        self.tabs.setCurrentIndex(state.get("tab", 0))
+        if state.get("splitter"):
+            self.splitter.setSizes(state["splitter"])
 
     def _apply_filter(self, *_args) -> None:
         self.tree.set_filter(self.filter_combo.currentIndex() == 0, self.search.text())
@@ -328,7 +391,9 @@ class ResultsPage(QWidget):
         if fd.rel == self._diff_rel:
             return
         self._diff_rel = fd.rel
-        titre = f"<b>{fd.rel}</b> — {len(fd.hunks)} hunk(s), projet {len(fd.projet.lines)} l. ⇄ runtime {len(fd.runtime.lines)} l."
+        titre = f"<b>{fd.rel}</b> — " + tr("{hunks} hunk(s), project {project} l. ⇄ runtime {runtime} l.").format(
+            hunks=len(fd.hunks), project=len(fd.projet.lines), runtime=len(fd.runtime.lines)
+        )
         self.diff.set_content(fd.projet.lines, fd.runtime.lines, fd.opcodes, titre)
 
     def _on_hunk_selected(self, row: SemanticRow | None) -> None:

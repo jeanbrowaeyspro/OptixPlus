@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from ....common.i18n import tr
 from .analysis import Comparison, find_orphans
 from .integrity import Reference, check_braces, find_references
 from .lines import md5_of_bytes, md5_of_file
@@ -103,9 +104,9 @@ def apply_preview(
 
     locked = check_locks(root, rels + to_move)
     if locked:
-        raise ApplyError("Fichiers verrouillés (projet ouvert dans FT Optix ?) : " + ", ".join(locked))
+        raise ApplyError(tr("Locked files (project open in FT Optix?): {files}").format(files=", ".join(locked)))
     if not preview.changes and not to_move:
-        reportage.avertissements.append("Rien à appliquer.")
+        reportage.avertissements.append(tr("Nothing to apply."))
         return reportage
 
     # 2. Sauvegarde
@@ -141,7 +142,9 @@ def apply_preview(
             actual = md5_of_file(target)
             expected = md5_of_bytes(change.new)
             if actual != expected:
-                raise ApplyError(f"{change.rel} : hash relu {actual} ≠ attendu {expected}")
+                raise ApplyError(
+                    tr("{file}: hash read back {actual} ≠ expected {expected}").format(file=change.rel, actual=actual, expected=expected)
+                )
             reportage.ecrits.append((change.rel, actual))
             log.info("Écrit et vérifié : %s (%s)", change.rel, actual)
         # 4. Rebut des orphelins
@@ -169,23 +172,25 @@ def apply_preview(
         reportage.restaure = True
         reportage.erreurs.append(str(exc))
         reportage.duree_s = time.perf_counter() - started
-        raise ApplyError(f"{exc} — les fichiers déjà écrits ont été restaurés depuis {backup}") from exc
+        raise ApplyError(
+            f"{exc} — " + tr("the files already written were restored from {folder}").format(folder=backup)
+        ) from exc
 
     # 5. Intégrité
-    report(progress, "integrite", "références orphelines", 0, 3)
+    report(progress, "integrite", tr("orphan references"), 0, 3)
     noms = list(preview.noms_retires) + [n for _g, n in preview.types_retires if n != "?"]
     if noms:
         reportage.references = find_references(root, noms)
         if reportage.references:
             reportage.avertissements.append(
-                f"{len(reportage.references)} référence(s) à des nœuds ou types retirés subsistent — à vérifier dans l'IDE."
+                tr("{n} reference(s) to removed nodes or types remain — check them in the IDE.").format(n=len(reportage.references))
             )
-    report(progress, "integrite", "accolades", 1, 3)
+    report(progress, "integrite", tr("braces"), 1, 3)
     for change in preview.changes:
         erreur = check_braces(change.rel, change.new)
         if erreur:
             reportage.erreurs.append(erreur)
-    report(progress, "integrite", "YAML orphelins", 2, 3)
+    report(progress, "integrite", tr("orphan YAML files"), 2, 3)
     nodes_root = comparison.optix.projet.nodes_root if comparison.optix else ""
     yaml_rels = sorted(
         p.relative_to(root).as_posix()
@@ -195,18 +200,18 @@ def apply_preview(
     reportage.orphelins_restants = find_orphans(root, nodes_root, yaml_rels)
     if reportage.orphelins_restants:
         reportage.avertissements.append(
-            f"{len(reportage.orphelins_restants)} YAML non référencé(s) restent sous Nodes/ (ignorés par Optix)."
+            tr("{n} unreferenced YAML file(s) remain under Nodes/ (ignored by Optix).").format(n=len(reportage.orphelins_restants))
         )
     report(progress, "integrite", "", 3, 3)
 
     # 6. Reste à faire
     if any(rel.endswith(".cs") for rel in rels):
-        reportage.a_faire.append("Recompiler la solution .NET (ProjectFiles/NetSolution) ou laisser l'IDE la régénérer.")
-    reportage.a_faire.append("Ouvrir le projet dans FT Optix : les fichiers générés et les statistiques seront régénérés.")
+        reportage.a_faire.append(tr("Rebuild the .NET solution (ProjectFiles/NetSolution) or let the IDE regenerate it."))
+    reportage.a_faire.append(tr("Open the project in FT Optix: the generated files and the statistics will be regenerated."))
     if reportage.deplaces:
-        reportage.a_faire.append(f"Vérifier puis supprimer à la main le dossier de rebut ({REBUT_DIR}_…).")
+        reportage.a_faire.append(tr("Check, then delete by hand the discard folder ({folder}_…).").format(folder=REBUT_DIR))
     if reportage.orphelins_restants:
-        reportage.a_faire.append("Décider du sort des YAML orphelins restants.")
+        reportage.a_faire.append(tr("Decide what to do with the remaining orphan YAML files."))
     reportage.duree_s = time.perf_counter() - started
     return reportage
 
@@ -224,7 +229,7 @@ def _restore_files(backup: Path, root: Path, rels: list[str], reportage: ApplyRe
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dest)
             if md5_of_file(dest) != md5_of_file(src):
-                raise ApplyError(f"restauration de {rel} : hash différent après recopie")
+                raise ApplyError(tr("restoring {file}: different hash after copying back").format(file=rel))
             restored.append(rel)
         elif dest.exists():
             dest.unlink()  # fichier créé par l'application : il n'existait pas avant

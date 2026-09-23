@@ -26,13 +26,6 @@ SENS_PAR_OPCODE: dict[str, Sens] = {
     "delete": "branche_projet",
     "replace": "valeur_modifiee",
 }
-LIBELLE_SENS: dict[str, str] = {
-    "ajout_runtime": "ajout runtime",
-    "branche_projet": "branche projet",
-    "valeur_modifiee": "valeur modifiée",
-    "mixte": "mixte",
-    "non_significatif": "non significatif",
-}
 
 
 @dataclass(frozen=True, slots=True)

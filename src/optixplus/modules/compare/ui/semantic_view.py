@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QFont
+from PySide6.QtGui import QBrush, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -32,8 +32,10 @@ from PySide6.QtWidgets import (
 
 from ..core.analysis import Comparison, FileDiff
 from ..core.nodes import SemanticHunk
-from ..core.plan import DECISIONS, LIBELLE_DECISION, Plan
-from .style import COULEUR_SENS, LIBELLE_GENRE, LIBELLE_SENS, SYMBOLE_SENS
+from ....common.i18n import tr
+from ..core.labels import SYMBOLE_SENS, decision_label, genre_label, sens_label
+from ..core.plan import DECISIONS, Plan
+from .style import couleur_sens
 
 MAX_LIGNES_DETAIL = 400
 
@@ -53,7 +55,10 @@ class SemanticRow:
 class SemanticModel(QAbstractTableModel):
     """Modèle en lecture seule des lignes du résumé sémantique."""
 
-    COLONNES = ("Décision", "Sens", "Nœud", "Genre", "Détail", "Fichier")
+    @staticmethod
+    def colonnes() -> tuple[str, ...]:
+        return (tr("Decision"), tr("Direction"), tr("Node"), tr("Kind"), tr("Detail"), tr("File"))
+
     COL_DECISION, COL_SENS, COL_NOEUD, COL_GENRE, COL_DETAIL, COL_FICHIER = range(6)
     ROLE_ROW = Qt.ItemDataRole.UserRole + 1
 
@@ -106,11 +111,11 @@ class SemanticModel(QAbstractTableModel):
         return 0 if parent.isValid() else len(self._rows)
 
     def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: N802
-        return len(self.COLONNES)
+        return 6
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole):  # noqa: N802
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
-            return self.COLONNES[section]
+            return self.colonnes()[section]
         return None
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
@@ -121,35 +126,39 @@ class SemanticModel(QAbstractTableModel):
         col = index.column()
         if role == Qt.ItemDataRole.DisplayRole:
             if col == self.COL_DECISION:
-                return LIBELLE_DECISION[self.decision_of(row)]
+                return decision_label(self.decision_of(row))
             if col == self.COL_SENS:
                 sens = hunk.sens if hunk.significatif else "non_significatif"
-                return f"{SYMBOLE_SENS[sens]} {LIBELLE_SENS[hunk.sens]}"
+                return f"{SYMBOLE_SENS[sens]} {sens_label(hunk.sens)}"
             if col == self.COL_NOEUD:
                 return ", ".join(hunk.noeuds) if hunk.noeuds else "—"
             if col == self.COL_GENRE:
-                return LIBELLE_GENRE.get(hunk.genre, hunk.genre)
+                return genre_label(hunk.genre)
             if col == self.COL_DETAIL:
                 return hunk.detail
             if col == self.COL_FICHIER:
                 return row.rel
         elif role == Qt.ItemDataRole.ToolTipRole:
-            lignes = f"projet l.{hunk.hunk.i1 + 1}-{hunk.hunk.i2} ⇄ runtime l.{hunk.hunk.j1 + 1}-{hunk.hunk.j2}"
-            return f"{hunk.libelle}\nChemin : {hunk.chemin}\n{lignes}\nFichier : {row.rel}"
+            lignes = tr("project l.{p1}-{p2} ⇄ runtime l.{r1}-{r2}").format(
+                p1=hunk.hunk.i1 + 1, p2=hunk.hunk.i2, r1=hunk.hunk.j1 + 1, r2=hunk.hunk.j2
+            )
+            return "\n".join(
+                (hunk.libelle, tr("Path: {path}").format(path=hunk.chemin), lignes, tr("File: {file}").format(file=row.rel))
+            )
         elif role == Qt.ItemDataRole.EditRole and col == self.COL_DECISION:
             return self.decision_of(row)
         elif role == Qt.ItemDataRole.ForegroundRole:
             if col == self.COL_DECISION:
                 decision = self.decision_of(row)
                 if decision == "prendre_runtime":
-                    return QBrush(COULEUR_SENS["ajout_runtime"])
+                    return QBrush(couleur_sens("ajout_runtime"))
                 if decision == "garder_projet":
-                    return QBrush(COULEUR_SENS["branche_projet"])
-                return QBrush(COULEUR_SENS["non_significatif"])
+                    return QBrush(couleur_sens("branche_projet"))
+                return QBrush(couleur_sens("non_significatif"))
             if not hunk.significatif:
-                return QBrush(COULEUR_SENS["non_significatif"])
+                return QBrush(couleur_sens("non_significatif"))
             if col == self.COL_SENS:
-                return QBrush(COULEUR_SENS[hunk.sens])
+                return QBrush(couleur_sens(hunk.sens))
         elif role == Qt.ItemDataRole.FontRole:
             font = QFont()
             if not hunk.significatif:
@@ -192,7 +201,7 @@ class DecisionDelegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):  # noqa: N802
         combo = QComboBox(parent)
         for decision in DECISIONS:
-            combo.addItem(LIBELLE_DECISION[decision], decision)
+            combo.addItem(decision_label(decision), decision)
         return combo
 
     def setEditorData(self, editor, index):  # noqa: N802
@@ -222,10 +231,10 @@ class SemanticView(QWidget):
         self.proxy.setSortRole(Qt.ItemDataRole.UserRole)
 
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Filtrer par nœud, chemin, détail ou fichier…")
+        self.search.setPlaceholderText(tr("Filter by node, path, detail or file…"))
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(self.proxy.setFilterFixedString)
-        self.show_all = QCheckBox("Afficher les écarts non significatifs (Id:, compteurs dérivés)")
+        self.show_all = QCheckBox(tr("Show non-significant differences (Id:, derived counters)"))
         self.show_all.toggled.connect(self._toggle_non_significant)
         self.counter = QLabel("")
 
@@ -257,23 +266,23 @@ class SemanticView(QWidget):
 
         # Barre des décisions : actions de masse (sélection ou tout) et prévisualisation.
         self.mass_button = QToolButton()
-        self.mass_button.setText("Actions de masse ▾")
+        self.mass_button.setText(tr("Bulk actions") + " ▾")
         self.mass_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         menu = QMenu(self.mass_button)
-        self.act_ajouts_sel = menu.addAction("Récupérer les ajouts du runtime — fichiers affichés", lambda: self.mass_action("ajouts", False))
-        self.act_ajouts_tout = menu.addAction("Récupérer les ajouts du runtime — tout", lambda: self.mass_action("ajouts", True))
+        self.act_ajouts_sel = menu.addAction(tr("Take the runtime additions — displayed files"), lambda: self.mass_action("ajouts", False))
+        self.act_ajouts_tout = menu.addAction(tr("Take the runtime additions — everything"), lambda: self.mass_action("ajouts", True))
         menu.addSeparator()
-        self.act_valeurs_sel = menu.addAction("Aligner les valeurs — fichiers affichés", lambda: self.mass_action("valeurs", False))
-        self.act_valeurs_tout = menu.addAction("Aligner les valeurs — tout", lambda: self.mass_action("valeurs", True))
+        self.act_valeurs_sel = menu.addAction(tr("Align the values — displayed files"), lambda: self.mass_action("valeurs", False))
+        self.act_valeurs_tout = menu.addAction(tr("Align the values — everything"), lambda: self.mass_action("valeurs", True))
         menu.addSeparator()
-        self.act_complet_sel = menu.addAction("Alignement complet sur le runtime — fichiers affichés…", lambda: self.mass_action("complet", False))
-        self.act_complet_tout = menu.addAction("Alignement complet sur le runtime — tout…", lambda: self.mass_action("complet", True))
+        self.act_complet_sel = menu.addAction(tr("Full alignment on the runtime — displayed files…"), lambda: self.mass_action("complet", False))
+        self.act_complet_tout = menu.addAction(tr("Full alignment on the runtime — everything…"), lambda: self.mass_action("complet", True))
         menu.addSeparator()
-        self.act_ignorer_sel = menu.addAction("Tout ignorer — fichiers affichés", lambda: self.mass_action("ignorer", False))
-        self.act_ignorer_tout = menu.addAction("Tout ignorer — tout", lambda: self.mass_action("ignorer", True))
+        self.act_ignorer_sel = menu.addAction(tr("Ignore all — displayed files"), lambda: self.mass_action("ignorer", False))
+        self.act_ignorer_tout = menu.addAction(tr("Ignore all — everything"), lambda: self.mass_action("ignorer", True))
         self.mass_button.setMenu(menu)
-        self.plan_label = QLabel("Plan : aucune décision")
-        self.preview_button = QPushButton("Prévisualiser / appliquer…")
+        self.plan_label = QLabel(tr("Plan: no decision"))
+        self.preview_button = QPushButton(tr("Preview / apply…"))
         self.preview_button.setEnabled(False)
         self.preview_button.clicked.connect(self.preview_requested)
         self.plan_changed.connect(self._update_plan_label)
@@ -281,7 +290,7 @@ class SemanticView(QWidget):
         self.detail = QPlainTextEdit()
         self.detail.setReadOnly(True)
         self.detail.setFont(QFont("Consolas", 9))
-        self.detail.setPlaceholderText("Sélectionner une ligne pour voir les lignes brutes du hunk.")
+        self.detail.setPlaceholderText(tr("Select a row to see the raw lines of the hunk."))
         self.detail.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
 
         splitter = QSplitter(Qt.Orientation.Vertical)
@@ -355,10 +364,11 @@ class SemanticView(QWidget):
         lignes = [f"{rel} : {', '.join(s.noeuds) or s.detail}" for rel, s in supprimes]
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
-        box.setWindowTitle("Alignement complet sur le runtime")
+        box.setWindowTitle(tr("Full alignment on the runtime"))
         box.setText(
-            f"Le projet deviendra identique au runtime. <b>{len(supprimes)} bloc(s) présents côté projet seulement "
-            "seront supprimés</b> :"
+            tr("The project will become identical to the runtime. <b>{n} block(s) present on the project side only will be deleted</b>:").format(
+                n=len(supprimes)
+            )
         )
         box.setDetailedText("\n".join(lignes))
         box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
@@ -369,12 +379,12 @@ class SemanticView(QWidget):
         plan = self.plan
         n = plan.nb_pris()
         garder = sum(1 for d in plan.decisions.values() if d == "garder_projet")
-        parts = [f"{n} hunk(s) à prendre du runtime"]
+        parts = [tr("{n} hunk(s) to take from the runtime").format(n=n)]
         if garder:
-            parts.append(f"{garder} gardé(s) côté projet")
+            parts.append(tr("{n} kept on the project side").format(n=garder))
         if plan.alignement_complet:
-            parts.append(f"{len(plan.alignement_complet)} fichier(s) en alignement complet")
-        self.plan_label.setText("Plan : " + (", ".join(parts) if n or garder else "aucune décision"))
+            parts.append(tr("{n} file(s) in full alignment").format(n=len(plan.alignement_complet)))
+        self.plan_label.setText(tr("Plan: {content}").format(content=", ".join(parts)) if n or garder else tr("Plan: no decision"))
         self.preview_button.setEnabled(n > 0 or bool(plan.alignement_complet))
 
     def _on_double_click(self, index: QModelIndex) -> None:
@@ -404,7 +414,7 @@ class SemanticView(QWidget):
 
     def _update_counter(self, *_args) -> None:
         total = self.model.rowCount()
-        self.counter.setText(f"{self.proxy.rowCount()} / {total} écarts")
+        self.counter.setText(tr("{shown} / {total} differences").format(shown=self.proxy.rowCount(), total=total))
 
     def _on_current_changed(self, current: QModelIndex, _previous: QModelIndex) -> None:
         row = self.proxy.data(current, SemanticModel.ROLE_ROW) if current.isValid() else None
@@ -417,19 +427,16 @@ def _hunk_text(row: SemanticRow) -> str:
     h = row.hunk.hunk
     projet = row.diff.projet.lines[h.i1 : h.i2]
     runtime = row.diff.runtime.lines[h.j1 : h.j2]
-    out = [f"{row.hunk.libelle}", f"chemin : {row.hunk.chemin}", ""]
+    out = [f"{row.hunk.libelle}", tr("path: {path}").format(path=row.hunk.chemin), ""]
     if projet:
-        out.append(f"--- projet  l.{h.i1 + 1}-{h.i2}  ({len(projet)} lignes)")
+        out.append("--- " + tr("project l.{start}-{end}  ({n} lines)").format(start=h.i1 + 1, end=h.i2, n=len(projet)))
         out += ["- " + line.decode("utf-8", "replace") for line in projet[:MAX_LIGNES_DETAIL]]
         if len(projet) > MAX_LIGNES_DETAIL:
-            out.append(f"  … {len(projet) - MAX_LIGNES_DETAIL} lignes de plus")
+            out.append("  … " + tr("{n} more lines").format(n=len(projet) - MAX_LIGNES_DETAIL))
     if runtime:
-        out.append(f"+++ runtime l.{h.j1 + 1}-{h.j2}  ({len(runtime)} lignes)")
+        out.append("+++ " + tr("runtime l.{start}-{end}  ({n} lines)").format(start=h.j1 + 1, end=h.j2, n=len(runtime)))
         out += ["+ " + line.decode("utf-8", "replace") for line in runtime[:MAX_LIGNES_DETAIL]]
         if len(runtime) > MAX_LIGNES_DETAIL:
-            out.append(f"  … {len(runtime) - MAX_LIGNES_DETAIL} lignes de plus")
+            out.append("  … " + tr("{n} more lines").format(n=len(runtime) - MAX_LIGNES_DETAIL))
     return "\n".join(out)
 
-
-def couleur_sens(sens: str) -> QColor:
-    return COULEUR_SENS.get(sens, COULEUR_SENS["identique"])
