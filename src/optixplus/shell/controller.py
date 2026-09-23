@@ -37,6 +37,7 @@ class AppController(QObject):
         self._about_dialog: QWidget | None = None
         self._quitting = False
         self.tray = None
+        self._create_services()
         if mode is LaunchMode.INSTALLED:
             if QSystemTrayIcon.isSystemTrayAvailable():
                 from .tray import TrayIcon
@@ -47,6 +48,32 @@ class AppController(QObject):
         if instance is not None:
             instance.message_received.connect(self.handle_message)
         app.aboutToQuit.connect(self._on_about_to_quit)
+
+    # ---- services d'arrière-plan -----------------------------------------------------
+    def _create_services(self) -> None:
+        from ..modules import MODULES
+
+        for spec in MODULES:
+            try:
+                service_class = spec.load_service()
+                if service_class is None:
+                    continue
+                service = service_class(spec, self.context, self)
+            except Exception:
+                log.exception("Service de l'outil %s indisponible", spec.id)
+                continue
+            self.context.services[spec.id] = service
+
+    def start_services(self) -> None:
+        for service in self.context.services.values():
+            service.start()
+
+    def _stop_services(self) -> None:
+        for spec_id, service in self.context.services.items():
+            try:
+                service.stop()
+            except Exception:
+                log.exception("Arrêt du service %s en erreur", spec_id)
 
     # ---- fenêtre principale ------------------------------------------------------
     @property
@@ -136,4 +163,5 @@ class AppController(QObject):
         self._app.quit()
 
     def _on_about_to_quit(self) -> None:
+        self._stop_services()
         workers.wait_retired()

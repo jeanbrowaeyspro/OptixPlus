@@ -15,7 +15,7 @@ import importlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QWidget
 
@@ -33,10 +33,19 @@ class ModuleSpec:
     icon: str  # nom du SVG dans resources/icons
     shortcut: str
     import_path: str  # "paquet.module:Classe"
+    # Service d'arrière-plan facultatif, créé au démarrage et indépendant de la fenêtre.
+    service_path: str = ""
 
     def load(self) -> type[ToolModule]:
-        module_name, class_name = self.import_path.split(":")
-        return getattr(importlib.import_module(module_name), class_name)
+        return _import(self.import_path)
+
+    def load_service(self) -> type[BackgroundService] | None:
+        return _import(self.service_path) if self.service_path else None
+
+
+def _import(path: str):
+    module_name, class_name = path.split(":")
+    return getattr(importlib.import_module(module_name), class_name)
 
 
 class ToolModule(QObject):
@@ -74,4 +83,43 @@ class ToolModule(QObject):
 
     def settings_page(self, parent: QWidget) -> QWidget | None:
         """Page de réglages de l'outil dans la boîte Paramètres (facultatif)."""
+        return None
+
+
+class BackgroundService(QObject):
+    """Partie d'un outil qui vit tant que l'application tourne, fenêtre ouverte ou non.
+
+    La coquille ne connaît les services qu'à travers cette interface : icône et menu du
+    tray, carte de l'accueil, barre d'état.
+    """
+
+    state_changed = Signal()
+    notification = Signal(str)  # message à afficher en bulle du tray
+
+    def __init__(self, spec: ModuleSpec, context: AppContext, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self.spec = spec
+        self.context = context
+
+    def start(self) -> None:
+        """Démarrage de l'application."""
+
+    def stop(self) -> None:
+        """Arrêt de l'application : libérer les ressources système."""
+
+    @property
+    def suspended(self) -> bool:
+        """Vrai si le service est en pause (icône du tray grisée)."""
+        return False
+
+    def status_text(self) -> str:
+        """État court pour la barre d'état et l'infobulle du tray."""
+        return ""
+
+    def tray_actions(self, parent: QObject) -> list[QAction | None]:
+        """Entrées ajoutées au menu du tray ; ``None`` insère un séparateur."""
+        return []
+
+    def summary_widget(self, parent: QWidget) -> QWidget | None:
+        """Carte affichée sur la page d'accueil (facultatif)."""
         return None

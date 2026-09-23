@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
 
+from . import paths
 from .i18n import tr
 
 THEME_SYSTEM = "system"
@@ -163,6 +164,9 @@ def build_stylesheet(p: Palette) -> str:
     # #AARRGGBB et non #RRGGBBAA. « #FFFFFF14 » n'est donc pas un blanc à 8 %
     # mais un jaune vif opaque, et « #00000010 » un noir entièrement
     # transparent. On passe par rgba(), qui ne prête pas à confusion.
+    mode = "dark" if p.dark else "light"
+    qss_icon = lambda name: paths.resource_path("icons", "qss", f"{name}-{mode}.svg").as_posix()  # noqa: E731
+    arrow_down, arrow_up, check = qss_icon("arrow-down"), qss_icon("arrow-up"), qss_icon("check")
     hover = "rgba(255, 255, 255, 0.09)" if p.dark else "rgba(0, 0, 0, 0.06)"
     pressed = "rgba(255, 255, 255, 0.16)" if p.dark else "rgba(0, 0, 0, 0.11)"
     return f"""
@@ -237,6 +241,24 @@ def build_stylesheet(p: Palette) -> str:
         background: transparent;
     }}
     QComboBox {{ padding-right: 26px; }}
+    QComboBox::down-arrow {{ image: url({arrow_down}); width: 10px; height: 10px; }}
+
+    /* Flèches des compteurs : sans ces règles, le remplissage général les masque. */
+    QAbstractSpinBox {{ padding-right: 22px; }}
+    QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {{
+        subcontrol-origin: border;
+        width: 20px;
+        border: none;
+        background: transparent;
+    }}
+    QAbstractSpinBox::up-button {{ subcontrol-position: top right; margin: 2px 2px 0 0; }}
+    QAbstractSpinBox::down-button {{ subcontrol-position: bottom right; margin: 0 2px 2px 0; }}
+    QAbstractSpinBox::up-button:hover, QAbstractSpinBox::down-button:hover {{
+        background: {hover};
+        border-radius: 4px;
+    }}
+    QAbstractSpinBox::up-arrow {{ image: url({arrow_up}); width: 9px; height: 9px; }}
+    QAbstractSpinBox::down-arrow {{ image: url({arrow_down}); width: 9px; height: 9px; }}
     QLineEdit:focus, QComboBox:focus, QSpinBox:focus,
     QPlainTextEdit:focus, QTextEdit:focus {{ border-color: {p.accent}; }}
     QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {{
@@ -373,6 +395,7 @@ def build_stylesheet(p: Palette) -> str:
         background: {p.accent};
         border-color: {p.accent};
     }}
+    QCheckBox::indicator:checked {{ image: url({check}); }}
 
     /* Les cases des vues tabulaires ne sont pas des QCheckBox : sans cette
        règle, l'état coché s'affiche comme une coche nue, sans cadre, ce qui
@@ -387,6 +410,7 @@ def build_stylesheet(p: Palette) -> str:
     QTreeView::indicator:checked {{
         background: {p.accent};
         border-color: {p.accent};
+        image: url({check});
     }}
 
     QToolTip {{

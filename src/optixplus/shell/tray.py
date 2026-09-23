@@ -31,6 +31,16 @@ class TrayIcon(QObject):
         open_action.setFont(font)
         open_action.triggered.connect(controller.show_main_window)
         self.menu.addSeparator()
+        for service in controller.context.services.values():
+            for action in service.tray_actions(self.menu):
+                if action is None:
+                    self.menu.addSeparator()
+                else:
+                    self.menu.addAction(action)
+            service.state_changed.connect(self.refresh)
+            service.notification.connect(self.notify)
+        if controller.context.services:
+            self.menu.addSeparator()
         for module in MODULES:
             action = self.menu.addAction(icons.themed_icon(module.icon), tr(module.title))
             action.triggered.connect(lambda _c=False, mid=module.id: controller.open_tool(mid))
@@ -48,13 +58,12 @@ class TrayIcon(QObject):
         self.refresh()
         self.tray.show()
 
-    def refresh(self, suspended: bool = False, detail: str = "") -> None:
-        """Met à jour l'icône (grise si la surveillance est suspendue) et l'infobulle."""
-        self.tray.setIcon(icons.app_icon(suspended=suspended))
-        tooltip = f"{APP_NAME} {__version__}"
-        if detail:
-            tooltip += f"\n{detail}"
-        self.tray.setToolTip(tooltip)
+    def refresh(self) -> None:
+        """Icône grise si un service est en pause ; infobulle avec l'état de chaque service."""
+        services = list(self._controller.context.services.values())
+        self.tray.setIcon(icons.app_icon(suspended=any(s.suspended for s in services)))
+        lines = [f"{APP_NAME} {__version__}"] + [s.status_text() for s in services if s.status_text()]
+        self.tray.setToolTip("\n".join(lines))
 
     def notify(self, message: str, title: str = APP_NAME, msecs: int = 3000) -> None:
         self.tray.showMessage(title, message, QSystemTrayIcon.MessageIcon.Information, msecs)

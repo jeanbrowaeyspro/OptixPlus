@@ -102,7 +102,7 @@ class HomePage(QScrollArea):
 
     tool_requested = Signal(str)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, services: dict | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -144,13 +144,20 @@ class HomePage(QScrollArea):
 
         cards = QHBoxLayout()
         cards.setSpacing(12)
-        self.watch_card = _Card(tr("FT Optix Studio monitoring"))
-        self.watch_card.add_muted(tr("Available once Auto Validate is integrated."))
+        service_cards = []
+        for service in (services or {}).values():
+            card = _Card(tr(service.spec.title))
+            widget = service.summary_widget(card)
+            if widget is None:
+                continue
+            card.body.addWidget(widget)
+            card.body.addStretch(1)
+            service_cards.append(card)
         self.projects_card = _Card(tr("Recent projects"))
         self.projects_card.add_muted(tr("No recent project."))
         self.plcs_card = _Card(tr("Recent controllers"))
         self.plcs_card.add_muted(tr("No recent controller."))
-        for card in (self.watch_card, self.projects_card, self.plcs_card):
+        for card in (*service_cards, self.projects_card, self.plcs_card):
             cards.addWidget(card, 1)
         outer.addLayout(cards)
         outer.addStretch(1)

@@ -36,6 +36,7 @@ MODULES: tuple[ModuleSpec, ...] = (
         icon="autovalidate",
         shortcut="Ctrl+4",
         import_path="optixplus.modules.autovalidate.module:AutoValidateModule",
+        service_path="optixplus.modules.autovalidate.service:AutoValidateService",
     ),
 )
 

@@ -36,6 +36,20 @@ from .sidebar import HOME_ID, Sidebar
 log = logging.getLogger("optixplus.shell")
 
 
+class _ServiceStatus(QLabel):
+    """État d'un service dans la barre d'état ; la connexion meurt avec le libellé."""
+
+    def __init__(self, service) -> None:
+        super().__init__()
+        self._service = service
+        self.setProperty("muted", True)
+        service.state_changed.connect(self.refresh)
+        self.refresh()
+
+    def refresh(self) -> None:
+        self.setText(self._service.status_text())
+
+
 class MainWindow(QMainWindow):
     """Fenêtre unique de l'application."""
 
@@ -75,7 +89,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._stack, 1)
         self.setCentralWidget(central)
 
-        self.home = HomePage()
+        self.home = HomePage(context.services)
         self.home.tool_requested.connect(self.show_page)
         self._pages[HOME_ID] = self.home
         self._stack.addWidget(self.home)
@@ -90,6 +104,8 @@ class MainWindow(QMainWindow):
         self._status = QLabel()
         self._status.setProperty("muted", True)
         self.statusBar().addWidget(self._status, 1)
+        for service in context.services.values():
+            self.statusBar().addPermanentWidget(_ServiceStatus(service))
         version = QLabel(f"v{__version__}")
         version.setProperty("muted", True)
         self.statusBar().addPermanentWidget(version)

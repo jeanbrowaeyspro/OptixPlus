@@ -146,6 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     theme = install_manager(app, settings.general.theme)
     app.setWindowIcon(icons.app_icon())
     controller = AppController(app, settings, theme, mode, instance)
+    controller.start_services()
     app.setQuitOnLastWindowClosed(False)
 
     if not (args.demarrage and controller.tray is not None):

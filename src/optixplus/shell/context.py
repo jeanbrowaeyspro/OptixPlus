@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -10,6 +10,7 @@ from ..common.settings import Settings
 from ..common.theme import ThemeManager
 
 if TYPE_CHECKING:
+    from ..modules.base import BackgroundService
     from .controller import AppController
 
 
@@ -26,6 +27,7 @@ class AppContext:
     theme: ThemeManager
     mode: LaunchMode
     controller: AppController
+    services: dict[str, BackgroundService] = field(default_factory=dict)
 
     @property
     def installed(self) -> bool:

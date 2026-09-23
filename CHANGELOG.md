@@ -11,3 +11,11 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - Icône dans la zone de notification en mode installé.
 - Interface bilingue français / anglais, qui suit la langue de Windows.
 - Thèmes Système, Clair et Sombre.
+- Outil **Validation auto** (ex-OptixAutoValidate) : validation automatique de la boîte « Le projet existe déjà » de FT Optix Studio.
+  - Détection par événements Windows au lieu d'un balayage des fenêtres toutes les 150 ms : consommation quasi nulle au repos.
+  - Réglages et journal de la surveillance réunis sur une seule page ; carte sur l'accueil ; état dans la barre d'état et l'infobulle du tray.
+  - Icône du tray grisée quand la surveillance est suspendue.
+
+### Corrigé (par rapport à l'ancien OptixAutoValidate)
+- La mise au premier plan de secours n'active plus la barre de menus de l'application en cours d'utilisation.
+- Le focus n'est rendu à la fenêtre précédente que si l'utilisateur n'est pas passé à autre chose entre-temps.
