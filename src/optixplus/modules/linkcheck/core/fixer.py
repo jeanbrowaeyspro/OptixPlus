@@ -171,13 +171,21 @@ def prepare(project: OptixProject, fixes: list[Fix]) -> tuple[dict[str, tuple[by
                 if index >= len(text.lines):
                     raise FixError(tr("{where}: line not found").format(where=where))
                 text.lines[index] = _replace_value(text.lines[index], link.target, fix.new_target, where)
-                journal.append(f"{rel} L{link.line} : {link.target} → {fix.new_target}")
+                journal.append(
+                    tr("{file} line {line}: {old} → {new}").format(
+                        file=rel, line=link.line, old=link.target, new=fix.new_target
+                    )
+                )
             elif fix.action == ACTION_REMOVE:
                 where = tr("{file} line {line}").format(file=rel, line=link.block_start)
                 end = _remove_block(text, link, where)
-                journal.append(f"{rel} L{link.block_start}-{end - 1} : lien supprimé ({link.target})")
+                journal.append(
+                    tr("{file} lines {first}-{last}: link removed ({target})").format(
+                        file=rel, first=link.block_start, last=end - 1, target=link.target
+                    )
+                )
             else:
-                raise FixError(f"action inconnue : {fix.action}")
+                raise FixError(tr("unknown action: {action}").format(action=fix.action))
         changes[path] = (original, text.encode())
     return changes, journal
 

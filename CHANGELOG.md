@@ -9,7 +9,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - Icône OptixPlus (anneau violet et « + »).
 - Instance unique : un second lancement ramène la fenêtre existante.
 - Icône dans la zone de notification en mode installé.
-- Interface bilingue français / anglais, qui suit la langue de Windows.
+- Interface bilingue français / anglais, qui suit la langue de Windows ; chaque texte affiché est vérifié dans les deux langues. La ligne de commande suit la même langue que la fenêtre.
 - Thèmes Système, Clair et Sombre.
 - Outil **Validation auto** (ex-OptixAutoValidate) : validation automatique de la boîte « Le projet existe déjà » de FT Optix Studio.
   - Détection par événements Windows au lieu d'un balayage des fenêtres toutes les 150 ms : consommation quasi nulle au repos.

@@ -12,12 +12,14 @@ import os
 
 from ...common import i18n
 from ...common.i18n import tr
+from ...common.settings import Settings
 from .core import fixer
 from .core.project import ProjectError, analyse, reason_label
 
 
 def main(argv: list[str]) -> int:
-    i18n.install(i18n.resolve_language("auto"))
+    # Même langue que la fenêtre : le réglage d'OptixPlus, à défaut celle de Windows.
+    i18n.install(i18n.resolve_language(Settings.load().general.language))
     parser = argparse.ArgumentParser(prog="optixplus linkcheck", description=tr("Lists and fixes broken dynamic links."))
     parser.add_argument("project", help=tr("FT Optix project folder"))
     parser.add_argument(

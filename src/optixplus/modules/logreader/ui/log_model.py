@@ -162,9 +162,9 @@ class LogTableModel(QAbstractTableModel):
     def _tooltip(self, entry) -> str:
         parts = [entry.message_multiline]
         if entry.details:
-            parts.append("— Détails —\n" + entry.details_multiline)
+            parts.append(tr("— Details —") + "\n" + entry.details_multiline)
         if entry.node_path:
-            parts.append("— Nœud —\n" + entry.node_path)
+            parts.append(tr("— Node —") + "\n" + entry.node_path)
         text = "\n\n".join(p for p in parts if p)
         return text[:2000] + ("…" if len(text) > 2000 else "")
 

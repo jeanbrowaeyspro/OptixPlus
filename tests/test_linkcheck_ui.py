@@ -122,3 +122,24 @@ def test_cli_lists_broken_links(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "Demo" in result.stdout
     assert result.stdout.count("OldProject") >= 3
+
+
+@pytest.mark.parametrize(("language", "expected"), [("en", "Target :"), ("fr", "Cible :")])
+def test_cli_follows_the_language_setting(tmp_path, language, expected):
+    import json
+    import os
+
+    from optixplus.common import paths
+
+    project = make_project(tmp_path)
+    appdata = tmp_path / "appdata"
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "APPDATA": str(appdata)}
+    settings_file = paths.settings_path().relative_to(os.environ["APPDATA"])
+    (appdata / settings_file).parent.mkdir(parents=True)
+    (appdata / settings_file).write_text(json.dumps({"general": {"language": language}}), encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, "-m", "optixplus", "linkcheck", str(project)],
+        capture_output=True, text=True, encoding="utf-8", env=env, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert expected in result.stdout

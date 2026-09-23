@@ -198,17 +198,19 @@ Le mode est détecté au démarrage, dans cet ordre : argument `--decouverte` ou
 ## 8. Traduction
 
 - On utilise un **système maison léger, commun au `core` et à l'`ui`**, car le `core` ne doit pas dépendre de Qt :
-  - `from optixplus.common.i18n import _`, puis `_("Source text in English")` ;
+  - `from optixplus.common.i18n import tr`, puis `tr("Source text in English")` (pas de `_`, souvent pris pour « valeur ignorée ») ; une constante de module marque son texte avec `tr_noop("…")` et le traduit à l'affichage ;
   - **le texte source anglais est la clé** (bonne pratique : l'anglais est la langue de repli et le code se lit sans catalogue) ;
   - `i18n/fr.json` associe chaque texte anglais à sa traduction française ; l'anglais n'a pas besoin de catalogue ;
-  - `_n(singulier, pluriel, n)` gère les pluriels, avec paramètres nommés : `_n("{n} broken link", "{n} broken links", n).format(n=n)`.
+  - `tr_n(singulier, pluriel, n)` gère les pluriels, avec paramètres nommés : `tr_n("{n} broken link", "{n} broken links", n).format(n=n)`.
 - **Conséquence pour le portage** : tous les textes visibles des quatre outils, aujourd'hui en français, sont réécrits en anglais dans le code et leur texte français actuel passe dans `fr.json`. Le rendu français doit rester identique à l'existant. Les commentaires, docstrings et messages de log internes restent en français (§3).
 - **Choix de la langue** : paramètre « Langue » avec trois valeurs, `Automatique (Windows)` par défaut, `Français`, `English`.
-  - En automatique : `GetUserDefaultUILanguage()` (repli sur `QLocale.system()`) ; français si la langue principale est le français (`fr-FR`, `fr-BE`, `fr-CA`, `fr-CH`…), anglais sinon.
+  - En automatique : `GetUserDefaultUILanguage()` (repli sur la locale Python) ; français si la langue principale est le français (`fr-FR`, `fr-BE`, `fr-CA`, `fr-CH`…), anglais sinon.
   - Le changement s'applique **à chaud** : la fenêtre est reconstruite dans la nouvelle langue, sur le même outil, et le menu du tray est reconstruit. Tout est rouvert **en l'état** (outils ouverts, page affichée, saisies non enregistrées, boîtes de dialogue ouvertes, Paramètres sur la même catégorie) : chaque outil implémente `snapshot()` / `restore()`.
 - Les boutons et dialogues standard de Qt passent par `QTranslator`, avec les `qtbase_fr.qm` fournis par PySide6 quand la langue est le français.
 - L'installateur Inno Setup suit la même règle (détection automatique de la langue, FR ou EN).
 - `tools/i18n_check.py` liste les chaînes non traduites et les entrées orphelines. Un test pytest échoue s'il manque une traduction française.
+- `tests/test_i18n_ui.py` construit toute l'interface hors écran dans chaque langue et relève chaque texte affiché : aucun texte de l'autre langue ne doit apparaître.
+- La ligne de commande (`optixplus linkcheck`) suit le même réglage de langue que la fenêtre.
 
 ## 9. Mises à jour, À propos, Nouveautés
 

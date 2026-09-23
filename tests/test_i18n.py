@@ -48,3 +48,46 @@ def test_translation_and_plural():
 def test_french_catalog_is_complete():
     missing, _orphans = i18n_check.check()
     assert missing == [], f"Traductions françaises manquantes : {missing}"
+
+
+class _FakeKernel32:
+    def __init__(self, langid: int) -> None:
+        self._langid = langid
+
+    def GetUserDefaultUILanguage(self) -> int:  # noqa: N802 (API Windows)
+        return self._langid
+
+
+@pytest.mark.parametrize(("langid", "expected"), [(0x040C, "fr"), (0x0C0C, "fr"), (0x0409, "en"), (0x0407, "en")])
+def test_auto_setting_asks_windows(monkeypatch, langid, expected):
+    import ctypes
+
+    monkeypatch.setattr(ctypes, "windll", type("W", (), {"kernel32": _FakeKernel32(langid)})(), raising=False)
+    assert i18n.resolve_language("auto") == expected
+
+
+@pytest.mark.parametrize(("locale_name", "expected"), [("fr_FR", "fr"), ("French_France", "fr"), ("en_US", "en"), (None, "en")])
+def test_locale_fallback_without_windows_api(monkeypatch, locale_name, expected):
+    import ctypes
+    import locale
+
+    monkeypatch.delattr(ctypes, "windll", raising=False)
+    monkeypatch.setattr(locale, "getlocale", lambda *a: (locale_name, "UTF-8"))
+    assert i18n.detect_windows_language() == expected
+
+
+def test_qt_own_texts_follow_the_language(qapp):
+    """Boutons standard de Qt (Annuler, Fermer…) : traduits par qtbase_fr, retirés en anglais."""
+    from PySide6.QtWidgets import QDialogButtonBox
+
+    from optixplus.common import qt_translation
+
+    try:
+        qt_translation.apply(qapp, "fr")
+        box = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Close)
+        assert box.button(QDialogButtonBox.StandardButton.Cancel).text().replace("&", "") == "Annuler"
+        qt_translation.apply(qapp, "en")
+        box = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+        assert box.button(QDialogButtonBox.StandardButton.Cancel).text().replace("&", "") == "Cancel"
+    finally:
+        qt_translation.apply(qapp, "en")
