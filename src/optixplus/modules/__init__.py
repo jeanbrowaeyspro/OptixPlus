@@ -29,6 +29,7 @@ MODULES: tuple[ModuleSpec, ...] = (
         icon="compare",
         shortcut="Ctrl+3",
         import_path="optixplus.modules.compare.module:CompareModule",
+        opens_projects=True,
     ),
     ModuleSpec(
         id="autovalidate",

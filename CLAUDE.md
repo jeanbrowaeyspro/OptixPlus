@@ -28,5 +28,6 @@ OptixPlus réunit quatre utilitaires FactoryTalk Optix (Log Reader, Link Checker
 - Un nouvel outil = un paquet `modules/<id>/` + une entrée `ModuleSpec` dans `modules/__init__.py`. La coquille (`shell/`) ne connaît aucun outil par son nom.
 - Chaque action de barre d'outils a une infobulle qui dit **sur quoi elle porte** (lignes sélectionnées uniquement, tout le projet…).
 - Icônes : `icons.themed_icon(nom)` pour les SVG de `resources/icons` ; une action de barre d'outils utilise `icons.themed_action(action, nom)` pour être recolorée au changement de thème.
+- Données sans schéma (historique, arbitrages…) : `settings.store(nom)` ou `KeyValueStore` (même interface que `QSettings`) ; jamais le registre.
 - Réglages : une dataclass de section (attribut `SECTION`) lue par `Settings.section()` ; valeurs validées au chargement.
 - Commits petits, messages en français ; pas de push sans demande de Jean.

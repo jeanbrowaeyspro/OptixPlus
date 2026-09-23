@@ -80,9 +80,10 @@ class ProgressPage(QWidget):
 class ComparePage(QWidget):
     """Page de l'outil ; ``settings`` offre ``value`` / ``setValue`` (``KeyValueStore`` ou ``QSettings``)."""
 
-    def __init__(self, settings, parent: QWidget | None = None) -> None:
+    def __init__(self, settings, parent: QWidget | None = None, on_project_used=None) -> None:
         super().__init__(parent)
         self.settings = settings
+        self._on_project_used = on_project_used  # projets récents partagés d'OptixPlus
         self.worker: CompareWorker | None = None
         self.comparison: Comparison | None = None
         self.last_backup: Path | None = None
@@ -164,6 +165,13 @@ class ComparePage(QWidget):
             self.action_restore,
         ]
 
+    def open_project(self, path: str) -> None:
+        """Projet choisi ailleurs (accueil) : il devient le projet à corriger."""
+        if self.busy:
+            return
+        self.stack.setCurrentWidget(self.setup_page)
+        self.setup_page.projet.set_path(path)
+
     def show_message(self, text: str) -> None:
         self.status.setText(text)
 
@@ -182,6 +190,8 @@ class ComparePage(QWidget):
         if self.busy:
             return
         log.info("Comparaison : runtime=%s  projet=%s", runtime, projet)
+        if self._on_project_used is not None:
+            self._on_project_used(projet)
         self.worker = CompareWorker(runtime, projet, self)
         self.worker.progressed.connect(self.progress_page.update)
         self.worker.succeeded.connect(self._on_success)

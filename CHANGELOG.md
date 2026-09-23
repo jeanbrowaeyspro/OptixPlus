@@ -20,6 +20,17 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
   - Projets récents partagés, affichés sur l'accueil (un clic ouvre le projet).
   - Statistiques complètes, y compris les liens vers les objets internes ; avertissement si FT Optix Studio est ouvert avant d'écrire.
   - Mode ligne de commande conservé : `optixplus linkcheck <dossier> [--fix-prefix]`.
+- Outil **Comparaison** (ex-FTOCompare) : comparaison runtime ⇄ projet, plan de décision, application sécurisée.
+  - Interface et rapports Markdown / HTML bilingues ; menus de FTOCompare réunis dans la barre d'actions de l'outil.
+  - Historique des couples, arbitrages mémorisés et dernier export rangés dans les réglages d'OptixPlus.
+  - Le projet comparé rejoint les projets récents ; un projet récent s'ouvre aussi dans Comparaison.
+
+### Corrigé (par rapport à l'ancien FTOCompare)
+- La prévisualisation du plan est calculée en arrière-plan : l'interface ne se fige plus sur un gros projet.
+- La vue diff construit ses lignes à la demande : quelques centaines d'entrées au lieu d'un objet par ligne.
+- Recherche d'un fichier de l'inventaire par index, au lieu d'un parcours complet à chaque appel.
+- Couleurs issues du thème (lisibles en sombre) ; libellés définis une seule fois pour l'interface et les rapports.
+- La fermeture de la boîte d'application attend la fin d'une restauration en cours, sans délai arbitraire.
 
 ### Corrigé (par rapport à l'ancien Optix LinkCheck)
 - Les corrections sont appliquées en tout ou rien : en cas d'échec, les fichiers déjà écrits sont restaurés.

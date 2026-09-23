@@ -7,6 +7,8 @@ contexte sont repliées en une ligne « … N lignes identiques … » dépliabl
 
 from __future__ import annotations
 
+from bisect import bisect_right
+
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -48,6 +50,72 @@ def fond(kind: str) -> QColor:
 
 
 @dataclass(slots=True)
+class _Run:
+    """Un bloc de rangées consécutives de même nature (voir ``_Rows``)."""
+
+    start: int  # index de la première rangée
+    kind: str
+    count: int  # nombre de rangées
+    a0: int  # index (0-based) de la première ligne projet
+    b0: int
+    na: int  # lignes projet présentes dans le bloc (une rangée au-delà n'a pas de côté projet)
+    nb: int
+    hunk: int
+    pli: int = -1
+    pli_taille: int = 0
+
+
+class _Rows(Sequence):
+    """Rangées de la vue diff, construites à la demande.
+
+    FTOCompare créait un objet ``DiffRow`` par ligne affichée (~170 000 pour un
+    ``Tags.yaml`` déplié). On ne garde ici qu'un ``_Run`` par bloc ; la rangée demandée est
+    fabriquée au vol par ``__getitem__`` (recherche dichotomique du bloc).
+    """
+
+    def __init__(self, runs: list[_Run], a: Sequence[bytes], b: Sequence[bytes]) -> None:
+        self._runs = runs
+        self._starts = [r.start for r in runs]
+        self._a, self._b = a, b
+        self._len = runs[-1].start + runs[-1].count if runs else 0
+
+    def __len__(self) -> int:
+        return self._len
+
+    def __getitem__(self, index):  # type: ignore[override]
+        if isinstance(index, slice):
+            return [self[i] for i in range(*index.indices(self._len))]
+        if index < 0:
+            index += self._len
+        if not 0 <= index < self._len:
+            raise IndexError(index)
+        run = self._runs[bisect_right(self._starts, index) - 1]
+        d = index - run.start
+        if run.kind == "pli":
+            return DiffRow("pli", None, None, None, None, -1, pli=run.pli, pli_taille=run.pli_taille)
+        a_ok, b_ok = d < run.na, d < run.nb
+        return DiffRow(
+            run.kind,
+            run.a0 + d + 1 if a_ok else None,
+            run.b0 + d + 1 if b_ok else None,
+            self._a[run.a0 + d] if a_ok else None,
+            self._b[run.b0 + d] if b_ok else None,
+            run.hunk,
+        )
+
+    def row_of_line(self, side: str, line_no: int) -> int:
+        """Rangée qui affiche la ligne ``line_no`` (1-based) du côté donné, ou -1."""
+        target = line_no - 1
+        for run in self._runs:
+            if run.kind == "pli":
+                continue
+            first, count = (run.a0, run.na) if side == "projet" else (run.b0, run.nb)
+            if first <= target < first + count:
+                return run.start + target - first
+        return -1
+
+
+@dataclass(slots=True)
 class DiffRow:
     kind: str  # "equal" | "insert" | "delete" | "replace" | "pli"
     a_no: int | None  # numéro de ligne projet (1-based) ou None
@@ -71,7 +139,7 @@ class DiffModel(QAbstractTableModel):
         self.a: Sequence[bytes] = []
         self.b: Sequence[bytes] = []
         self.opcodes: list[Opcode] = []
-        self.rows: list[DiffRow] = []
+        self.rows: _Rows = _Rows([], [], [])
         self.hunk_rows: list[int] = []  # ligne de début de chaque hunk
         self.expanded: set[int] = set()
         self.fold = True
@@ -86,9 +154,17 @@ class DiffModel(QAbstractTableModel):
 
     def rebuild(self) -> None:
         self.beginResetModel()
-        rows: list[DiffRow] = []
+        runs: list[_Run] = []
         hunk_rows: list[int] = []
         hunk_index = -1
+        position = 0
+
+        def add(kind: str, count: int, a0: int, b0: int, na: int, nb: int, hunk: int, **extra) -> None:
+            nonlocal position
+            if count > 0:
+                runs.append(_Run(position, kind, count, a0, b0, na, nb, hunk, **extra))
+                position += count
+
         for k, (tag, i1, i2, j1, j2) in enumerate(self.opcodes):
             if tag == "equal":
                 n = i2 - i1
@@ -97,32 +173,17 @@ class DiffModel(QAbstractTableModel):
                 head = 0 if first else CONTEXTE
                 tail = 0 if last else CONTEXTE
                 if self.fold and k not in self.expanded and n > head + tail + 2:
-                    for d in range(head):
-                        rows.append(DiffRow("equal", i1 + d + 1, j1 + d + 1, self.a[i1 + d], self.b[j1 + d], -1))
-                    hidden = n - head - tail
-                    rows.append(DiffRow("pli", None, None, None, None, -1, pli=k, pli_taille=hidden))
-                    for d in range(n - tail, n):
-                        rows.append(DiffRow("equal", i1 + d + 1, j1 + d + 1, self.a[i1 + d], self.b[j1 + d], -1))
+                    add("equal", head, i1, j1, head, head, -1)
+                    add("pli", 1, 0, 0, 0, 0, -1, pli=k, pli_taille=n - head - tail)
+                    add("equal", tail, i1 + n - tail, j1 + n - tail, tail, tail, -1)
                 else:
-                    for d in range(n):
-                        rows.append(DiffRow("equal", i1 + d + 1, j1 + d + 1, self.a[i1 + d], self.b[j1 + d], -1))
+                    add("equal", n, i1, j1, n, n, -1)
                 continue
             hunk_index += 1
-            hunk_rows.append(len(rows))
+            hunk_rows.append(position)
             na, nb = i2 - i1, j2 - j1
-            for d in range(max(na, nb)):
-                a_ok, b_ok = d < na, d < nb
-                rows.append(
-                    DiffRow(
-                        tag,
-                        i1 + d + 1 if a_ok else None,
-                        j1 + d + 1 if b_ok else None,
-                        self.a[i1 + d] if a_ok else None,
-                        self.b[j1 + d] if b_ok else None,
-                        hunk_index,
-                    )
-                )
-        self.rows = rows
+            add(tag, max(na, nb), i1, j1, na, nb, hunk_index)
+        self.rows = _Rows(runs, self.a, self.b)
         self.hunk_rows = hunk_rows
         self.endResetModel()
 
@@ -295,13 +356,11 @@ class DiffView(QWidget):
         self.fold_box.blockSignals(True)
         self.fold_box.setChecked(False)
         self.fold_box.blockSignals(False)
-        attr = "a_no" if side == "projet" else "b_no"
-        for row, r in enumerate(self.model.rows):
-            if getattr(r, attr) == line_no:
-                index = self.model.index(row, DiffModel.COL_A if side == "projet" else DiffModel.COL_B)
-                self.table.setCurrentIndex(index)
-                self.table.scrollTo(index, QAbstractItemView.ScrollHint.PositionAtCenter)
-                return
+        row = self.model.rows.row_of_line(side, line_no)
+        if row >= 0:
+            index = self.model.index(row, DiffModel.COL_A if side == "projet" else DiffModel.COL_B)
+            self.table.setCurrentIndex(index)
+            self.table.scrollTo(index, QAbstractItemView.ScrollHint.PositionAtCenter)
 
     def next_hunk(self) -> None:
         if self.nb_hunks():

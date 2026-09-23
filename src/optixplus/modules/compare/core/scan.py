@@ -70,6 +70,9 @@ class Inventory:
     runtime_root: Path
     projet_root: Path
     entries: list[FileEntry] = field(default_factory=list)
+    # Index chemin → entrée, reconstruit si la liste a changé de taille. FTOCompare
+    # parcourait toute la liste à chaque appel de ``get`` (appelé en boucle par les vues).
+    _index: dict[str, FileEntry] = field(default_factory=dict, repr=False, compare=False)
 
     def by_status(self, status: Status) -> list[FileEntry]:
         return [e for e in self.entries if e.status == status]
@@ -84,10 +87,9 @@ class Inventory:
         return [e for e in self.entries if e.attendu]
 
     def get(self, rel: str) -> FileEntry | None:
-        for entry in self.entries:
-            if entry.rel == rel:
-                return entry
-        return None
+        if len(self._index) != len(self.entries):
+            self._index = {entry.rel: entry for entry in self.entries}
+        return self._index.get(rel)
 
     def runtime_path(self, rel: str) -> Path:
         return self.runtime_root / rel
