@@ -25,8 +25,9 @@ log = logging.getLogger("optixplus.update")
 
 CHUNK = 256 * 1024
 TIMEOUT_S = 30
-#: Options de l'installateur Inno Setup : sans questions, en fermant puis relançant OptixPlus.
-INSTALLER_ARGS = ("/SILENT", "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS")
+#: Options de l'installateur Inno Setup : sans questions, en fermant OptixPlus. La relance
+#: (avec ``--apres-maj``) est faite par l'installateur lui-même, une seule fois.
+INSTALLER_ARGS = ("/SILENT", "/CLOSEAPPLICATIONS")
 _HEX = re.compile(r"\b([0-9a-fA-F]{64})\b")
 
 

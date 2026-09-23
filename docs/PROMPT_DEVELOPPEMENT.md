@@ -228,8 +228,8 @@ Le mode est détecté au démarrage, dans cet ordre : argument `--decouverte` ou
 - **Si une version est disponible** : une notification dans le tray et un dialogue qui affiche les notes de version, avec trois choix : Installer maintenant, Plus tard, Ignorer cette version.
 - **Installation d'une mise à jour** :
   1. Télécharger `OptixPlus-Setup-X.Y.Z.exe` et son fichier `.sha256` depuis les assets de la release, puis vérifier l'empreinte.
-  2. Lancer l'installateur avec `/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS`, puis quitter proprement.
-  3. L'installateur relance OptixPlus avec `--apres-maj`.
+  2. Lancer l'installateur avec `/SILENT /CLOSEAPPLICATIONS`, puis quitter proprement.
+  3. L'installateur relance OptixPlus une seule fois, avec `--apres-maj` (pas de `/RESTARTAPPLICATIONS`, qui le relancerait une seconde fois).
 - **Nouveautés** : au premier lancement d'une nouvelle version (dernière version vue enregistrée dans les réglages), afficher le dialogue Nouveautés, qui rend la section correspondante de `CHANGELOG.md` embarqué. Aide > Nouveautés le rouvre, avec l'historique complet.
 - **À propos** :
   - nom, icône, version, date de build, auteur « Jean Browaeys — Automaticien Indépendant », puis la mention « Propulsé par Claude Opus 5.5 » ;
@@ -246,14 +246,14 @@ Le mode est détecté au démarrage, dans cet ordre : argument `--decouverte` ou
   - installation pour l'utilisateur courant, sans droits administrateur (`PrivilegesRequired=lowest`), dans `{localappdata}\Programs\OptixPlus` ;
   - raccourci dans le menu Démarrer ; raccourci sur le Bureau en option ;
   - entrée dans « Applications installées » avec un désinstalleur ;
-  - `AppMutex` pour fermer ou détecter l'instance en cours ;
+  - instance en cours : l'installateur attend jusqu'à 15 s qu'OptixPlus se ferme (mise à jour lancée depuis l'application), puis la ferme par le gestionnaire de redémarrage de Windows (`CloseApplications=force`) ; pas d'`AppMutex`, qui ferait échouer la mise à jour silencieuse ;
   - langues FR et EN pour l'installateur ;
   - pages de tâches :
     - « Démarrer OptixPlus avec Windows » (cochée) ;
-    - les deux cases de migration (décochées, §2.8), exécutées par OptixPlus lui-même au premier lancement via `--migrer=reglages,autovalidate` ;
+    - les deux cases de migration (décochées, §2.8), affichées seulement si un ancien outil est détecté, exécutées par OptixPlus lui-même au premier lancement via `--migrer=reglages,autovalidate` ;
   - la désinstallation supprime la clé Run. Elle **demande** s'il faut supprimer les réglages dans `%APPDATA%\OptixPlus`.
 - La **migration**, si elle est cochée :
-  - importe les réglages de Log Reader (`%APPDATA%\pyFTOLogReader\settings.json`), de Link Checker et de Compare (registre QSettings) et d'Auto Validate (`%APPDATA%\OptixAutoValidate\config.json`) ;
+  - importe les réglages de Log Reader (`%APPDATA%\pyFTOLogReader\settings.json`), de Link Checker et de Compare (registre QSettings, clé trouvée par le nom de l'outil sous `HKCU\Software\*`, sans écrire l'ancien nom d'éditeur dans le code) et d'Auto Validate (`%APPDATA%\OptixAutoValidate\config.json`) ; une section déjà présente dans OptixPlus n'est jamais écrasée ;
   - supprime la valeur Run `OptixAutoValidate` et propose de fermer le processus s'il tourne ;
   - ne supprime aucun fichier des anciens outils.
 - **Publication** : un workflow GitHub Actions (`windows-latest`) se déclenche au push d'un tag `vX.Y.Z`. Il lance les tests, construit, compile l'installateur (Inno Setup installé via choco), calcule le SHA-256 et crée la release, avec en notes la section du CHANGELOG. `tools/build.py` permet de faire la même chose en local.

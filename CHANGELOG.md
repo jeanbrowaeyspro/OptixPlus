@@ -15,6 +15,8 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
   - Notes de version affichées avant de choisir : Installer maintenant, Plus tard ou Ignorer cette version.
   - Installateur téléchargé puis vérifié par son empreinte SHA-256 avant tout lancement.
 - Fenêtre Nouveautés au premier lancement d'une nouvelle version, et à tout moment depuis le menu Aide.
+- Installateur Windows : installation sans droits administrateur, français ou anglais selon Windows, démarrage avec Windows au choix, désinstallation qui demande avant d'effacer les réglages.
+- Reprise des anciens outils proposée à l'installation (décochée) : réglages de Log Reader, Link Checker, Compare et Auto Validate, retrait du démarrage automatique de l'ancien OptixAutoValidate. Rien n'est supprimé des anciens outils, et aucun réglage d'OptixPlus n'est écrasé.
 - Outil **Validation auto** (ex-OptixAutoValidate) : validation automatique de la boîte « Le projet existe déjà » de FT Optix Studio.
   - Détection par événements Windows au lieu d'un balayage des fenêtres toutes les 150 ms : consommation quasi nulle au repos.
   - Réglages et journal de la surveillance réunis sur une seule page ; carte sur l'accueil ; état dans la barre d'état et l'infobulle du tray.

@@ -39,6 +39,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--demarrage", action="store_true", help="lancement par Windows, fenêtre masquée")
     parser.add_argument("--outil", metavar="ID", help="outil à ouvrir")
     parser.add_argument("--apres-maj", action="store_true", help="relance par l'installateur après une mise à jour")
+    parser.add_argument("--migrer", metavar="TACHES", default="", help="reprise des anciens outils : reglages,autovalidate")
     args, _unknown = parser.parse_known_args(argv)
     return args
 
@@ -75,6 +76,38 @@ def forwarded_message(args: argparse.Namespace) -> list[str]:
     if args.outil:
         return ["open-tool", args.outil]
     return ["show"]
+
+
+def run_migration(tasks_text: str, settings: Settings) -> None:
+    """Reprise des anciens outils demandée par l'installateur, avant la création des services."""
+    from . import migration
+
+    tasks = migration.parse_tasks(tasks_text)
+    lines: list[str] = []
+    if migration.TASK_SETTINGS in tasks:
+        imported = migration.migrate_settings(settings)
+        from .modules import MODULES
+
+        titles = [tr(spec.title) for spec in MODULES if spec.id in imported]
+        lines.append(
+            tr("Settings imported: {tools}.").format(tools=", ".join(titles))
+            if titles
+            else tr("No settings of the former tools to import.")
+        )
+    if migration.TASK_AUTOVALIDATE in tasks:
+        if migration.remove_legacy_autostart():
+            lines.append(tr("The former OptixAutoValidate no longer starts with Windows."))
+        if migration.legacy_autovalidate_running():
+            answer = QMessageBox.question(
+                None,
+                APP_NAME,
+                tr("The former OptixAutoValidate is still running and would validate the same dialogs as OptixPlus. Close it now?"),
+            )
+            if answer == QMessageBox.StandardButton.Yes and migration.stop_legacy_autovalidate():
+                lines.append(tr("The former OptixAutoValidate has been closed."))
+    if lines:
+        lines.append(tr("Nothing was deleted from the former tools."))
+        QMessageBox.information(None, APP_NAME, "\n".join(lines))
 
 
 def _install_excepthook() -> None:
@@ -132,6 +165,9 @@ def main(argv: list[str] | None = None) -> int:
 
     from .common import icons
     from .shell.controller import AppController
+
+    if args.migrer:
+        run_migration(args.migrer, settings)
 
     theme = install_manager(app, settings.general.theme)
     app.setWindowIcon(icons.app_icon())

@@ -204,7 +204,7 @@ def test_installer_is_launched_silently(monkeypatch, tmp_path):
     calls = []
     monkeypatch.setattr(installer.subprocess, "Popen", lambda args, **kw: calls.append(args))
     installer.launch(tmp_path / "setup.exe")
-    assert calls[0][1:] == ["/SILENT", "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS"]
+    assert calls[0][1:] == ["/SILENT", "/CLOSEAPPLICATIONS"]
 
 
 # --------------------------------------------------------------------------- Nouveautés

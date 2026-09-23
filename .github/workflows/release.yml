@@ -1,0 +1,57 @@
+# Publication d'OptixPlus : au push d'un tag vX.Y.Z (ou vX.Y.Z-préversion).
+# Tests, construction PyInstaller, installateur Inno Setup, empreinte SHA-256, puis
+# release GitHub avec en notes la section correspondante de CHANGELOG.md.
+name: Publication
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Dépendances
+        run: python -m pip install -r requirements-dev.txt -e .
+
+      - name: Version du tag = version du code
+        shell: pwsh
+        run: |
+          $code = python -c "import sys; sys.path.insert(0, 'src'); from optixplus.version import __version__; print(__version__)"
+          if ("v$code" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} ≠ version du code $code" }
+
+      - name: Tests
+        run: python -m pytest
+
+      - name: Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Construction
+        run: python tools/build.py
+
+      - name: Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.Substring(1)
+          python tools/build.py --notes $version | Out-File -Encoding utf8 notes.md
+          $options = @()
+          if ($version.Contains("-")) { $options += "--prerelease" }
+          gh release create $tag "dist/OptixPlus-Setup-$version.exe" "dist/OptixPlus-Setup-$version.exe.sha256" `
+            --title "OptixPlus $version" --notes-file notes.md @options

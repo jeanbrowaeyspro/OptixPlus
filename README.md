@@ -9,7 +9,29 @@ Boîte à outils FactoryTalk Optix réunie en une seule application Windows :
 
 Une fois installé, OptixPlus reste dans la zone de notification : son icône ouvre la fenêtre principale, et la surveillance de FT Optix Studio tourne en arrière-plan.
 
-> Développement en cours : le socle (phase 0) est en place, les outils sont intégrés phase par phase.
+## Installation
+
+Télécharger `OptixPlus-Setup-X.Y.Z.exe` depuis les [Releases](https://github.com/jeanbrowaeyspro/OptixPlus/releases) et le lancer. L'installation se fait pour l'utilisateur courant, sans droits administrateur, dans `%LOCALAPPDATA%\Programs\OptixPlus`. Elle propose :
+
+- de démarrer OptixPlus avec Windows (coché) ;
+- si les anciens outils sont détectés, d'importer leurs réglages et de retirer le démarrage automatique de l'ancien OptixAutoValidate (décochés). Rien n'est supprimé des anciens outils.
+
+L'exécutable n'est pas signé : Windows SmartScreen peut afficher « Windows a protégé votre ordinateur ». Cliquer sur « Informations complémentaires », puis « Exécuter quand même ». L'empreinte SHA-256 publiée avec chaque release permet de vérifier le fichier.
+
+Les mises à jour se font ensuite depuis OptixPlus (menu Aide, tray ou Paramètres) : l'installateur est téléchargé, vérifié par son empreinte, puis installé en silencieux.
+
+## Ressources
+
+Mesures de la version 0.1.0 (exécutable construit, Windows 11) :
+
+| Mesure | Valeur |
+|---|---|
+| Installateur | 23,6 Mo |
+| Application installée | 70,6 Mo |
+| Démarrage jusqu'à la fenêtre prête | 0,6 s |
+| Mémoire, fenêtre ouverte sur l'accueil | 74 à 80 Mo |
+| Mémoire, un outil ouvert | 77 à 87 Mo |
+| Processeur au repos | environ 0,2 % d'un cœur |
 
 ## Développement
 
@@ -22,6 +44,15 @@ python -m venv .venv
 Lancer depuis les sources : `.venv\Scripts\python -m optixplus` (mode découverte, sans tray) ou `--installe` (mode installé, avec tray). `--outil <id>` ouvre directement un outil (`logreader`, `linkcheck`, `compare`, `autovalidate`).
 
 Réglages et journaux : `%APPDATA%\OptixPlus`.
+
+## Construction et publication
+
+```bash
+.venv\Scripts\python tools\build.py                 # dist\OptixPlus\ + dist\OptixPlus-Setup-X.Y.Z.exe (+ .sha256)
+.venv\Scripts\python tools\build.py --no-installer  # exécutable seul
+```
+
+Pré-requis : Inno Setup 6 (`winget install JRSoftware.InnoSetup`). Pour publier : renommer la section `[Non publié]` du CHANGELOG en `[X.Y.Z] - date`, mettre `__version__` à jour dans `src/optixplus/version.py`, puis pousser le tag `vX.Y.Z` : le workflow `.github/workflows/release.yml` teste, construit et crée la release.
 
 ## Langues
 

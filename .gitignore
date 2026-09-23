@@ -7,3 +7,4 @@ dist/
 *.egg-info/
 src/optixplus/_build_info.py
 .venv-lanceur/
+src/optixplus/resources/CHANGELOG.md
