@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "optixplus"
+dynamic = ["version"]
+description = "Boîte à outils FactoryTalk Optix : Log Reader, Link Checker, Compare, Auto Validate"
+requires-python = ">=3.11"
+authors = [{ name = "Jean Browaeys" }]
+
+[project.scripts]
+optixplus = "optixplus.__main__:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "optixplus.version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+optixplus = ["resources/**/*", "i18n/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
