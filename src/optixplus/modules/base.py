@@ -35,6 +35,9 @@ class ModuleSpec:
     import_path: str  # "paquet.module:Classe"
     # Service d'arrière-plan facultatif, créé au démarrage et indépendant de la fenêtre.
     service_path: str = ""
+    # L'outil sait ouvrir un projet FT Optix (commande « open-project ») : il est proposé
+    # pour les projets récents de l'accueil.
+    opens_projects: bool = False
 
     def load(self) -> type[ToolModule]:
         return _import(self.import_path)

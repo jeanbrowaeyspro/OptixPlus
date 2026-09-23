@@ -103,8 +103,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(content, 1)
         self.setCentralWidget(central)
 
-        self.home = HomePage(context.services)
+        self.home = HomePage(context.services, context.settings)
         self.home.tool_requested.connect(self.show_page)
+        self.home.project_requested.connect(lambda tool, path: self.handle_command("open-project", [tool, path]))
         self._pages[HOME_ID] = self.home
         self._stack.addWidget(self.home)
 
@@ -201,6 +202,11 @@ class MainWindow(QMainWindow):
         self.home.refresh_icons()
         for action, icon_name in self._themed_actions:
             action.setIcon(icons.themed_icon(icon_name))
+        for module in self._modules.values():
+            for action in module.toolbar_actions():
+                name = action.property("themedIcon") if action is not None else None
+                if name:
+                    action.setIcon(icons.themed_icon(name))
         for action in self._theme_actions.actions():
             action.setChecked(action.data() == self.context.theme.theme)
 
@@ -269,6 +275,12 @@ class MainWindow(QMainWindow):
         if command == "open-tool" and args:
             self.show_page(args[0])
             return
+        if command == "open-project" and len(args) >= 2:
+            # args = [outil, dossier du projet]
+            self.show_page(args[0])
+            module = self._modules.get(args[0])
+            if module is not None and module.handle_command("open-project", args[1:]):
+                return
         module_id = args[0] if args else ""
         if module_id:
             self.show_page(module_id)

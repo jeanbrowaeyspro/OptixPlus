@@ -20,6 +20,7 @@ MODULES: tuple[ModuleSpec, ...] = (
         icon="linkcheck",
         shortcut="Ctrl+2",
         import_path="optixplus.modules.linkcheck.module:LinkCheckModule",
+        opens_projects=True,
     ),
     ModuleSpec(
         id="compare",

@@ -56,3 +56,52 @@ def set_app_user_model_id(app_id: str) -> None:
             shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
         except OSError:
             pass
+
+
+TH32CS_SNAPPROCESS = 0x00000002
+INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+
+
+class PROCESSENTRY32W(ctypes.Structure):
+    _fields_ = [
+        ("dwSize", wintypes.DWORD),
+        ("cntUsage", wintypes.DWORD),
+        ("th32ProcessID", wintypes.DWORD),
+        ("th32DefaultHeapID", ctypes.c_size_t),
+        ("th32ModuleID", wintypes.DWORD),
+        ("cntThreads", wintypes.DWORD),
+        ("th32ParentProcessID", wintypes.DWORD),
+        ("pcPriClassBase", ctypes.c_long),
+        ("dwFlags", wintypes.DWORD),
+        ("szExeFile", ctypes.c_wchar * 260),
+    ]
+
+
+if IS_WINDOWS:
+    kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.Process32FirstW.restype = wintypes.BOOL
+    kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.Process32NextW.restype = wintypes.BOOL
+
+
+def process_running(exe_name: str) -> bool:
+    """Vrai si un processus de ce nom d'exécutable tourne (ex. ``FTOptixStudio.exe``)."""
+    if not IS_WINDOWS:
+        return False
+    snapshot = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+    if not snapshot or snapshot == INVALID_HANDLE_VALUE:
+        return False
+    try:
+        entry = PROCESSENTRY32W()
+        entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+        ok = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
+        wanted = exe_name.lower()
+        while ok:
+            if entry.szExeFile.lower() == wanted:
+                return True
+            ok = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
+        return False
+    finally:
+        kernel32.CloseHandle(snapshot)

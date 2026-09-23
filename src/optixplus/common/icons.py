@@ -62,6 +62,14 @@ def themed_icon(name: str, *, highlight_when_checked: bool = False) -> QIcon:
     return _themed(name, p.text_muted if highlight_when_checked else p.text, p.accent if highlight_when_checked else None)
 
 
+def themed_action(action, name: str):
+    """Pose une icône d'interface sur une action et la marque pour la recoloration au changement
+    de thème (la fenêtre recolore les actions portant la propriété ``themedIcon``)."""
+    action.setIcon(themed_icon(name))
+    action.setProperty("themedIcon", name)
+    return action
+
+
 def app_icon(suspended: bool = False) -> QIcon:
     """Icône de l'application (fenêtres, tray)."""
     name = "app_suspended" if suspended else "app"

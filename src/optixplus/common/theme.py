@@ -311,6 +311,7 @@ def build_stylesheet(p: Palette) -> str:
         selection-color: {p.selection_text};
         outline: none;
     }}
+    QTableView::item {{ padding: 0 6px; }}
     QHeaderView {{ background: transparent; }}
     /* La marge droite est réservée à l'entonnoir de filtre et à l'indicateur
        de tri, dessinés par FilterHeaderView : sans elle, le titre de la
@@ -491,6 +492,14 @@ def build_stylesheet(p: Palette) -> str:
         border-radius: 10px;
     }}
     QFrame[card="true"] QLabel {{ background: transparent; border: none; }}
+    QToolButton[link="true"] {{
+        background: transparent;
+        border: none;
+        color: {p.accent};
+        padding: 2px 0;
+        text-align: left;
+    }}
+    QToolButton[link="true"]:hover {{ text-decoration: underline; }}
     QFrame[tile="true"] {{
         background: {p.surface};
         border: 1px solid {p.border};

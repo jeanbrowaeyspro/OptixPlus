@@ -26,5 +26,6 @@ OptixPlus réunit quatre utilitaires FactoryTalk Optix (Log Reader, Link Checker
 - Aucune écriture disque sans action explicite de l'utilisateur ; écriture multi-fichiers en tout ou rien, avec sauvegarde, relecture et hash.
 - Thème : couleurs uniquement depuis `common.theme` ; ne jamais fixer un fond sans fixer le texte (Windows de Jean en mode sombre). Aucune police ni feuille de style globale posée par un outil.
 - Un nouvel outil = un paquet `modules/<id>/` + une entrée `ModuleSpec` dans `modules/__init__.py`. La coquille (`shell/`) ne connaît aucun outil par son nom.
+- Icônes : `icons.themed_icon(nom)` pour les SVG de `resources/icons` ; une action de barre d'outils utilise `icons.themed_action(action, nom)` pour être recolorée au changement de thème.
 - Réglages : une dataclass de section (attribut `SECTION`) lue par `Settings.section()` ; valeurs validées au chargement.
 - Commits petits, messages en français ; pas de push sans demande de Jean.
