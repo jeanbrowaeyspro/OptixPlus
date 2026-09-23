@@ -11,7 +11,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from ..nodes import TAG_TYPES, NodeIndex, NodeRef, index_nodes, structure_symbol
+from .....common.optix.scanner import NodeIndex, NodeRef, index_nodes
+from ..nodes import TAG_TYPES, structure_symbol
 
 
 @dataclass(slots=True)

@@ -10,12 +10,8 @@ from optixplus.modules.compare.core.diffing import (
     merge_lines,
     sens_global,
 )
-from optixplus.modules.compare.core.nodes import (
-    describe_hunks,
-    index_nodes,
-    sens_semantique,
-    slide_opcodes,
-)
+from optixplus.common.optix.scanner import index_nodes
+from optixplus.modules.compare.core.nodes import describe_hunks, sens_semantique, slide_opcodes
 
 
 def _tag(indent: int, name: str, dtype: str, symbol: str) -> list[bytes]:

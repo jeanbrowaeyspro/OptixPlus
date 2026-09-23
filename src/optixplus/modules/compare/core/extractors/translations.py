@@ -15,7 +15,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from ..nodes import NodeIndex, NodeRef, index_nodes, indent_of
+from .....common.optix.scanner import NodeIndex, NodeRef, index_nodes, indent_of
 
 log = logging.getLogger(__name__)
 
