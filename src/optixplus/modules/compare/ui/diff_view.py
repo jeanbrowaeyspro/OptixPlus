@@ -281,8 +281,8 @@ class DiffView(QWidget):
         self.table.clicked.connect(self._on_click)
         self.table.selectionModel().currentRowChanged.connect(self._on_current)
 
-        self.prev_button = QPushButton("◀ " + tr("Previous hunk"))
-        self.next_button = QPushButton(tr("Next hunk") + " ▶")
+        self.prev_button = QPushButton("◀ " + tr("Previous change"))
+        self.next_button = QPushButton(tr("Next change") + " ▶")
         self.prev_button.clicked.connect(self.previous_hunk)
         self.next_button.clicked.connect(self.next_hunk)
         self.position = QLabel("")

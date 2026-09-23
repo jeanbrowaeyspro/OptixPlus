@@ -43,6 +43,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - La prévisualisation du plan est calculée en arrière-plan : l'interface ne se fige plus sur un gros projet.
 - La vue diff construit ses lignes à la demande : quelques centaines d'entrées au lieu d'un objet par ligne.
 - Recherche d'un fichier de l'inventaire par index, au lieu d'un parcours complet à chaque appel.
+- Le jargon « hunk » est remplacé par « zone modifiée » dans l'interface et les messages.
 - Couleurs issues du thème (lisibles en sombre) ; libellés définis une seule fois pour l'interface et les rapports.
 - La fermeture de la boîte d'application attend la fin d'une restauration en cours, sans délai arbitraire.
 

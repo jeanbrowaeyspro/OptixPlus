@@ -218,7 +218,7 @@ class ComparePage(QWidget):
             plan, perdus = Plan.from_dict(self._plan_to_replay, comparison)
             self._plan_to_replay = None
             self._adopt_plan(plan)
-            message += " " + tr("Decisions kept: {n} hunk(s)").format(n=plan.nb_pris())
+            message += " " + tr("Decisions kept: {n} change(s)").format(n=plan.nb_pris())
             message += (", " + tr("{n} not matched again.").format(n=len(perdus))) if perdus else "."
             if perdus:
                 log.warning("Décisions non réappariées après relance : %s", "; ".join(perdus))
@@ -329,13 +329,13 @@ class ComparePage(QWidget):
         plan, perdus = Plan.from_json(text, self.comparison)
         self._adopt_plan(plan)
         self.show_message(
-            tr("Decisions replayed: {taken} hunk(s), {lost} not matched again.").format(
+            tr("Decisions replayed: {taken} change(s), {lost} not found again.").format(
                 taken=plan.nb_pris(), lost=len(perdus)
             )
         )
         if perdus:
             QMessageBox.warning(
-                self, tr("Decisions partly replayed"), tr("Hunks not found:") + "\n" + "\n".join(perdus)
+                self, tr("Decisions partly replayed"), tr("Changes not found:") + "\n" + "\n".join(perdus)
             )
         return perdus
 
