@@ -75,10 +75,6 @@ class LinkCheckPage(QWidget):
         browse = QPushButton(tr("Browse…"))
         browse.clicked.connect(self.browse)
         row.addWidget(browse)
-        self.analyse_button = QPushButton(tr("Analyse"))
-        self.analyse_button.setProperty("accent", True)
-        self.analyse_button.clicked.connect(self.analyse)
-        row.addWidget(self.analyse_button)
         outer.addLayout(row)
 
         # ---- filtre et synthèse -----------------------------------------------------------
@@ -177,7 +173,6 @@ class LinkCheckPage(QWidget):
         has_project = self.project is not None
         selected = bool(self.selected()) and not busy
         self.act_analyse.setEnabled(not busy)
-        self.analyse_button.setEnabled(not busy)
         self.act_prefix.setEnabled(
             has_project and not busy and any(self.project.foreign_project_prefix(b.target) for b in self.broken)
         )

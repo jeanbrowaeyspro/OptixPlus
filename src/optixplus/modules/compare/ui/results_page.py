@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
-    QPushButton,
     QSplitter,
     QTabWidget,
     QTreeWidget,
@@ -277,7 +276,6 @@ class ResultsPage(QWidget):
     """Bandeau + arbre à gauche + onglets à droite."""
 
     applied = Signal(object)  # ApplyReport : l'utilisateur peut relancer la comparaison
-    relaunch_requested = Signal()  # bouton « Relancer » : projet modifié en direct dans l'IDE
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -328,14 +326,8 @@ class ResultsPage(QWidget):
         splitter.setSizes([520, 880])
         self.splitter = splitter
 
-        self.relaunch_button = QPushButton("⟳ " + tr("Relaunch the comparison (F5)"))
-        self.relaunch_button.setToolTip(
-            tr("Compares the same pair again, for instance after a change in FT Optix. The plan decisions are kept.")
-        )
-        self.relaunch_button.clicked.connect(self.relaunch_requested)
         top = QHBoxLayout()
         top.addWidget(self.banner, 1)
-        top.addWidget(self.relaunch_button, 0, Qt.AlignmentFlag.AlignTop)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 12, 16, 4)

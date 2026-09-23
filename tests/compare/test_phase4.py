@@ -94,7 +94,7 @@ def test_relancer_la_comparaison_conserve_le_plan(app: QApplication, tmp_path: P
     assert window.action_relaunch.isEnabled()
     window.results_page.semantic.mass_action("ajouts", tout=True)
     premiere = window.comparison
-    window.results_page.relaunch_button.click()
+    window.action_relaunch.trigger()
     assert window.stack.currentWidget() is window.progress_page
     _wait(window.worker.finished)
     app.processEvents()

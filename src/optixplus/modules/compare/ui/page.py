@@ -110,7 +110,6 @@ class ComparePage(QWidget):
         self._build_actions()
         self.results_page.applied.connect(self._on_applied)
         self.results_page.semantic.plan_changed.connect(self.remember_plan)
-        self.results_page.relaunch_requested.connect(self.relaunch_compare)
         self.show_message(tr("Choose a runtime and a project, then run the comparison."))
 
     # -- Actions (ex-menus Comparaison et Plan) ------------------------------------------
