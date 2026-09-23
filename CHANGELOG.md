@@ -2,7 +2,7 @@
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/).
 
-## [Non publié]
+## [1.0.0] - 2026-09-23
 
 ### Ajouté
 - Socle de l'application : fenêtre principale avec barre latérale, page d'accueil, journal intégré, paramètres, « À propos ».

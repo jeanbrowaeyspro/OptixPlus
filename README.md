@@ -22,7 +22,7 @@ Les mises à jour se font ensuite depuis OptixPlus (menu Aide, tray ou Paramètr
 
 ## Ressources
 
-Mesures de la version 0.1.0 (exécutable construit, Windows 11) :
+Mesures sur l'exécutable construit (Windows 11) :
 
 | Mesure | Valeur |
 |---|---|
