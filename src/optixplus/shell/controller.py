@@ -109,13 +109,16 @@ class AppController(QObject):
             self.quit()
 
     # ---- langue ------------------------------------------------------------------
-    def change_language(self) -> None:
+    def change_language(self, reopen_settings: bool = False) -> None:
         """Applique à chaud la langue des réglages : traductions, menu du tray, fenêtre reconstruite.
 
         Chaque texte est traduit à la construction de son widget : plutôt que de
         réappliquer chaque libellé, la fenêtre est reconstruite dans la nouvelle langue,
         sur le même outil. Un outil qui refuse de se fermer (traitement en cours) garde
         l'ancienne langue jusqu'à la prochaine ouverture de la fenêtre.
+
+        ``reopen_settings`` : la demande vient de la boîte Paramètres, qui est rouverte
+        dans la nouvelle langue pour que l'utilisateur retrouve où il en était.
         """
         language = i18n.resolve_language(self.context.settings.general.language)
         if language == i18n.current_language():
@@ -129,6 +132,8 @@ class AppController(QObject):
             service.state_changed.emit()
         window = self._window
         if window is None:
+            if reopen_settings:
+                self.open_settings()
             return
         page = window.current_page
         self._rebuilding = True
@@ -138,6 +143,8 @@ class AppController(QObject):
             self._rebuilding = False
         if closed:
             self.show_main_window().show_page(page)
+            if reopen_settings:
+                self.open_settings()
         else:
             QMessageBox.information(
                 window, "OptixPlus", tr("The window will switch to the new language when it is reopened.")

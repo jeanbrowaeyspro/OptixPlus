@@ -133,10 +133,11 @@ class SettingsDialog(QDialog):
         self._context.settings.save()
         if language_changed:
             # La fenêtre (parente de cette boîte) va être reconstruite dans la nouvelle
-            # langue : la boîte se ferme d'abord, le changement suit hors de ses signaux.
+            # langue : la boîte se ferme d'abord, le changement suit hors de ses signaux,
+            # puis la boîte est rouverte, traduite.
             controller = self._context.controller
             self.accept()
-            QTimer.singleShot(0, controller.change_language)
+            QTimer.singleShot(0, lambda: controller.change_language(reopen_settings=True))
 
     def _accept(self) -> None:
         self._apply()

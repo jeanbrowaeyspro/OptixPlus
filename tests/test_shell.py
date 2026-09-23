@@ -102,3 +102,17 @@ def test_language_switch_is_live(controller):
     controller.context.settings.general.language = "fr"
     controller.change_language()
     assert [a.text() for a in controller.window.menuBar().actions()][0] == "&Fichier"
+
+
+def test_settings_dialog_reopens_after_language_change(controller):
+    """Changer la langue depuis les Paramètres rouvre la boîte, traduite, sur la fenêtre reconstruite."""
+    from PySide6.QtWidgets import QDialog
+
+    controller.show_main_window()
+    controller.context.settings.general.language = "en"
+    controller.change_language(reopen_settings=True)
+    dialogs = [d for d in controller.window.findChildren(QDialog) if d.isVisible()]
+    assert [d.windowTitle() for d in dialogs] == ["Settings"]
+    dialogs[0].close()
+    controller.context.settings.general.language = "fr"
+    controller.change_language()
