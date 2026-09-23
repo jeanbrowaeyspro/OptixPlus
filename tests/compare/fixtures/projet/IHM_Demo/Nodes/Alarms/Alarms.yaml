@@ -1,0 +1,36 @@
+Name: Alarms
+Type: AlarmsCategoryFolder
+Children:
+- Name: Fault_Pompe
+  Type: IType_Demo_Alarm
+  Children:
+  - Name: Message
+    Type: BaseDataVariableType
+    DataType: LocalizedText
+    Value: {"TextId":"Pompe"}
+  - Name: Severity
+    Type: BaseDataVariableType
+    DataType: UInt16
+    Value: 500
+- Name: Fault_SurchauffeGHDel
+  Type: IType_Demo_Alarm
+  Children:
+  - Name: Message
+    Type: BaseDataVariableType
+    DataType: LocalizedText
+    Value: {"TextId":"Surchauffe"}
+  - Name: Severity
+    Type: BaseDataVariableType
+    DataType: UInt16
+    Value: 500
+- Name: Fault_Niveau
+  Type: IType_Demo_Alarm
+  Children:
+  - Name: Message
+    Type: BaseDataVariableType
+    DataType: LocalizedText
+    Value: {"TextId":"Niveau"}
+  - Name: Severity
+    Type: BaseDataVariableType
+    DataType: UInt16
+    Value: 500

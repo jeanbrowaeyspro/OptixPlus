@@ -1,0 +1,14 @@
+Project:
+ Name: IHM_Demo
+ GUID: 0123456789abcdef0123456789abcdef
+ ProductVersion: 1.3
+ Statistics:
+  TotalNodeCount: 100
+  Objects: 20
+  ObjectTypes: 2
+  Variables: 70
+  Methods: 2
+  References: 10
+  Files: 9
+ Nodes:
+ - File: Nodes/IHM_Demo.yaml

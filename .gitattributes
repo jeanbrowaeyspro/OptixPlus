@@ -1,0 +1,2 @@
+# Les fixtures reproduisent des fichiers Optix (CRLF, BOM) : conservées octet pour octet.
+tests/compare/fixtures/** -text

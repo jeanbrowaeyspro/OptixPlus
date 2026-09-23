@@ -1,0 +1,19 @@
+Name: Translations
+Type: TranslationsCategoryFolder
+Children:
+- Name: TranslationTable
+  Type: LocalizationDictionary
+  DataType: String
+  ValueRank: 2
+  ArrayDimensions: [0,0]
+  Value: 
+   {
+    "Type": 12,
+    "Dimensions": [4,4],
+    "Body": [
+     "","en-US","fr-FR","it-IT",
+     "Start","Start","Démarrer","Avvio",
+     "Stop","Stop","Arrêter","Arresto",
+     "Créer bois","Create wood","Créer bois","Creare legno"
+    ]
+   }

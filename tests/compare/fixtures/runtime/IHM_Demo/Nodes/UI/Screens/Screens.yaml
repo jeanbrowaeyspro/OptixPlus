@@ -1,0 +1,17 @@
+Name: Screens
+Type: FolderType
+Children:
+- Name: IType_Manual
+  Supertype: Screen
+  Children:
+  - Name: Panel1
+    Type: Panel
+    Children:
+    - Name: TopMargin
+      Type: BaseDataVariableType
+      DataType: Float
+      Value: 80.0
+    - Name: LeftMargin
+      Type: BaseDataVariableType
+      DataType: Float
+      Value: 562.0

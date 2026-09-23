@@ -1,0 +1,87 @@
+Name: Tags
+Type: FolderType
+Children:
+- Name: App_Demo
+  Type: TagStructure
+  DataType: Structure
+  Value: 
+   {
+    "Type": 22,
+    "Body": {
+     "TypeId": {
+      "Id": 22
+     }
+    }
+   }
+  Children:
+  - Name: GVL_IO
+    Type: TagStructure
+    DataType: Structure
+    Children:
+    - Name: Acquit_Z1
+      Type: CODESYSTag
+      DataType: Boolean
+      Value: false
+      Children:
+      - Name: SymbolName
+        Type: BaseDataVariableType
+        DataType: String
+        Value: "App_Demo.GVL_IO.Acquit_Z1"
+    - Name: Acquit_Z2
+      Type: CODESYSTag
+      DataType: Boolean
+      Value: false
+      Children:
+      - Name: SymbolName
+        Type: BaseDataVariableType
+        DataType: String
+        Value: "App_Demo.GVL_IO.Acquit_Z2"
+    - Name: Marche
+      Type: CODESYSTag
+      DataType: Boolean
+      Value: false
+      Children:
+      - Name: SymbolName
+        Type: BaseDataVariableType
+        DataType: String
+        Value: "App_Demo.GVL_IO.Marche"
+    - Name: Statuts
+      Type: TagStructure
+      DataType: Structure
+      Value: 
+       {
+        "Type": 22,
+        "Body": {
+         "TypeId": {
+          "Id": 22
+         }
+        }
+       }
+      Children:
+      - Name: EnBas
+        Type: CODESYSTag
+        DataType: Boolean
+        Value: false
+        Children:
+        - Name: SymbolName
+          Type: BaseDataVariableType
+          DataType: String
+          Value: "App_Demo.GVL_IO.Statuts.EnBas"
+      - Name: EnHaut
+        Type: CODESYSTag
+        DataType: Boolean
+        Value: false
+        Children:
+        - Name: SymbolName
+          Type: BaseDataVariableType
+          DataType: String
+          Value: "App_Demo.GVL_IO.Statuts.EnHaut"
+      - Name: Vitesse
+        Type: CODESYSTag
+        DataType: Int16
+        Value: false
+        Children:
+        - Name: SymbolName
+          Type: BaseDataVariableType
+          DataType: String
+          Value: "App_Demo.GVL_IO.Statuts.Vitesse"

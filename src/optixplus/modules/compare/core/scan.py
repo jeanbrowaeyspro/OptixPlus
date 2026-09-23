@@ -1,0 +1,294 @@
+"""Inventaire récursif des deux arbres, hash des fichiers communs, classement.
+
+Règles à ne jamais oublier :
+
+- parcours **sans limite de profondeur** ;
+- **toujours hasher**, jamais comparer par taille (``Manu_Mechanizations.yaml`` avait la même
+  taille des deux côtés et différait) ;
+- les catégories structurellement normales (bases SQLite du runtime, sources C# du projet…)
+  sont marquées ``attendu`` et jamais présentées comme des divergences.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Literal
+
+from .lines import is_probably_text, md5_of_file
+from .progress import CancelCheck, ProgressCallback, check_cancel, report
+
+log = logging.getLogger(__name__)
+
+Status = Literal["identique", "different", "runtime_seul", "projet_seul"]
+
+IDE_VERSION_FILE = "IDEVersion.txt"
+NODES_DIR = "Nodes"
+
+
+@dataclass(slots=True)
+class FileEntry:
+    """Un chemin relatif (POSIX) et son état des deux côtés."""
+
+    rel: str
+    status: Status
+    size_runtime: int | None = None
+    size_projet: int | None = None
+    md5_runtime: str | None = None
+    md5_projet: str | None = None
+    is_text: bool = False
+    attendu: bool = False
+    raison_attendu: str = ""
+
+    @property
+    def name(self) -> str:
+        return self.rel.rsplit("/", 1)[-1]
+
+    @property
+    def suffix(self) -> str:
+        name = self.name
+        return name[name.rfind(".") :].lower() if "." in name else ""
+
+    @property
+    def is_yaml(self) -> bool:
+        return self.suffix in (".yaml", ".yml")
+
+    @property
+    def divergent(self) -> bool:
+        """Vrai pour un écart réel : différent ou présent d'un seul côté, hors catégories attendues."""
+        return self.status != "identique" and not self.attendu
+
+
+@dataclass(slots=True)
+class Inventory:
+    """Résultat de l'inventaire : la liste des fichiers des deux arbres et leur classement."""
+
+    runtime_root: Path
+    projet_root: Path
+    entries: list[FileEntry] = field(default_factory=list)
+
+    def by_status(self, status: Status) -> list[FileEntry]:
+        return [e for e in self.entries if e.status == status]
+
+    def common(self) -> list[FileEntry]:
+        return [e for e in self.entries if e.status in ("identique", "different")]
+
+    def divergents(self) -> list[FileEntry]:
+        return [e for e in self.entries if e.divergent]
+
+    def attendus(self) -> list[FileEntry]:
+        return [e for e in self.entries if e.attendu]
+
+    def get(self, rel: str) -> FileEntry | None:
+        for entry in self.entries:
+            if entry.rel == rel:
+                return entry
+        return None
+
+    def runtime_path(self, rel: str) -> Path:
+        return self.runtime_root / rel
+
+    def projet_path(self, rel: str) -> Path:
+        return self.projet_root / rel
+
+
+# ---------------------------------------------------------------------------
+# Détection d'un dossier projet / runtime Optix
+# ---------------------------------------------------------------------------
+
+
+def is_optix_root(path: Path | str) -> bool:
+    """Un dossier est un projet ou un runtime Optix s'il contient ``IDEVersion.txt`` et ``Nodes/``."""
+    root = Path(path)
+    return (root / IDE_VERSION_FILE).is_file() and (root / NODES_DIR).is_dir()
+
+
+def suggest_optix_root(path: Path | str) -> Path | None:
+    """Retourne le dossier lui-même s'il est un projet Optix, sinon son unique sous-dossier s'il l'est.
+
+    Sert à l'écran d'accueil : l'utilisateur a pu choisir le dossier parent d'un export.
+    """
+    root = Path(path)
+    if is_optix_root(root):
+        return root
+    try:
+        subdirs = [p for p in root.iterdir() if p.is_dir()]
+    except OSError:
+        return None
+    if len(subdirs) == 1 and is_optix_root(subdirs[0]):
+        return subdirs[0]
+    return None
+
+
+def read_ide_version(root: Path | str) -> str | None:
+    """Contenu de ``IDEVersion.txt`` (ex. ``1.3.2.9-Stable``), ou ``None`` s'il est absent."""
+    path = Path(root) / IDE_VERSION_FILE
+    try:
+        return path.read_bytes().decode("utf-8", errors="replace").strip() or None
+    except OSError:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Catégories structurellement normales
+# ---------------------------------------------------------------------------
+
+_RUNTIME_ONLY_PREFIXES = (
+    "ApplicationFiles/",
+    "CompanionSpecifications/",
+    "ProjectFiles/Documents/sumatrapdfcache/",
+)
+_RUNTIME_ONLY_SUFFIXES = (".source", ".source.password")
+_RUNTIME_ONLY_FILES = ("ProjectFiles/Documents/SumatraPDF-settings.txt",)
+
+_PROJET_ONLY_PREFIXES = ("DesignTimeNodes/",)
+_PROJET_ONLY_SUFFIXES = (".optix.design",)
+_NETSOLUTION = "ProjectFiles/NetSolution/"
+_NETSOLUTION_BIN = "ProjectFiles/NetSolution/bin/"
+
+
+def expected_reason(rel: str, status: Status) -> str:
+    """Explique pourquoi la présence d'un fichier d'un seul côté est normale, ou chaîne vide sinon."""
+    if status == "runtime_seul":
+        if rel.startswith("ApplicationFiles/"):
+            return "données d'exécution du runtime (SQLite, rétentivité, PKI)"
+        if rel.startswith("CompanionSpecifications/"):
+            return "spécifications compagnon générées par le runtime"
+        if rel.endswith(_RUNTIME_ONLY_SUFFIXES):
+            return "archive chiffrée du projet déployé"
+        if rel.startswith(_RUNTIME_ONLY_PREFIXES) or rel in _RUNTIME_ONLY_FILES:
+            return "cache du lecteur PDF embarqué"
+        return ""
+    if rel.startswith("_FTOCompare_Rebut"):
+        return "mis au rebut par FTOCompare (ancien YAML orphelin)"
+    if status == "projet_seul":
+        if rel.startswith(_PROJET_ONLY_PREFIXES):
+            return "nœuds de conception (projet seul)"
+        if rel.endswith(_PROJET_ONLY_SUFFIXES):
+            return "fichier de conception de l'IDE (projet seul)"
+        if rel.startswith(_NETSOLUTION) and not rel.startswith(_NETSOLUTION_BIN):
+            return "sources et artefacts de la solution .NET (le runtime n'a que la DLL compilée)"
+        return ""
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Inventaire
+# ---------------------------------------------------------------------------
+
+
+def list_files(root: Path | str) -> dict[str, int]:
+    """Tous les fichiers sous ``root``, sans limite de profondeur : chemin relatif POSIX → taille."""
+    root = Path(root)
+    result: dict[str, int] = {}
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        for name in sorted(filenames):
+            full = Path(dirpath) / name
+            rel = full.relative_to(root).as_posix()
+            try:
+                result[rel] = full.stat().st_size
+            except OSError as exc:  # fichier disparu ou verrouillé entre-temps
+                log.warning("Fichier illisible ignoré : %s (%s)", full, exc)
+    return result
+
+
+def _probe_text(path: Path, suffix: str) -> bool:
+    try:
+        with open(path, "rb") as handle:
+            head = handle.read(8192)
+    except OSError:
+        return False
+    return is_probably_text(head, suffix)
+
+
+def _hash_pair(runtime_root: Path, projet_root: Path, rel: str) -> tuple[str, str]:
+    return md5_of_file(runtime_root / rel), md5_of_file(projet_root / rel)
+
+
+def build_inventory(
+    runtime_root: Path | str,
+    projet_root: Path | str,
+    progress: ProgressCallback | None = None,
+    cancel: CancelCheck | None = None,
+    workers: int | None = None,
+) -> Inventory:
+    """Inventorie les deux arbres, hashe chaque fichier commun et classe chaque chemin.
+
+    Le hash est parallélisé dans un pool de threads. La progression est remontée fichier par
+    fichier ; l'annulation est vérifiée entre deux fichiers.
+    """
+    runtime_root = Path(runtime_root)
+    projet_root = Path(projet_root)
+    for label, root in (("runtime", runtime_root), ("projet", projet_root)):
+        if not root.is_dir():
+            raise FileNotFoundError(f"Dossier {label} introuvable : {root}")
+
+    report(progress, "inventaire", str(runtime_root), 0, 2)
+    check_cancel(cancel)
+    runtime_files = list_files(runtime_root)
+    report(progress, "inventaire", str(projet_root), 1, 2)
+    check_cancel(cancel)
+    projet_files = list_files(projet_root)
+
+    inventory = Inventory(runtime_root=runtime_root, projet_root=projet_root)
+    all_rels = sorted(set(runtime_files) | set(projet_files))
+    common = [rel for rel in all_rels if rel in runtime_files and rel in projet_files]
+
+    hashes: dict[str, tuple[str, str]] = {}
+    total = len(common)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {rel: pool.submit(_hash_pair, runtime_root, projet_root, rel) for rel in common}
+        for index, rel in enumerate(common):
+            check_cancel(cancel)
+            report(progress, "hash", rel, index, total)
+            hashes[rel] = futures[rel].result()
+    report(progress, "hash", "", total, total)
+
+    for rel in all_rels:
+        in_runtime = rel in runtime_files
+        in_projet = rel in projet_files
+        suffix = rel[rel.rfind(".") :].lower() if "." in rel.rsplit("/", 1)[-1] else ""
+        if in_runtime and in_projet:
+            md5_r, md5_p = hashes[rel]
+            status: Status = "identique" if md5_r == md5_p else "different"
+            entry = FileEntry(
+                rel=rel,
+                status=status,
+                size_runtime=runtime_files[rel],
+                size_projet=projet_files[rel],
+                md5_runtime=md5_r,
+                md5_projet=md5_p,
+                is_text=_probe_text(runtime_root / rel, suffix) if status == "different" else False,
+            )
+        elif in_runtime:
+            entry = FileEntry(
+                rel=rel,
+                status="runtime_seul",
+                size_runtime=runtime_files[rel],
+                is_text=_probe_text(runtime_root / rel, suffix),
+            )
+        else:
+            entry = FileEntry(
+                rel=rel,
+                status="projet_seul",
+                size_projet=projet_files[rel],
+                is_text=_probe_text(projet_root / rel, suffix),
+            )
+        reason = expected_reason(rel, entry.status)
+        if reason:
+            entry.attendu = True
+            entry.raison_attendu = reason
+        inventory.entries.append(entry)
+
+    log.info(
+        "Inventaire : %d communs, %d différents, %d runtime seul, %d projet seul",
+        len(common),
+        sum(1 for e in inventory.entries if e.status == "different"),
+        len(inventory.by_status("runtime_seul")),
+        len(inventory.by_status("projet_seul")),
+    )
+    return inventory

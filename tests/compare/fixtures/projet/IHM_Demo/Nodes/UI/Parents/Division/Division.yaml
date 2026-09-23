@@ -1,0 +1,5 @@
+Name: Division
+Type: FolderType
+Children:
+- Name: Lame
+  Type: BaseObjectType

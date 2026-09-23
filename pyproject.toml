@@ -24,3 +24,4 @@ optixplus = ["resources/**/*", "i18n/*.json"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = ["couple_reel: tests sur le couple réel réel (ignorés s'il est absent)"]

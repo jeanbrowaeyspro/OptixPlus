@@ -1,0 +1,5 @@
+Name: IO
+Type: FolderType
+Children:
+- Name: Voyant
+  Type: BaseObjectType

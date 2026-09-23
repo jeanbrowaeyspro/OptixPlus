@@ -1,0 +1,13 @@
+Name: Model
+Type: ModelCategoryFolder
+Children:
+- Name: Enum_Taille
+  Type: BaseObjectType
+  Children:
+  - Name: 150
+    Type: IType_EnumItemInt16
+- Name: AvecScanner
+  Id: g=c56263215d6d4587c844962b03716063
+  Type: BaseDataVariableType
+  DataType: Boolean
+  Value: true

@@ -1,0 +1,91 @@
+Name: Tags
+Type: FolderType
+Children:
+- Name: App_Demo
+  Type: TagStructure
+  DataType: Structure
+  Value: 
+   {
+    "Type": 22,
+    "Body": {
+     "TypeId": {
+      "Id": 22
+     }
+    }
+   }
+  Children:
+  - Name: GVL_IO
+    Type: TagStructure
+    DataType: Structure
+    Children:
+    - Name: Marche
+      Type: CODESYSTag
+      DataType: Boolean
+      Value: false
+      Children:
+      - Name: SymbolName
+        Type: BaseDataVariableType
+        DataType: String
+        Value: "App_Demo.GVL_IO.Marche"
+    - Name: PlanSciage_Manu
+      Type: TagStructure
+      DataType: Structure
+      Value: 
+       {
+        "Type": 22,
+        "Body": {
+         "TypeId": {
+          "Id": 22
+         }
+        }
+       }
+      Children:
+      - Name: Largeur
+        Type: CODESYSTag
+        DataType: Int16
+        Value: false
+        Children:
+        - Name: SymbolName
+          Type: BaseDataVariableType
+          DataType: String
+          Value: "App_Demo.GVL_IO.PlanSciage_Manu.Largeur"
+      - Name: Nombre
+        Type: CODESYSTag
+        DataType: Int16
+        Value: false
+        Children:
+        - Name: SymbolName
+          Type: BaseDataVariableType
+          DataType: String
+          Value: "App_Demo.GVL_IO.PlanSciage_Manu.Nombre"
+    - Name: Statuts
+      Type: TagStructure
+      DataType: Structure
+      Value: 
+       {
+        "Type": 22,
+        "Body": {
+         "TypeId": {
+          "Id": 22
+         }
+        }
+       }
+      Children:
+      - Name: EnBas
+        Type: CODESYSTag
+        DataType: Boolean
+        Value: false
+        Children:
+        - Name: SymbolName
+          Type: BaseDataVariableType
+          DataType: String
+          Value: "App_Demo.GVL_IO.Statuts.EnBas"
+      - Name: Vitesse
+        Type: CODESYSTag
+        DataType: Int16
+        Value: false
+        Children:
+        - Name: SymbolName
+          Type: BaseDataVariableType
+          DataType: String
+          Value: "App_Demo.GVL_IO.Statuts.Vitesse"

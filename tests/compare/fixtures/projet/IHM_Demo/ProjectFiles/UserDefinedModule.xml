@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Module version="1">
+    <Name>IHM_DemoUserDefinedModule</Name>
+    <TypeMappings>
+        <TypeMapping>
+            <TargetType>
+                <NodeId namespaceUri="IHM_Demo" guid="8c7127fecb33cfdca49050ce0af6282b" />
+            </TargetType>
+        </TypeMapping>
+        <TypeMapping>
+            <TargetType>
+                <NodeId namespaceUri="IHM_Demo" guid="8c8a432c986c4c596069cf9ec9a2f980" />
+            </TargetType>
+        </TypeMapping>
+        <TypeMapping>
+            <TargetType>
+                <NodeId namespaceUri="IHM_Demo" guid="bc1cc03e5060e72cb67c1d3cd9d84961" />
+            </TargetType>
+        </TypeMapping>
+    </TypeMappings>
+</Module>

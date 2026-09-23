@@ -1,0 +1,8 @@
+Name: IHM_Demo
+Type: ProjectFolder
+Children:
+- File: UI/UI.yaml
+- File: Model/Model.yaml
+- File: Alarms/Alarms.yaml
+- File: CommDrivers/CommDrivers.yaml
+- File: Translations/Translations.yaml

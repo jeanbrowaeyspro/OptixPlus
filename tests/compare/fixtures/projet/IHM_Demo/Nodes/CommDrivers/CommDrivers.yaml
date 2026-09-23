@@ -1,0 +1,10 @@
+Name: CommDrivers
+Type: CommDriversCategoryFolder
+Children:
+- Name: CODESYSDriver
+  Type: CODESYSDriver
+  Children:
+  - Name: API_Demo
+    Type: CODESYSStation
+    Children:
+    - File: CODESYSDriver/API_Demo/Tags/Tags.yaml
