@@ -78,10 +78,12 @@ def default_rules() -> list[HighlightRule]:
 
 
 def default_hosts() -> list[str]:
+    """Aucune adresse par défaut : chaque utilisateur saisit celles de ses automates."""
     return []
 
 
 def default_credentials() -> list[Credential]:
+    """Aucun identifiant par défaut : la session Windows est tentée, puis ceux saisis."""
     return []
 
 

@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from ..core.config import Credential, HighlightRule, Settings, default_hosts, default_rules
+from ..core.config import Credential, HighlightRule, Settings, default_rules
 from ....common.i18n import tr
 
 
@@ -194,9 +194,6 @@ class SettingsDialog(QDialog):
             button.clicked.connect(slot)
             actions.addWidget(button)
         actions.addStretch(1)
-        restore = QPushButton(tr("Restore the default list"))
-        restore.clicked.connect(self._restore_hosts)
-        actions.addWidget(restore)
         layout.addLayout(actions)
         return page
 
@@ -222,11 +219,6 @@ class SettingsDialog(QDialog):
         row = self.hosts_list.currentRow()
         if row >= 0:
             self.hosts_list.takeItem(row)
-
-    def _restore_hosts(self) -> None:
-        self.hosts_list.clear()
-        for host in default_hosts():
-            self._append_host_item(host)
 
     @staticmethod
     def _move_list_item(widget: QListWidget, offset: int) -> None:
@@ -302,7 +294,7 @@ class SettingsDialog(QDialog):
         self.credentials_table.setCellWidget(row, CREDENTIAL_COLUMN_PASSWORD, password)
 
     def _add_credential(self) -> None:
-        self._append_credential_row(Credential(label="Nouveau", username="", password=""))
+        self._append_credential_row(Credential(label=tr("New"), username="", password=""))
         self.credentials_table.setCurrentCell(
             self.credentials_table.rowCount() - 1, CREDENTIAL_COLUMN_LABEL
         )
