@@ -29,6 +29,9 @@ class AutoValidateModule(ToolModule):
         self._clear.triggered.connect(self.service.activity.clear)
         self._open = icons.themed_action(QAction(tr("Open log file"), self), "journal")
         self._open.triggered.connect(self.page.open_log_file)
+        self._toggle.setToolTip(tr("Starts or suspends the monitoring of FT Optix Studio."))
+        self._clear.setToolTip(tr("Empties the monitoring log (window and file)."))
+        self._open.setToolTip(tr("Opens the monitoring log file in the default editor."))
         self.service.state_changed.connect(self._sync_toggle)
         self._sync_toggle()
         return self.page

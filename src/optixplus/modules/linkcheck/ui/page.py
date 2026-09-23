@@ -148,6 +148,18 @@ class LinkCheckPage(QWidget):
         self.act_folder = icons.themed_action(QAction(tr("Open project folder"), self), "window")
         self.act_folder.triggered.connect(self.open_folder)
 
+        # Infobulles : préciser sur quoi porte chaque action (sélection ou tout le projet).
+        self.act_analyse.setToolTip(tr("Analyse the whole project (F5)"))
+        self.act_prefix.setToolTip(
+            tr("Applies to all links pointing to another project, whatever the selection. The target must exist in this project.")
+        )
+        self.act_suggestion.setToolTip(tr("Applies only to the selected rows: replaces each target with its first suggestion."))
+        self.act_manual.setToolTip(tr("Applies only to the selected rows: replaces their target with the one you enter."))
+        self.act_remove.setToolTip(
+            tr("Applies only to the selected rows: removes their dynamic link, the property keeps its static value.")
+        )
+        self.act_folder.setToolTip(tr("Opens the analysed project folder in the Explorer."))
+
     def toolbar_actions(self) -> list[QAction | None]:
         return [
             self.act_analyse,
