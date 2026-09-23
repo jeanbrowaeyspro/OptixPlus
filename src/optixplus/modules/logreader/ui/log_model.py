@@ -70,6 +70,7 @@ class LogTableModel(QAbstractTableModel):
         #: ligne élaguée ne libère pas son numéro, sinon deux lignes
         #: différentes porteraient le même numéro au fil de la session.
         self._next_number = 0
+        self._counts: dict[str, int] = {}
 
     # ------------------------------------------------------------ interface Qt
 
@@ -211,10 +212,18 @@ class LogTableModel(QAbstractTableModel):
         self._max_rows = max_rows
         self._trim()
 
+    # Compteurs par niveau tenus à jour au fil des ajouts et des élagages. pyFTOLogReader
+    # les recalculait en parcourant toutes les lignes (jusqu'à 500 000) à chaque lot reçu.
+    def _count(self, entries, sign: int) -> None:
+        counts = self._counts
+        for entry in entries:
+            counts[entry.level] = counts.get(entry.level, 0) + sign
+
     def clear(self) -> None:
         self.beginResetModel()
         self._entries = []
         self._next_number = 0
+        self._counts = {}
         self.endResetModel()
         self.countChanged.emit()
 
@@ -226,6 +235,8 @@ class LogTableModel(QAbstractTableModel):
         self._next_number = len(entries)
         self._highlighter.apply(entries)
         self._entries = entries
+        self._counts = {}
+        self._count(entries, 1)
         self.endResetModel()
         self._trim()
         self.countChanged.emit()
@@ -240,6 +251,7 @@ class LogTableModel(QAbstractTableModel):
         first = len(self._entries)
         self.beginInsertRows(QModelIndex(), first, first + len(entries) - 1)
         self._entries.extend(entries)
+        self._count(entries, 1)
         self.endInsertRows()
         self._trim()
         self.countChanged.emit()
@@ -250,13 +262,13 @@ class LogTableModel(QAbstractTableModel):
             return
         excess = len(self._entries) - self._max_rows
         self.beginRemoveRows(QModelIndex(), 0, excess - 1)
+        self._count(self._entries[:excess], -1)
         del self._entries[:excess]
         self.endRemoveRows()
 
     def level_counts(self) -> dict[str, int]:
         counts = {level: 0 for level in KNOWN_LEVELS}
-        for entry in self._entries:
-            counts[entry.level] = counts.get(entry.level, 0) + 1
+        counts.update(self._counts)
         return counts
 
     def display_text(self, entry, column: int) -> str:

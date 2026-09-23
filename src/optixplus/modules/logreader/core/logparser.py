@@ -37,12 +37,28 @@ class LogEntry:
     message: str
     details: str
     node_path: str
-    raw: str
+    #: Niveau tel qu'écrit dans le fichier (``level`` est normalisé en majuscules).
+    #: Chaîne vide pour une ligne hors format, dont tout le texte est dans ``message``.
+    level_text: str = ""
     #: Texte concaténé en minuscules, utilisé pour la recherche et le surlignage.
     search_text: str = field(default="", repr=False)
     #: Indice de la règle de surlignage retenue (-1 = aucune), calculé par
     #: :class:`app.highlight.Highlighter` et mis à jour quand les règles changent.
     highlight_index: int = -1
+
+    @property
+    def raw(self) -> str:
+        """Ligne d'origine, reconstruite à l'identique à partir des champs.
+
+        pyFTOLogReader la conservait en plus des champs découpés et de sa copie en
+        minuscules : trois fois le même texte, multiplié par 500 000 lignes. Elle n'est
+        plus stockée, seulement recomposée quand on la demande (copie de la ligne).
+        """
+        if not self.timestamp_text:
+            return self.message
+        return ";".join(
+            (self.timestamp_text, self.level_text, self.source, self.code, self.message, self.details, self.node_path)
+        )
 
     @property
     def message_multiline(self) -> str:
@@ -103,7 +119,7 @@ def parse_line(text: str, index: int) -> LogEntry | None:
         message=message,
         details=details,
         node_path=node_path,
-        raw=text,
+        level_text=level,
     )
     entry.search_text = text.lower()
     return entry
