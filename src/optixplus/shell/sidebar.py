@@ -45,7 +45,7 @@ class Sidebar(QFrame):
         self.setObjectName("sidebar")
         self.setFixedWidth(SIDEBAR_WIDTH)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 6, 0, 6)
+        outer.setContentsMargins(0, 0, 0, 6)
         outer.setSpacing(2)
         # Les outils défilent si la fenêtre est trop basse (prévu pour de futurs outils) ;
         # Paramètres reste toujours visible en bas.

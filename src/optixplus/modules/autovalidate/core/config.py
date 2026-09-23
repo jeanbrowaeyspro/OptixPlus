@@ -21,7 +21,7 @@ class AutoValidateSettings:
     titles: list[str] = field(default_factory=lambda: list(DEFAULT_TITLES))
     process_name: str = DEFAULT_PROCESS
     restore_focus: bool = True
-    notify: bool = True
+    notify: bool = False
     max_retries: int = 3
     retry_delay_ms: int = 300
     # Filet de sécurité : les événements Windows suffisent normalement, une vérification

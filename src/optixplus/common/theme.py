@@ -426,7 +426,10 @@ def build_stylesheet(p: Palette) -> str:
         border-radius: 8px;
         padding: 5px;
     }}
-    QMenu::item {{ padding: 6px 24px 6px 14px; border-radius: 5px; }}
+    /* Marge à gauche de l'icône : sans elle, l'icône colle au bord du surlignage. */
+    QMenu::item {{ padding: 6px 24px 6px 32px; border-radius: 5px; }}
+    QMenu::icon {{ padding-left: 10px; }}
+    QMenu::indicator {{ width: 14px; height: 14px; left: 10px; }}
     QMenu::item:selected {{ background: {p.selection}; color: {p.selection_text}; }}
     QMenu::separator {{ height: 1px; background: {p.border}; margin: 4px 8px; }}
 

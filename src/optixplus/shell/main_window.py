@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QStackedWidget,
     QToolBar,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -69,14 +70,9 @@ class MainWindow(QMainWindow):
         self._pages: dict[str, QWidget] = {}
         self._current = ""
 
-        self._toolbar = QToolBar(tr("Tool actions"), self)
-        self._toolbar.setObjectName("contextToolbar")
-        self._toolbar.setMovable(False)
-        self._toolbar.setFloatable(False)
-        self._toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self._toolbar.toggleViewAction().setEnabled(False)
-        self.addToolBar(self._toolbar)
-
+        # Disposition : la barre latérale occupe toute la hauteur sous les menus ; la barre
+        # d'actions de l'outil actif appartient à la zone de contenu, à droite. Ainsi la
+        # navigation ne bouge jamais quand on change d'outil.
         central = QWidget()
         layout = QHBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -84,9 +80,22 @@ class MainWindow(QMainWindow):
         self.sidebar = Sidebar()
         self.sidebar.page_requested.connect(self.show_page)
         self.sidebar.settings_requested.connect(context.controller.open_settings)
-        self._stack = QStackedWidget()
         layout.addWidget(self.sidebar)
-        layout.addWidget(self._stack, 1)
+
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+        self._toolbar = QToolBar(tr("Tool actions"), content)
+        self._toolbar.setObjectName("contextToolbar")
+        self._toolbar.setMovable(False)
+        self._toolbar.setFloatable(False)
+        self._toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._toolbar.setVisible(False)
+        self._stack = QStackedWidget()
+        content_layout.addWidget(self._toolbar)
+        content_layout.addWidget(self._stack, 1)
+        layout.addWidget(content, 1)
         self.setCentralWidget(central)
 
         self.home = HomePage(context.services)
@@ -132,16 +141,17 @@ class MainWindow(QMainWindow):
         quit_action.triggered.connect(controller.quit)
 
         tools_menu = bar.addMenu(tr("&Tools"))
-        home_action = tools_menu.addAction(icons.themed_icon("home"), tr("Home"))
+        self._themed_actions: list[tuple[QAction, str]] = []
+        home_action = self._icon_action(tools_menu, "home", tr("Home"))
         home_action.setShortcut(QKeySequence("Ctrl+0"))
         home_action.triggered.connect(lambda: self.show_page(HOME_ID))
         tools_menu.addSeparator()
         for module in MODULES:
-            action = tools_menu.addAction(icons.themed_icon(module.icon), tr(module.title))
+            action = self._icon_action(tools_menu, module.icon, tr(module.title))
             action.setShortcut(QKeySequence(module.shortcut))
             action.triggered.connect(lambda _c=False, mid=module.id: self.show_page(mid))
         tools_menu.addSeparator()
-        settings_action = tools_menu.addAction(icons.themed_icon("settings"), tr("Settings…"))
+        settings_action = self._icon_action(tools_menu, "settings", tr("Settings…"))
         settings_action.setShortcut(QKeySequence("Ctrl+,"))
         settings_action.triggered.connect(controller.open_settings)
 
@@ -162,8 +172,14 @@ class MainWindow(QMainWindow):
         view_menu.addAction(log_action)
 
         help_menu = bar.addMenu(tr("&Help"))
-        about_action = help_menu.addAction(icons.themed_icon("info"), tr("About OptixPlus"))
+        about_action = self._icon_action(help_menu, "info", tr("About OptixPlus"))
         about_action.triggered.connect(controller.open_about)
+
+    def _icon_action(self, menu, icon_name: str, text: str) -> QAction:
+        """Entrée de menu avec icône recolorée à chaque changement de thème."""
+        action = menu.addAction(icons.themed_icon(icon_name), text)
+        self._themed_actions.append((action, icon_name))
+        return action
 
     def _set_theme(self, theme: str) -> None:
         self.context.settings.general.theme = theme
@@ -174,6 +190,8 @@ class MainWindow(QMainWindow):
         icons.clear_cache()
         self.sidebar.refresh_icons()
         self.home.refresh_icons()
+        for action, icon_name in self._themed_actions:
+            action.setIcon(icons.themed_icon(icon_name))
         for action in self._theme_actions.actions():
             action.setChecked(action.data() == self.context.theme.theme)
 

@@ -54,11 +54,11 @@ def test_settings_are_normalized():
 
 
 def test_restore_defaults_keeps_state():
-    s = AutoValidateSettings(enabled=False, titles=["x"], notify=False)
+    s = AutoValidateSettings(enabled=False, titles=["x"], notify=True)
     s.restore_defaults()
     assert s.enabled is False
     assert s.titles == list(DEFAULT_TITLES)
-    assert s.notify is True
+    assert s.notify is False  # notification désactivée par défaut
 
 
 # ---- API Windows simulée ---------------------------------------------------------
