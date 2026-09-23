@@ -252,7 +252,7 @@ class PlanDialog(QDialog):
         self.plan_loaded.emit()
         if perdus:
             QMessageBox.warning(
-                self, tr("Plan partly replayed"), tr("Changes not found in this comparison:") + "\n" + "\n".join(perdus)
+                self, tr("Plan partly replayed"), tr("Differences not found in this comparison:") + "\n" + "\n".join(perdus)
             )
         log.info("Plan chargé : %s (%d décision(s), %d perdue(s))", chemin, len(plan.decisions), len(perdus))
         return perdus

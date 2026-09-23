@@ -290,7 +290,7 @@ class SemanticView(QWidget):
         self.detail = QPlainTextEdit()
         self.detail.setReadOnly(True)
         self.detail.setFont(QFont("Consolas", 9))
-        self.detail.setPlaceholderText(tr("Select a row to see the raw lines of the change."))
+        self.detail.setPlaceholderText(tr("Select a row to see the raw lines of the difference."))
         self.detail.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
 
         splitter = QSplitter(Qt.Orientation.Vertical)
@@ -379,7 +379,7 @@ class SemanticView(QWidget):
         plan = self.plan
         n = plan.nb_pris()
         garder = sum(1 for d in plan.decisions.values() if d == "garder_projet")
-        parts = [tr("{n} change(s) to take from the runtime").format(n=n)]
+        parts = [tr("{n} difference(s) to take from the runtime").format(n=n)]
         if garder:
             parts.append(tr("{n} kept on the project side").format(n=garder))
         if plan.alignement_complet:

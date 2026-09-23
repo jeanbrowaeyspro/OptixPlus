@@ -58,7 +58,7 @@ class FileTree(QTreeWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setHeaderLabels([tr("File"), tr("Changes"), tr("State"), tr("Project"), tr("Runtime")])
+        self.setHeaderLabels([tr("File"), tr("Differences"), tr("State"), tr("Project"), tr("Runtime")])
         self.setAlternatingRowColors(True)
         self.setUniformRowHeights(True)
         self.setIndentation(14)
@@ -144,7 +144,7 @@ class FileTree(QTreeWidget):
                 item.setText(1, str(nb))
                 item.setText(2, sens_label(diff.sens))
                 item.setForeground(2, couleur_sens(diff.sens))
-                item.setToolTip(0, entry.rel + "\n" + tr("{significant} significant difference(s), {hunks} change(s)").format(significant=nb, hunks=len(diff.semantic)))
+                item.setToolTip(0, entry.rel + "\n" + tr("{significant} significant difference(s) out of {hunks}").format(significant=nb, hunks=len(diff.semantic)))
                 rel_dir = parent_rel
                 while True:
                     dirs[rel_dir].files.append(entry.rel)
@@ -381,7 +381,7 @@ class ResultsPage(QWidget):
         if fd.rel == self._diff_rel:
             return
         self._diff_rel = fd.rel
-        titre = f"<b>{fd.rel}</b> — " + tr("{hunks} change(s), project {project} l. ⇄ runtime {runtime} l.").format(
+        titre = f"<b>{fd.rel}</b> — " + tr("{hunks} difference(s), project {project} l. ⇄ runtime {runtime} l.").format(
             hunks=len(fd.hunks), project=len(fd.projet.lines), runtime=len(fd.runtime.lines)
         )
         self.diff.set_content(fd.projet.lines, fd.runtime.lines, fd.opcodes, titre)
