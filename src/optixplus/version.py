@@ -8,6 +8,7 @@ APP_NAME = "OptixPlus"
 APP_ID = "JeanBrowaeys.OptixPlus"  # AppUserModelID Windows
 ORGANIZATION = "Jean Browaeys"
 AUTHOR = "Jean Browaeys"
+POWERED_BY = "Claude Opus 5.5"
 GITHUB_REPO = "jeanbrowaeyspro/OptixPlus"
 GITHUB_URL = f"https://github.com/{GITHUB_REPO}"
 

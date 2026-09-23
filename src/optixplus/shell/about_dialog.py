@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 from ..common import icons, paths
 from ..common.i18n import tr
-from ..version import APP_NAME, AUTHOR, GITHUB_URL, ORGANIZATION, __version__, build_date
+from ..version import APP_NAME, AUTHOR, GITHUB_URL, POWERED_BY, __version__, build_date
 
 
 class AboutDialog(QDialog):
@@ -45,10 +45,12 @@ class AboutDialog(QDialog):
         built = build_date()
         date = QLabel(tr("Built on {date}").format(date=built) if built else tr("Run from source"))
         date.setProperty("muted", True)
-        author = QLabel(f"{AUTHOR} — {ORGANIZATION}")
+        author = QLabel(f"{AUTHOR} — {tr('Independent automation engineer')}")
+        powered = QLabel(tr("Powered by {model}").format(model=POWERED_BY))
+        powered.setProperty("muted", True)
         link = QLabel(f'<a href="{GITHUB_URL}">{GITHUB_URL}</a>')
         link.setOpenExternalLinks(True)
-        for widget in (name, version, date, author, link):
+        for widget in (name, version, date, author, powered, link):
             titles.addWidget(widget)
         header.addLayout(titles, 1)
         layout.addLayout(header)

@@ -16,7 +16,7 @@ OptixPlus réunit quatre utilitaires FactoryTalk Optix (Log Reader, Link Checker
 
 ## Règles
 
-- **Ne jamais afficher de fenêtre sur l'écran de Jean sans sa permission.** Les tests et les captures tournent hors écran (`QT_QPA_PLATFORM=offscreen`, `QWidget.grab()`). Un lancement visible (tray, focus réel) se demande d'abord.
+- **Ne jamais afficher de fenêtre sur l'écran de Jean sans sa permission.** Les tests et les captures tournent hors écran (`QT_QPA_PLATFORM=offscreen`, `QWidget.grab()`, et `QT_QPA_FONTDIR=C:/Windows/Fonts` pour que le texte s'affiche dans les captures). Un lancement visible (tray, focus réel) se demande d'abord.
 - Français pour les commentaires, docstrings, messages de log et documentation ; noms de symboles en anglais.
 - **Textes de l'interface écrits en anglais** dans le code via `tr("…")` / `tr_n(…)` (module `optixplus.common.i18n`), traduits dans `src/optixplus/i18n/fr.json`. Traduire à l'affichage, jamais dans une constante de module. Ne pas utiliser `_` comme nom de fonction de traduction. Un test échoue s'il manque une traduction française.
 - Langue par défaut : celle de Windows (français pour toute variante fr-*, anglais sinon).
