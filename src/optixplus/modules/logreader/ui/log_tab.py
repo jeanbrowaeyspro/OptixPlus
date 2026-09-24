@@ -198,6 +198,9 @@ class LogTab(QWidget):
 
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.setChildrenCollapsible(False)
+        # Poignée sans trait visible, mais toujours déplaçable entre tableau et détail.
+        splitter.setProperty("cards", True)
+        splitter.setHandleWidth(8)
         self.table = QTableView()
         scrollbar_below_header(self.table)
         self.table.setModel(self.proxy)
