@@ -27,9 +27,9 @@ from optixplus.modules.compare.core.plan import Plan, build_preview
 
 pytestmark = pytest.mark.couple_reel
 
-TAGS = "Nodes/CommDrivers/CODESYSDriver/API_CentreDeReprise/Tags/Tags.yaml"
+# Les noms propres au projet du client (tags, écrans, types) sont lus dans la section
+# ``noms_reels`` du résultat attendu, hors dépôt : rien ici ne désigne le projet réel.
 TRANSLATIONS = "Nodes/Translations/Translations.yaml"
-MANU = "Nodes/UI/Screens/04_Manual/Manu_Mechanizations/Manu_Mechanizations.yaml"
 TYPE_CONSTANTS = "ProjectFiles/NetSolution/Private/TypeConstants.cs"
 UI_TYPES = "ProjectFiles/NetSolution/Private/UITypeDefinitions.cs"
 
@@ -48,8 +48,9 @@ def test_autres_fichiers_divergents(comparison: Comparison, expected: dict) -> N
 
 def test_tableaux_de_tags(comparison: Comparison, expected: dict) -> None:
     """Les membres ajoutés dans une structure, dont des tableaux, sont reconnus avec leur dimension."""
-    ajoutes = {t.symbol: t for t in comparison.tags[TAGS].runtime_seul}
-    membres = expected["correctifs_ajouts_runtime"]["membres_ajoutes_dans_Statuts_TRSFP2_PinStops"]
+    noms = expected["noms_reels"]
+    ajoutes = {t.symbol: t for t in comparison.tags[noms["tags"]].runtime_seul}
+    membres = expected["correctifs_ajouts_runtime"][noms["membres_structure"]]
     assert any("array" in exp for exp in membres), "le résultat attendu doit contenir un tableau"
     for exp in membres:
         tag = ajoutes.get(exp["symbol"])
@@ -79,9 +80,10 @@ def test_elagage_fichiers_generes_par_guid(couple_reel: tuple[Path, Path], compa
     assert len(tc.lines) == exp_tc["lignes_avant"]
     tc_apres = prune_type_constants(tc.lines, guids)
     assert len(tc_apres) == exp_tc["lignes_apres"]
-    assert not any(b"IType_Div_" in line for line in tc_apres)
-    assert any(b"IType_TextErreurDivision" in line for line in tc_apres)
-    assert any(b"IType_API_Infos_Deligneuse" in line for line in tc_apres)
+    noms = expected["noms_reels"]
+    assert not any(noms["prefixe_types_retires"].encode() in line for line in tc_apres)
+    for conserve in noms["types_conserves_dans_typeconstants"]:
+        assert any(conserve.encode() in line for line in tc_apres), conserve
 
     ui = read_text_file(projet / UI_TYPES)
     exp_ui = exp[UI_TYPES]
@@ -98,22 +100,23 @@ def test_blocs_branche_projet_nommes(comparison: Comparison, expected: dict) -> 
         return {n for s in comparison.diffs[rel].semantic if s.sens == "branche_projet" for n in s.noeuds}
 
     bp = expected["branche_projet"]
+    reels = expected["noms_reels"]
     assert set(bp["alarmes_faults"]) <= noms("Nodes/Alarms/Faults/Faults.yaml")
     assert set(bp["alarmes_security"]) <= noms("Nodes/Alarms/Security/Security.yaml")
     ecrans = bp["ecrans"]
-    assert {"BackgroundDEL", "DEL_ZoneSecurite", "CanterDEL_ZoneSecurite"} <= noms("Nodes/UI/Screens/Screens.yaml")
-    assert any(s.chemin.startswith("Screens/IType_03_Work/") for s in comparison.diffs["Nodes/UI/Screens/Screens.yaml"].semantic)
-    assert set(ecrans["04_Manual.yaml"]) <= noms("Nodes/UI/Screens/04_Manual/04_Manual.yaml")
-    assert "DelManu" in noms("Nodes/UI/Screens/07_Overwatch/07_Overwatch.yaml")
-    assert {"ProcedureDEL", "DEL", "DELMANU"} <= noms("Nodes/UI/Screens/09_Settings/09_Settings.yaml")
-    assert {"Title_EntryTable", "Title_Guide", "VitDescPressersDEL", "DelManu", "Del"} <= noms(
-        "Nodes/UI/Screens/06_Parameters/Machine/Machine.yaml"
+    assert set(reels["noeuds_screens"]) <= noms("Nodes/UI/Screens/Screens.yaml")
+    assert any(
+        s.chemin.startswith(reels["prefixe_ecran_type"]) for s in comparison.diffs["Nodes/UI/Screens/Screens.yaml"].semantic
     )
+    assert set(ecrans["04_Manual.yaml"]) <= noms("Nodes/UI/Screens/04_Manual/04_Manual.yaml")
+    assert reels["noeud_overwatch"] in noms("Nodes/UI/Screens/07_Overwatch/07_Overwatch.yaml")
+    assert set(reels["noeuds_settings"]) <= noms("Nodes/UI/Screens/09_Settings/09_Settings.yaml")
+    assert set(reels["noeuds_parametres_machine"]) <= noms("Nodes/UI/Screens/06_Parameters/Machine/Machine.yaml")
     assert set(ecrans["97_PLCs/Machine.yaml"]) <= noms("Nodes/UI/Screens/97_PLCs/Machine/Machine.yaml")
 
     parents = comparison.diffs["Nodes/UI/Parents/Parents.yaml"].semantic
     assert len(parents) == 1 and parents[0].genre == "fichier"
-    assert parents[0].noeud == "Division/Division.yaml"
+    assert parents[0].noeud == reels["fichier_parent_retire"]
     assert comparison.orphelins_projet == [] and comparison.orphelins_runtime == []
 
 
@@ -144,7 +147,8 @@ def test_plan_recuperer_ajouts_et_valeurs(couple_reel: tuple[Path, Path], compar
     trad = preview.change(TRANSLATIONS)
     assert trad is not None and trad.notes == ["Dimensions recalculées : 2146 → 2147"]
     assert trad.new == (runtime / TRANSLATIONS).read_bytes()
-    assert preview.change(MANU).new == (runtime / MANU).read_bytes()
+    manu = expected["noms_reels"]["ecran_manuel"]
+    assert preview.change(manu).new == (runtime / manu).read_bytes()
     assert preview.orphelins == [] and preview.types_retires == []
     assert preview.nb_ajouts == 10 and preview.nb_valeurs == 3 and preview.nb_retraits == 0  # 9 tags + 1 traduction
 
@@ -176,7 +180,7 @@ def test_plan_alignement_complet(comparison: Comparison, expected: dict) -> None
     assert xml.sens == "branche_projet"
     assert len(xml.semantic) == 21 and all(s.genre == "type" for s in xml.semantic)
     assert {s.noeud for s in xml.semantic} == set(attendus.values())
-    # Les références restantes : les Find("IType_Div_…") par chaîne dans un fichier C# du projet
+    # Les références restantes : des Find("…") par chaîne vers les types retirés, dans un fichier C# du projet
     refs_cs = {r.rel for r in preview.references if r.rel.endswith(".cs")}
     assert any(r.endswith(expected["fichier_cs_references"]) for r in refs_cs)
     assert any("Project.Current.Find" in a for a in preview.avertissements)
