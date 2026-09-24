@@ -236,7 +236,7 @@ class Ipc:
         return self.log_available
 
 
-def probe_controller(controller, log_filename: str, ping_timeout_ms: int = 700) -> Ipc:
+def probe_controller(controller, ping_timeout_ms: int = 700) -> Ipc:
     """Sonde un automate de bout en bout et renvoie son état.
 
     Dossier local : présence du dossier et du journal. Dossier réseau : ping (ou port
@@ -245,7 +245,7 @@ def probe_controller(controller, log_filename: str, ping_timeout_ms: int = 700) 
     """
     result = Ipc(host=controller.host.strip(), key=controller.id, name=controller.name)
     folder = controller.log_folder()
-    log_path = os.path.join(folder, log_filename)
+    log_path = controller.log_path()
     target = controller.network_share()
 
     if target is None:  # dossier local : ni réseau ni identifiants
@@ -283,7 +283,7 @@ def probe_controller(controller, log_filename: str, ping_timeout_ms: int = 700) 
     return result
 
 
-def discover(controllers, log_filename: str, ping_timeout_ms: int = 700, on_result=None,
+def discover(controllers, ping_timeout_ms: int = 700, on_result=None,
              max_workers: int = 8) -> list[Ipc]:
     """Sonde tous les automates en parallèle ; résultats dans l'ordre de la liste fournie.
 
@@ -297,7 +297,7 @@ def discover(controllers, log_filename: str, ping_timeout_ms: int = 700, on_resu
     results: dict[str, Ipc] = {}
     with ThreadPoolExecutor(max_workers=min(max_workers, len(controllers))) as pool:
         futures = {
-            pool.submit(probe_controller, controller, log_filename, ping_timeout_ms): controller
+            pool.submit(probe_controller, controller, ping_timeout_ms): controller
             for controller in controllers
         }
         for future in as_completed(futures):

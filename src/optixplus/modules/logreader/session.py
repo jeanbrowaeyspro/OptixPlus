@@ -15,6 +15,7 @@ proxy) sont des objets de données Qt, pas des éléments d'affichage.
 from __future__ import annotations
 
 import logging
+import ntpath
 import os
 from datetime import datetime
 
@@ -76,8 +77,9 @@ class LogSession(QObject):
         #: Automate recherché (identifiant ou adresse) et son nom affiché.
         self.probing_host = ""
         self.probing_name = ""
-        #: Dossier des journaux de l'automate ouvert (historique).
+        #: Dossier et fichier journal de l'automate ouvert (historique).
         self.log_dir = ""
+        self.log_filename = ""
         #: Erreurs reçues pendant que l'onglet n'était pas affiché (pastille de l'onglet).
         self.unseen_errors = 0
         self.visible = True
@@ -107,7 +109,8 @@ class LogSession(QObject):
         self.probing_host = self.probing_name = ""
         controller = self._controller(ipc.ref)
         self.log_dir = controller.log_folder()
-        self.path = os.path.join(self.log_dir, self.settings.log_filename)
+        self.path = controller.log_path()
+        self.log_filename = ntpath.basename(self.path)
         server, share = controller.network_share() or ("", "")
         self.archives_loaded = False
         self.unseen_errors = 0
@@ -148,7 +151,6 @@ class LogSession(QObject):
         self.identityChanged.emit()
         worker = DiscoveryWorker(
             [controller],
-            self.settings.log_filename,
             self.settings.ping_timeout_ms,
             parent=self,
         )
@@ -250,7 +252,7 @@ class LogSession(QObject):
             return False
         # La recherche des fichiers est elle-même une entrée-sortie réseau : elle se
         # fait dans le fil, pas ici.
-        loader = ArchiveLoader(self.log_dir, self.settings.log_filename, self)
+        loader = ArchiveLoader(self.log_dir, self.log_filename, self)
         loader.loaded.connect(self._on_archives_loaded)
         self.archive_loader = loader
         loader.start()
@@ -282,7 +284,7 @@ class LogSession(QObject):
         if self.ipc is None:
             return ()
         controller = settings.controller_for(self.ipc.ref)
-        return (controller.log_folder(), settings.log_filename, controller.username, controller.password)
+        return (controller.log_path(), controller.username, controller.password)
 
     # ------------------------------------------------------------------ arrêt
     @property

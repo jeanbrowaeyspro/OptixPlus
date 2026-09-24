@@ -398,16 +398,14 @@ class DiscoveryWorker(QThread):
     hostProbed = Signal(object)   # discovery.Ipc
     finishedScan = Signal(list)   # list[discovery.Ipc]
 
-    def __init__(self, controllers, log_filename: str, ping_timeout_ms: int = 700, parent=None):
+    def __init__(self, controllers, ping_timeout_ms: int = 700, parent=None):
         super().__init__(parent)
         self._controllers = list(controllers)
-        self._log_filename = log_filename
         self._ping_timeout_ms = ping_timeout_ms
 
     def run(self) -> None:
         results = discovery.discover(
             self._controllers,
-            self._log_filename,
             self._ping_timeout_ms,
             on_result=self.hostProbed.emit,
         )

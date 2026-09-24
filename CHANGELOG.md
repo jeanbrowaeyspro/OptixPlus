@@ -4,6 +4,9 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 
 ## [Non publié]
 
+### Modifié
+- Lecteur de logs : le fichier journal lu est propre à chaque automate (champ « Fichier journal » de sa fiche, `FTOptixRuntime.0.log` par défaut) ; on peut ainsi lire le journal d'un FT Optix de développement sans toucher aux autres automates. Le nom commun réglé jusqu'ici est repris dans chaque fiche.
+
 ## [1.1.0] - 2026-09-24
 
 ### Ajouté

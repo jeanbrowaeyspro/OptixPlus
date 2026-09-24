@@ -212,7 +212,6 @@ class ConnectDialog(QDialog):
 
         self._worker = DiscoveryWorker(
             controllers,
-            self.settings.log_filename,
             self.settings.ping_timeout_ms,
             parent=self,
         )

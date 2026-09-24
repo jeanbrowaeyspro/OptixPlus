@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 
 from ....common.i18n import tr
 from ....common.widgets import ElidedLabel, scrollbar_below_header
-from ..core.config import Controller, HighlightRule, Settings, default_rules
+from ..core.config import DEFAULT_LOG_FILENAME, Controller, HighlightRule, Settings, default_rules
 
 if TYPE_CHECKING:
     from ....shell.context import AppContext
@@ -159,6 +159,10 @@ class LogReaderSettingsPage(QWidget):
         folder_row.addWidget(self.folder_edit, 1)
         folder_row.addWidget(browse)
         form.addRow(tr("Log folder") + " *", folder_row)
+        self.filename_edit = QLineEdit()
+        self.filename_edit.setPlaceholderText(DEFAULT_LOG_FILENAME)
+        self.filename_edit.setToolTip(tr("File read in the log folder of this controller."))
+        form.addRow(tr("Log file"), self.filename_edit)
         # Une ligne, abrégée au milieu si besoin (infobulle : texte complet). Pas de retour
         # à la ligne automatique : il couperait le chemin au premier « \ ».
         self.path_preview = ElidedLabel(mode=Qt.TextElideMode.ElideMiddle)
@@ -176,7 +180,9 @@ class LogReaderSettingsPage(QWidget):
         form.addRow(note)
         layout.addWidget(self.form_box, 2)
 
-        for edit in (self.name_edit, self.host_edit, self.username_edit, self.password_edit, self.folder_edit):
+        for edit in (
+            self.name_edit, self.host_edit, self.username_edit, self.password_edit, self.folder_edit, self.filename_edit
+        ):
             edit.textEdited.connect(self._form_edited)
         return page
 
@@ -204,6 +210,7 @@ class LogReaderSettingsPage(QWidget):
             (self.username_edit, controller.username if controller else ""),
             (self.password_edit, controller.password if controller else ""),
             (self.folder_edit, controller.log_dir if controller else ""),
+            (self.filename_edit, controller.log_filename if controller else ""),
         ):
             edit.setText(value)
         self._loading = False
@@ -218,6 +225,7 @@ class LogReaderSettingsPage(QWidget):
         controller.username = self.username_edit.text().strip()
         controller.password = self.password_edit.text()
         controller.log_dir = self.folder_edit.text().strip()
+        controller.log_filename = self.filename_edit.text().strip() or DEFAULT_LOG_FILENAME
         self._refresh_item(self.controllers_list.currentRow())
         self._refresh_preview()
 
@@ -230,7 +238,7 @@ class LogReaderSettingsPage(QWidget):
         if error:
             self._set_preview(error)
             return
-        path = controller.log_folder().rstrip("\\") + "\\" + (self.filename_edit.text().strip() or "FTOptixRuntime.0.log")
+        path = controller.log_path()
         self._set_preview(tr("Log read: {path}").format(path=path))
 
     def _set_preview(self, text: str) -> None:
@@ -324,17 +332,6 @@ class LogReaderSettingsPage(QWidget):
         form.addRow("", self.remember_check)
         layout.addWidget(live)
 
-        location = QGroupBox(tr("Log file"))
-        form = QFormLayout(location)
-        form.setSpacing(10)
-        self.filename_edit = QLineEdit()
-        self.filename_edit.textEdited.connect(self._refresh_preview)
-        form.addRow(tr("File name"), self.filename_edit)
-        hint = QLabel(tr("Read in the log folder of each controller."))
-        hint.setProperty("muted", True)
-        hint.setWordWrap(True)
-        form.addRow("", hint)
-        layout.addWidget(location)
         layout.addStretch(1)
         return page
 
@@ -488,7 +485,6 @@ class LogReaderSettingsPage(QWidget):
         self.ping_spin.setValue(settings.ping_timeout_ms)
         self.max_rows_spin.setValue(settings.max_rows)
         self.remember_check.setChecked(settings.remember_last_host)
-        self.filename_edit.setText(settings.log_filename)
         self.rules_table.setRowCount(0)
         for rule in settings.highlight_rules:
             self._append_rule_row(rule)
@@ -507,7 +503,6 @@ class LogReaderSettingsPage(QWidget):
         s.ping_timeout_ms = self.ping_spin.value()
         s.max_rows = self.max_rows_spin.value()
         s.remember_last_host = self.remember_check.isChecked()
-        s.log_filename = self.filename_edit.text().strip() or "FTOptixRuntime.0.log"
         rules = []
         for row in range(self.rules_table.rowCount()):
             name_item = self.rules_table.item(row, RULE_COLUMN_NAME)

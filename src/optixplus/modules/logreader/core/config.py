@@ -40,6 +40,8 @@ class Credential:
 
 #: Dossier des journaux d'un nouvel automate : partage « Optix », sous-dossier « Log ».
 DEFAULT_LOG_DIR = "Optix\\Log"
+#: Fichier journal d'un nouvel automate (journal du runtime FT Optix).
+DEFAULT_LOG_FILENAME = "FTOptixRuntime.0.log"
 
 
 def _new_id() -> str:
@@ -68,6 +70,9 @@ class Controller:
     username: str = ""
     password: str = ""
     log_dir: str = DEFAULT_LOG_DIR
+    #: Fichier journal lu dans ce dossier (propre à l'automate : un FT Optix de
+    #: développement n'écrit pas forcément le même que le runtime d'une machine).
+    log_filename: str = DEFAULT_LOG_FILENAME
 
     @property
     def display_name(self) -> str:
@@ -102,6 +107,10 @@ class Controller:
         if not parts:
             return ""
         return ntpath.join(netshare.unc_path(self.host.strip(), parts[0]), *parts[1:])
+
+    def log_path(self) -> str:
+        """Chemin complet du fichier journal."""
+        return ntpath.join(self.log_folder(), self.log_filename.strip() or DEFAULT_LOG_FILENAME)
 
     def credentials(self) -> list[Credential]:
         """Identifiants à essayer après la session Windows (aucun si l'identifiant est vide)."""
@@ -193,7 +202,12 @@ def controllers_from_legacy(data: dict) -> list[Controller]:
             username = str(item.get("username", ""))
             password = dpapi.unprotect(item.get("password", ""))
             break
-    return [Controller(host=h.strip(), username=username, password=password, log_dir=log_dir) for h in hosts]
+    filename = data.get("log_filename") if isinstance(data.get("log_filename"), str) else ""
+    filename = filename.strip() or DEFAULT_LOG_FILENAME
+    return [
+        Controller(host=h.strip(), username=username, password=password, log_dir=log_dir, log_filename=filename)
+        for h in hosts
+    ]
 
 
 @dataclass
@@ -204,9 +218,6 @@ class Settings:
     theme: str = "system"
     controllers: list[Controller] = field(default_factory=list)
     highlight_rules: list[HighlightRule] = field(default_factory=default_rules)
-
-    #: Nom du fichier journal, dans le dossier des journaux de chaque automate.
-    log_filename: str = "FTOptixRuntime.0.log"
 
     #: Période d'interrogation du fichier pour le suivi en direct, en ms.
     poll_interval_ms: int = 800
@@ -253,6 +264,8 @@ class Settings:
     def from_dict(cls, data: dict) -> Settings:
         settings = cls()
         defaults = {f.name: _default_of(f) for f in fields(cls)}
+        legacy_filename = data.get("log_filename") if isinstance(data.get("log_filename"), str) else ""
+        legacy_filename = legacy_filename.strip() or DEFAULT_LOG_FILENAME
         if "controllers" not in data and data.get("hosts"):
             settings.controllers = controllers_from_legacy(data)
             log.info("Lecteur de logs : %d automate(s) repris des anciens réglages", len(settings.controllers))
@@ -271,6 +284,8 @@ class Settings:
                         username=str(item.get("username", "")),
                         password=dpapi.unprotect(item.get("password", "")),
                         log_dir=str(item.get("log_dir", DEFAULT_LOG_DIR)),
+                        # Réglages d'avant : nom de fichier commun à tous les automates.
+                        log_filename=str(item.get("log_filename") or legacy_filename),
                     )
                     for item in value
                     if isinstance(item, dict)

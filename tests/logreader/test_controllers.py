@@ -75,16 +75,34 @@ def test_former_addresses_and_credentials_become_controllers():
     ]
 
 
+def test_each_controller_reads_its_own_log_file():
+    """Un FT Optix de développement peut écrire un autre journal que le runtime des machines."""
+    runtime = Controller(host="10.0.0.1")
+    dev = Controller(name="FTO dev", log_dir=r"C:\Optix\Log", log_filename="FTOptixStudio.0.log")
+    assert runtime.log_path() == r"\\10.0.0.1\Optix\Log\FTOptixRuntime.0.log"
+    assert dev.log_path() == r"C:\Optix\Log\FTOptixStudio.0.log"
+    assert dev.duplicate().log_filename == "FTOptixStudio.0.log"
+
+
+def test_former_common_log_file_name_goes_to_every_controller():
+    data = {"log_filename": "Autre.log", "controllers": [{"host": "10.0.0.1"}, {"host": "10.0.0.2", "log_filename": "Propre.log"}]}
+    settings = ReaderSettings.from_dict(data)
+    assert [c.log_filename for c in settings.controllers] == ["Autre.log", "Propre.log"]
+    assert "log_filename" not in settings.to_dict()
+    legacy = ReaderSettings.from_dict({"hosts": ["10.0.0.3"], "log_filename": "Ancien.log"})
+    assert legacy.controllers[0].log_filename == "Ancien.log"
+
+
 def test_local_folder_is_probed_without_network(tmp_path):
     folder = tmp_path / "Optix" / "Log"
     folder.mkdir(parents=True)
     (folder / "FTOptixRuntime.0.log").write_text("", encoding="utf-8")
     (tmp_path / "Optix" / "FTOptixRuntime.xml").write_text("<Root><MainProject>Demo</MainProject></Root>", encoding="utf-8")
     plc = Controller(name="Archives", log_dir=str(folder))
-    ipc = discovery.probe_controller(plc, "FTOptixRuntime.0.log")
+    ipc = discovery.probe_controller(plc)
     assert ipc.log_available and ipc.project == "Demo"
     assert ipc.ref == plc.id and ipc.display_name == "Archives — Demo"
-    missing = discovery.probe_controller(Controller(log_dir=str(tmp_path / "absent")), "FTOptixRuntime.0.log")
+    missing = discovery.probe_controller(Controller(log_dir=str(tmp_path / "absent")))
     assert not missing.reachable and not missing.log_available
 
 
