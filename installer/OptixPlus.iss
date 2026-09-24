@@ -17,7 +17,10 @@
 
 #define AppName "OptixPlus"
 #define AppExe "OptixPlus.exe"
-#define AppPublisher "Jean Browaeys"
+#define AppPublisher "OptixPlus"
+; Même identifiant que celui fixé par OptixPlus au démarrage (version.APP_ID) : Windows
+; affiche le nom et l'icône du raccourci dans l'en-tête des notifications.
+#define AppUserModelID "OptixPlus"
 #define AppUrl "https://github.com/jeanbrowaeyspro/OptixPlus"
 #define RunKey "Software\Microsoft\Windows\CurrentVersion\Run"
 #define AppMutexName "Local\OptixPlus_SingleInstance"
@@ -88,8 +91,8 @@ Type: filesandordirs; Name: "{app}\_internal"
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AppUserModelID}"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AppUserModelID}"; Tasks: desktopicon
 
 [Registry]
 ; Dossier d'installation : OptixPlus s'y reconnaît « installé » (tray, surveillance, mises à jour).

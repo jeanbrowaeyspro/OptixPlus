@@ -32,7 +32,7 @@ EMBEDDED_CHANGELOG = PACKAGE / "resources" / "CHANGELOG.md"
 
 sys.path.insert(0, str(SRC))
 from optixplus.update import changelog  # noqa: E402
-from optixplus.version import APP_NAME, AUTHOR, __version__  # noqa: E402
+from optixplus.version import APP_NAME, ORGANIZATION, __version__  # noqa: E402
 
 ISCC_CANDIDATES = [
     Path(os.environ.get("ISCC", "")),
@@ -60,11 +60,11 @@ def write_version_info() -> Path:
                     fileType=0x1, subtype=0x0, date=(0, 0)),
   kids=[
     StringFileInfo([StringTable('040C04B0', [
-      StringStruct('CompanyName', {AUTHOR!r}),
+      StringStruct('CompanyName', {ORGANIZATION!r}),
       StringStruct('FileDescription', {APP_NAME + ' - Boîte à outils FactoryTalk Optix'!r}),
       StringStruct('FileVersion', {__version__!r}),
       StringStruct('InternalName', {APP_NAME!r}),
-      StringStruct('LegalCopyright', {'© ' + str(datetime.date.today().year) + ' ' + AUTHOR!r}),
+      StringStruct('LegalCopyright', {'© ' + str(datetime.date.today().year) + ' ' + ORGANIZATION!r}),
       StringStruct('OriginalFilename', {APP_NAME + '.exe'!r}),
       StringStruct('ProductName', {APP_NAME!r}),
       StringStruct('ProductVersion', {__version__!r})])]),

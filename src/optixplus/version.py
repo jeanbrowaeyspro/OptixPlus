@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 APP_NAME = "OptixPlus"
-APP_ID = "JeanBrowaeys.OptixPlus"  # AppUserModelID Windows
-ORGANIZATION = "Jean Browaeys"
+# Identifiant d'application Windows (barre des tâches, en-tête des notifications) et éditeur :
+# le nom de l'auteur n'apparaît que dans la fenêtre À propos (AUTHOR).
+APP_ID = "OptixPlus"
+ORGANIZATION = "OptixPlus"
 AUTHOR = "Jean Browaeys"
 POWERED_BY = "Claude Opus 5.5"
 GITHUB_REPO = "jeanbrowaeyspro/OptixPlus"
