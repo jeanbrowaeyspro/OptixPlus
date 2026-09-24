@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 from ....common import icons, recent, win32
 from ....common.i18n import tr, tr_n
 from ....common.progress import Progress
+from ....common.widgets import ElidedLabel
 from ....common.workers import TaskWorker
 from ..core import fixer
 from ..core.project import REASON_ABOVE_ROOT, REASON_FOREIGN, REASON_MISSING, BrokenLink, analyse, reason_label
@@ -89,16 +90,15 @@ class LinkCheckPage(QWidget):
         self.summary.setProperty("muted", True)
         self.summary.setWordWrap(True)
         row.addWidget(self.summary, 1)
-        outer.addLayout(row)
 
-        # ---- progression ---------------------------------------------------------------------
+        # ---- progression : à la place de la synthèse, pour que le tableau ne bouge pas ---------
         self.progress_row = QWidget()
         progress_layout = QHBoxLayout(self.progress_row)
         progress_layout.setContentsMargins(0, 0, 0, 0)
         self.progress = QProgressBar()
-        self.progress.setMaximumWidth(360)
+        self.progress.setMaximumWidth(240)
         self.progress.setTextVisible(False)
-        self.progress_label = QLabel()
+        self.progress_label = ElidedLabel(mode=Qt.TextElideMode.ElideMiddle)
         self.progress_label.setProperty("muted", True)
         self.cancel_button = QPushButton(tr("Cancel"))
         self.cancel_button.clicked.connect(self.cancel)
@@ -106,7 +106,8 @@ class LinkCheckPage(QWidget):
         progress_layout.addWidget(self.progress_label, 1)
         progress_layout.addWidget(self.cancel_button)
         self.progress_row.hide()
-        outer.addWidget(self.progress_row)
+        row.addWidget(self.progress_row, 1)
+        outer.addLayout(row)
 
         # ---- tableau et détail ---------------------------------------------------------------
         self.splitter = QSplitter(Qt.Orientation.Vertical)
@@ -229,6 +230,7 @@ class LinkCheckPage(QWidget):
         self.progress.setRange(0, 0)
         self.progress_label.setText("")
         self.cancel_button.setVisible(kind == "analyse")  # une écriture ne s'interrompt pas
+        self.summary.hide()
         self.progress_row.show()
         self._update_actions()
         worker.start()
@@ -248,12 +250,14 @@ class LinkCheckPage(QWidget):
         if step.current:
             text += f" — {step.current}"
         self.progress_label.setText(text)
+        self.progress_label.setToolTip(text)
 
     def _on_finished(self) -> None:
         worker, self._worker = self._worker, None
         if worker is not None:
             worker.deleteLater()
         self.progress_row.hide()
+        self.summary.show()
         self._update_actions()
         if getattr(self, "_reanalyse", False):
             self._reanalyse = False

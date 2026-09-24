@@ -13,6 +13,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - Menu de l'icône de la zone de notification allégé : Ouvrir OptixPlus, Surveillance active, Rechercher les mises à jour, À propos, Quitter. Les outils et les paramètres s'ouvrent depuis la fenêtre.
 - Page Validation auto : les boutons en doublon de la barre d'outils sont retirés (Suspendre la surveillance, Effacer, Ouvrir le fichier journal) ; « Ouvrir le dossier du journal » passe dans la barre d'outils.
 - Réglages de la Validation auto déplacés dans la fenêtre Paramètres (catégorie « Validation auto »), appliqués par OK ou Appliquer ; la page de l'outil garde l'état et le journal, et sa barre d'outils ouvre ces réglages (« Paramètres de la surveillance… »).
+- Contrôle des liens : la progression de l'analyse et le bouton Annuler s'affichent sur la ligne « Afficher », à la place de la synthèse ; le tableau des résultats ne change plus de taille à chaque analyse.
 - Fermer la fenêtre de la version installée : si la surveillance de FT Optix Studio est active, OptixPlus reste dans la zone de notification et le signale par une bulle ; si elle est suspendue, OptixPlus se ferme complètement.
 - Installation dans `C:\Program Files\OptixPlus`, comme un logiciel classique, pour tous les utilisateurs du poste (une confirmation administrateur est demandée, y compris pour les mises à jour). Une version 1.0.0 installée dans le profil est remplacée, réglages conservés.
 
