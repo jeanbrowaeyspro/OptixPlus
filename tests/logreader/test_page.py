@@ -161,6 +161,7 @@ def test_tab_dot_follows_the_connection_state(ui, share):
     from optixplus.common import theme
 
     _controller, page, _probes = ui
+    page.settings.poll_interval_ms = 100  # coupure et retour constatés sans attendre
     tab = page.new_tab(_ipc("PLC-A"))
     dock = next(iter(page._docks.values()))[0]
     p = theme.current()

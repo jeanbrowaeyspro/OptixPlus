@@ -3,8 +3,7 @@
 Reprend le corps de la fenêtre de pyFTOLogReader. Les données et les fils vivent dans la
 session (``session.LogSession``) : l'onglet n'en est qu'une vue, que l'on peut détruire
 et recréer sans rien perdre (changement de langue). Les noms publics (``model``,
-``proxy``, ``connect_to``, ``status_live``…) sont ceux de l'ancienne fenêtre, ce qui
-garde valables les scripts de test d'origine.
+``proxy``, ``connect_to``, ``status_live``…) sont ceux de l'ancienne fenêtre.
 """
 
 from __future__ import annotations
@@ -125,7 +124,7 @@ class LogTab(QWidget):
 
     def __init__(self, session: LogSession | Settings, palette=None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        if isinstance(session, Settings):  # commodité (scripts de test) : session propre
+        if isinstance(session, Settings):  # onglet autonome (tests) : session propre
             session = LogSession(session, self)
         self.session = session
         self.palette_ = palette or common_theme.current()
@@ -853,7 +852,7 @@ class LogTab(QWidget):
         self._update_counts()
 
     def closeEvent(self, event) -> None:  # noqa: N802 (API Qt)
-        """Fermeture autonome (scripts de test) : la session s'arrête avec l'onglet."""
+        """Fermeture d'un onglet autonome (tests) : la session qu'il possède s'arrête avec lui."""
         self._health_timer.stop()
         if self.session.parent() is self:
             self.session.shutdown()
