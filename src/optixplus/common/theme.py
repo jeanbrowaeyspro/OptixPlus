@@ -378,7 +378,14 @@ def build_stylesheet(p: Palette, header_height: int = 0) -> str:
     /* Ascenseur vertical d'un tableau ou d'un arbre (marqué par widgets.scrollbar_below_header) :
        il commence sous l'en-tête des colonnes au lieu d'empiéter sur la ligne des titres
        (hauteur mesurée, voir apply). */
-    QScrollBar[underHeader="true"]:vertical {{ margin: {header_height + 2}px 2px 2px 2px; }}
+    QScrollBar[underHeader="true"]:vertical {{
+        margin: 0;
+        padding: 2px 2px 2px 2px;
+        border: none;
+        border-top: {header_height}px solid qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 {p.surface_alt}, stop:{(header_height - 1) / header_height if header_height else 0:.4f} {p.surface_alt},
+            stop:{(header_height - 0.5) / header_height if header_height else 0:.4f} {p.border}, stop:1 {p.border});
+    }}
     QTableView QTableCornerButton::section {{
         background: {p.surface_alt};
         border: none;
