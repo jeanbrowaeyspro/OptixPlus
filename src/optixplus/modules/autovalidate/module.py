@@ -29,9 +29,12 @@ class AutoValidateModule(ToolModule):
         self._clear.triggered.connect(self.service.activity.clear)
         self._open = icons.themed_action(QAction(tr("Open log file"), self), "journal")
         self._open.triggered.connect(self.page.open_log_file)
+        self._folder = icons.themed_action(QAction(tr("Open log folder"), self), "window")
+        self._folder.triggered.connect(self.page.open_log_folder)
         self._toggle.setToolTip(tr("Starts or suspends the monitoring of FT Optix Studio."))
         self._clear.setToolTip(tr("Empties the monitoring log (window and file)."))
         self._open.setToolTip(tr("Opens the monitoring log file in the default editor."))
+        self._folder.setToolTip(tr("Opens the folder that contains the monitoring log files, in the Explorer."))
         self.service.state_changed.connect(self._sync_toggle)
         self._sync_toggle()
         return self.page
@@ -42,7 +45,7 @@ class AutoValidateModule(ToolModule):
         self._toggle.blockSignals(False)
 
     def toolbar_actions(self) -> list[QAction | None]:
-        return [self._toggle, None, self._open, self._clear]
+        return [self._toggle, None, self._open, self._folder, self._clear]
 
     def snapshot(self) -> dict | None:
         return self.page.snapshot() if self.page is not None else {}

@@ -284,20 +284,6 @@ class AutoValidatePage(QWidget):
         self.journal.setMaximumBlockCount(2000)
         self.journal.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
         layout.addWidget(self.journal, 1)
-        buttons = QHBoxLayout()
-        clear = QPushButton(tr("Clear"))
-        clear.clicked.connect(self._service.activity.clear)
-        open_file = QPushButton(tr("Open log file"))
-        open_file.clicked.connect(self.open_log_file)
-        open_folder = QPushButton(tr("Open folder"))
-        open_folder.clicked.connect(
-            lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(os.fspath(self._service.activity.file_path.parent)))
-        )
-        buttons.addWidget(clear)
-        buttons.addWidget(open_file)
-        buttons.addWidget(open_folder)
-        buttons.addStretch(1)
-        layout.addLayout(buttons)
         return box
 
     def open_log_file(self) -> None:
@@ -308,6 +294,9 @@ class AutoValidatePage(QWidget):
             except OSError:
                 return
         QDesktopServices.openUrl(QUrl.fromLocalFile(os.fspath(path)))
+
+    def open_log_folder(self) -> None:
+        QDesktopServices.openUrl(QUrl.fromLocalFile(os.fspath(self._service.activity.file_path.parent)))
 
     def _clear_journal(self) -> None:
         self.journal.clear()
