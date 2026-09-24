@@ -1,13 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 90">
-  <defs>
-    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="90" height="90">
-      <rect width="90" height="90" fill="#FFFFFF"/>
-      <line x1="36" y1="36" x2="46" y2="46" stroke="#000000" stroke-width="25" stroke-linecap="round"/>
-      <rect x="41" y="53" width="49" height="26" rx="5" fill="#000000"/>
-      <rect x="53" y="41" width="26" height="49" rx="5" fill="#000000"/>
-    </mask>
-  </defs>
-  <circle cx="40" cy="40" r="38" fill="#7C3AED" mask="url(#cut)"/>
-  <rect x="45" y="57" width="41" height="18" rx="2.5" fill="#7C3AED"/>
-  <rect x="57" y="45" width="18" height="41" rx="2.5" fill="#7C3AED"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <circle cx="29.5" cy="29.5" r="29.4" fill="#FFFFFF"/>
+  <circle cx="29.5" cy="29.5" r="27" fill="#7C3AED"/>
+  <line x1="28" y1="28" x2="40" y2="40" stroke="#FFFFFF" stroke-width="17.4" stroke-linecap="round"/>
+  <rect x="28" y="36.75" width="36" height="18.5" rx="3" fill="#FFFFFF"/>
+  <rect x="36.75" y="28" width="18.5" height="36" rx="3" fill="#FFFFFF"/>
+  <path d="M39.25 30.5h13.5v8.75h8.75v13.5h-8.75v8.75h-13.5v-8.75h-8.75v-13.5h8.75z" fill="#7C3AED" stroke="#622DB9" stroke-width="0.9" stroke-linejoin="round"/>
 </svg>
