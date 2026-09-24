@@ -25,7 +25,7 @@ class AutoValidateModule(ToolModule):
         self._toggle = icons.themed_action(QAction(tr("Monitoring active"), self), "autovalidate")
         self._toggle.setCheckable(True)
         self._toggle.toggled.connect(self.service.set_enabled)
-        self._clear = QAction(tr("Clear log"), self)
+        self._clear = icons.themed_action(QAction(tr("Clear log"), self), "trash")
         self._clear.triggered.connect(self.service.activity.clear)
         self._open = icons.themed_action(QAction(tr("Open log file"), self), "journal")
         self._open.triggered.connect(self.page.open_log_file)
