@@ -24,7 +24,7 @@ def test_modules_are_loaded_on_demand(controller):
         window.show_page(module.id)
         assert window.current_page == module.id
         assert window.module(module.id) is not None
-    assert window.windowTitle().endswith("— OptixPlus")
+    assert window.windowTitle().startswith("OptixPlus - ")
 
 
 def test_command_from_second_launch(controller):

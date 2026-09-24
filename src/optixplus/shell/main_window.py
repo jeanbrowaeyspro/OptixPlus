@@ -271,7 +271,9 @@ class MainWindow(QMainWindow):
         self._set_toolbar(self._modules.get(page_id))
         module = self._modules.get(page_id)
         title = tr(module.spec.title) if module else ""
-        self.setWindowTitle(f"{title} — {APP_NAME}" if title else APP_NAME)
+        # « OptixPlus - Outil » : le nom de l'application reste visible en tête dans la barre
+        # des tâches, même quand le titre y est tronqué.
+        self.setWindowTitle(f"{APP_NAME} - {title}" if title else APP_NAME)
         if module is not None:
             module.on_activated()
         self._focus_page(page)

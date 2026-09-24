@@ -20,7 +20,7 @@ def test_language_change_restores_everything_as_it_was(controller):
     window.show_page("linkcheck")
     window.show_page("autovalidate")
     window.show_page("compare")
-    assert window.windowTitle() == "Comparaison — OptixPlus"
+    assert window.windowTitle() == "OptixPlus - Comparaison"
     assert _menu_titles(window)[0] == "&Fichier"
     controller.open_about()
     controller.open_settings("autovalidate")
@@ -37,7 +37,7 @@ def test_language_change_restores_everything_as_it_was(controller):
     rebuilt = controller.window
     assert rebuilt is not None and rebuilt is not window
     assert rebuilt.current_page == "compare"
-    assert rebuilt.windowTitle() == "Compare — OptixPlus"
+    assert rebuilt.windowTitle() == "OptixPlus - Compare"
     assert _menu_titles(rebuilt)[0] == "&File"
     assert {"linkcheck", "autovalidate", "compare"} <= set(rebuilt._modules)
     new_form = controller._settings_dialog.tool_page("autovalidate")
