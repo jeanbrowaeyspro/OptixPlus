@@ -168,8 +168,8 @@ def main():
     window.connect_to(Ipc(host="local", netbios_name="BANC-TEST",
                           reachable=True, log_available=True))
     check("connexion etablie",
-          wait_for(lambda: window.connection_dot.state == STATE_ONLINE, 4000) >= 0,
-          window.connection_dot.state)
+          wait_for(lambda: window.connection_state == STATE_ONLINE, 4000) >= 0,
+          window.connection_state)
 
     print("=== la fenetre reste vivante pendant une lecture suspendue ===")
     heart = Heartbeat()
@@ -177,7 +177,7 @@ def main():
     debut = time.monotonic()
     hang.set()
 
-    attente = wait_for(lambda: window.connection_dot.state == STATE_LOST, 4000)
+    attente = wait_for(lambda: window.connection_state == STATE_LOST, 4000)
     ecoule = (time.monotonic() - debut) * 1000
     heart.stop()
 
@@ -194,9 +194,6 @@ def main():
     check("la barre du bas annonce la reconnexion",
           "reconnexion" in window.status_live.text().lower(),
           window.status_live.text())
-    check("le voyant reste affiche",
-          window.connection_dot.isVisible(),
-          f"visible={window.connection_dot.isVisible()}")
 
     print("=== changer d'automate n'attend pas le fil bloque ===")
     heart.start()
@@ -206,8 +203,8 @@ def main():
     heart.stop()
     check("l'arret du suivi est immediat", duree < 150, f"{duree:.0f} ms")
     check("le voyant s'eteint aussitot",
-          window.connection_dot.state == STATE_OFFLINE,
-          window.connection_dot.state)
+          window.connection_state == STATE_OFFLINE,
+          window.connection_state)
 
     print("=== la fenetre repond toujours pendant que le fil agonise ===")
     heart.start()
@@ -224,8 +221,8 @@ def main():
     window.connect_to(Ipc(host="local", netbios_name="BANC-TEST",
                           reachable=True, log_available=True))
     check("le voyant repasse au vert",
-          wait_for(lambda: window.connection_dot.state == STATE_ONLINE, 5000) >= 0,
-          window.connection_dot.state)
+          wait_for(lambda: window.connection_state == STATE_ONLINE, 5000) >= 0,
+          window.connection_state)
     check("la mention de reconnexion a disparu",
           "reconnexion" not in window.status_live.text().lower(),
           window.status_live.text())
@@ -235,12 +232,12 @@ def main():
     print("=== nouvelle coupure puis retablissement, sans intervention ===")
     hang.set()
     check("rouge de nouveau",
-          wait_for(lambda: window.connection_dot.state == STATE_LOST, 4000) >= 0,
-          window.connection_dot.state)
+          wait_for(lambda: window.connection_state == STATE_LOST, 4000) >= 0,
+          window.connection_state)
     hang.clear()
     check("vert de nouveau, tout seul",
-          wait_for(lambda: window.connection_dot.state == STATE_ONLINE, 15000) >= 0,
-          window.connection_dot.state)
+          wait_for(lambda: window.connection_state == STATE_ONLINE, 15000) >= 0,
+          window.connection_state)
 
     print("=== fermeture ===")
     hang.set()

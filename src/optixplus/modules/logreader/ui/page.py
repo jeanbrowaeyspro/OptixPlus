@@ -26,7 +26,7 @@ from ..session import LogSession
 from .connect_dialog import ConnectDialog
 from .log_tab import LogTab
 from .settings_dialog import SettingsDialog
-from .status_indicator import STATE_CONNECTING, STATE_LOST, STATE_ONLINE
+from .status_indicator import state_colour
 
 log = logging.getLogger("optixplus.logreader")
 
@@ -210,6 +210,7 @@ class LogReaderPage(QWidget):
         dock.visibilityChanged.connect(lambda visible, n=name: self._on_visibility(n, visible))
         session.identityChanged.connect(lambda n=name: self._refresh_title(n))
         session.liveChanged.connect(lambda n=name: self._refresh_title(n))
+        tab.connectionStateChanged.connect(lambda n=name: self._refresh_title(n))
         session.archivesFinished.connect(lambda *_args: self._update_state())
         session.opened.connect(lambda s=session: self.controllerOpened.emit(s.ipc.host, s.display_name))
         self._docks[name] = (dock, tab)
@@ -305,15 +306,11 @@ class LogReaderPage(QWidget):
         if session.unseen_errors:
             title += f"  ({session.unseen_errors})"
         dock.setWindowTitle(title)
-        state, detail = session.connection_state()
-        p = common_theme.current()
-        colour = {STATE_ONLINE: p.success, STATE_LOST: p.error, STATE_CONNECTING: p.warning}.get(state, p.text_muted)
-        dock.setIcon(icons.pastille(colour))
+        dock.setIcon(icons.pastille(state_colour(tab.connection_state, common_theme.current())))
         tooltip = [session.display_name]
         if session.ipc is not None:
             tooltip.append(session.path)
-        if detail:
-            tooltip.append(detail)
+        tooltip.append(tab.connection_tooltip)
         if session.unseen_errors:
             tooltip.append(tr("{n} new error(s) since the tab was last shown").format(n=session.unseen_errors))
         dock.setTabToolTip("\n".join(tooltip))

@@ -3,7 +3,7 @@
 Reprend le corps de la fenêtre de pyFTOLogReader. Les données et les fils vivent dans la
 session (``session.LogSession``) : l'onglet n'en est qu'une vue, que l'on peut détruire
 et recréer sans rien perdre (changement de langue). Les noms publics (``model``,
-``proxy``, ``connect_to``, ``connection_dot``…) sont ceux de l'ancienne fenêtre, ce qui
+``proxy``, ``connect_to``, ``status_live``…) sont ceux de l'ancienne fenêtre, ce qui
 garde valables les scripts de test d'origine.
 """
 
@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 from datetime import datetime
 
-from PySide6.QtCore import QByteArray, QDateTime, QModelIndex, QSize, Qt, QTime, QTimer
+from PySide6.QtCore import QByteArray, QDateTime, QModelIndex, QSize, Qt, QTime, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -49,7 +49,7 @@ from .detail_panel import DetailPanel
 from .filter_header import MAX_DISTINCT_VALUES, ColumnFilterPopup, FilterHeaderView
 from .log_filter import RULE_ANY, RULE_NONE
 from .log_model import COLUMN_LINE, COLUMN_MESSAGE, COLUMN_SOURCE, ENTRY_ROLE, column_titles, columns, level_label
-from .status_indicator import STATE_OFFLINE, ConnectionIndicator
+from .status_indicator import STATE_OFFLINE, state_label
 
 #: Marge en pixels sous laquelle on considère que l'utilisateur regarde le bas du
 #: tableau et souhaite donc continuer à suivre les nouvelles lignes.
@@ -120,6 +120,9 @@ class _FilterBar(QWidget):
 class LogTab(QWidget):
     """Vue d'une session de lecture."""
 
+    # État de connexion changé (``connection_state``) : la pastille de l'onglet suit.
+    connectionStateChanged = Signal()
+
     def __init__(self, session: LogSession | Settings, palette=None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         if isinstance(session, Settings):  # commodité (scripts de test) : session propre
@@ -130,6 +133,8 @@ class LogTab(QWidget):
         self._export_progress: QProgressDialog | None = None
         self._suspend_filter_signals = False
         self.autoscroll = session.settings.autoscroll
+        self.connection_state = STATE_OFFLINE
+        self.connection_detail = ""
 
         self._build_body()
         self._build_status_bar()
@@ -315,17 +320,12 @@ class LogTab(QWidget):
         self._status_bar = status
         self.layout().addWidget(status)
 
-        self.connection_dot = ConnectionIndicator(self.palette_)
+        # Fond de la page, pas celui d'une barre d'état de fenêtre.
+        status.setProperty("embedded", True)
+        # L'état de la connexion est la pastille de l'onglet ; la barre garde l'identité.
         self.status_connection = ElidedLabel(tr("No controller connected"))
-        identity = QWidget()
-        identity_layout = QHBoxLayout(identity)
-        identity_layout.setContentsMargins(0, 0, 0, 0)
-        identity_layout.setSpacing(6)
-        identity_layout.addWidget(self.connection_dot)
-        identity_layout.addWidget(self.status_connection, 1)
-        # Widgets « permanents » : un message temporaire de la barre masquerait les
-        # widgets normaux, et le voyant disparaîtrait au moment où il devient utile.
-        status.addPermanentWidget(identity, 3)
+        # Widgets « permanents » : un message temporaire de la barre masquerait les widgets normaux.
+        status.addPermanentWidget(self.status_connection, 3)
         self.status_notice = ElidedLabel("")
         self.status_notice.setProperty("muted", True)
         status.addPermanentWidget(self.status_notice, 2)
@@ -348,8 +348,6 @@ class LogTab(QWidget):
         self.highlighter.set_dark(palette.dark)
         self.detail.set_palette_colors(palette)
         self.header.set_palette_colors(palette)
-        if hasattr(self, "connection_dot"):
-            self.connection_dot.set_palette_colors(palette)
         for field in (self.from_edit, self.to_edit):
             field.set_palette_colors(palette)
         self.model.refresh_highlighting()
@@ -407,9 +405,15 @@ class LogTab(QWidget):
 
     def _refresh_connection_state(self) -> None:
         state, detail = self.session.connection_state()
-        if state != self.connection_dot.state or state != STATE_OFFLINE:
-            self.connection_dot.set_state(state, detail)
+        if (state, detail) != (self.connection_state, self.connection_detail):
+            self.connection_state, self.connection_detail = state, detail
+            self.connectionStateChanged.emit()
         self.status_live.setText(self.session.live_label())
+
+    @property
+    def connection_tooltip(self) -> str:
+        text = state_label(self.connection_state)
+        return "\n".join((text, self.connection_detail)) if self.connection_detail else text
 
     # ========================================================================== réception
     def _on_initial_loaded(self, result) -> None:

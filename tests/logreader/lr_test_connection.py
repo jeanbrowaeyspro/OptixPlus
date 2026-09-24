@@ -33,7 +33,7 @@ from optixplus.common import theme
 from optixplus.modules.logreader.core.config import Settings
 from optixplus.modules.logreader.core.discovery import Ipc
 from optixplus.modules.logreader.ui.status_indicator import (
-    STATE_LOST, STATE_OFFLINE, STATE_ONLINE, ConnectionIndicator,
+    STATE_LOST, STATE_OFFLINE, STATE_ONLINE, state_colour,
 )
 from optixplus.common import i18n as _i18n
 
@@ -102,21 +102,19 @@ def main():
     pump(200)
 
     print("=== avant toute connexion ===")
-    check("le voyant existe dans la barre du bas",
-          isinstance(window.connection_dot, ConnectionIndicator))
     check("il est eteint tant qu'aucun automate n'est connecte",
-          window.connection_dot.state == STATE_OFFLINE,
-          window.connection_dot.state)
+          window.connection_state == STATE_OFFLINE,
+          window.connection_state)
 
     print("=== connexion etablie ===")
     window.connect_to(Ipc(host="local", netbios_name="BANC-TEST",
                           reachable=True, log_available=True))
     check("le voyant passe au vert une fois le journal lu",
-          wait_for(lambda: window.connection_dot.state == STATE_ONLINE, 4000),
-          window.connection_dot.state)
+          wait_for(lambda: window.connection_state == STATE_ONLINE, 4000),
+          window.connection_state)
     check("5 lignes chargees", window.model.rowCount() == 5,
           f"{window.model.rowCount()} lignes")
-    vert = window.connection_dot._colour().name()
+    vert = state_colour(window.connection_state, palette)
     check("la pastille est verte", vert.lower() == palette.success.lower(),
           f"{vert} (attendu {palette.success})")
 
@@ -124,27 +122,23 @@ def main():
     ecarte = os.path.join(root, "hors-ligne.log")
     shutil.move(log_path, ecarte)
     check("le voyant passe au rouge",
-          wait_for(lambda: window.connection_dot.state == STATE_LOST, 5000),
-          window.connection_dot.state)
-    rouge = window.connection_dot._colour().name()
+          wait_for(lambda: window.connection_state == STATE_LOST, 5000),
+          window.connection_state)
+    rouge = state_colour(window.connection_state, palette)
     check("la pastille est rouge", rouge.lower() == palette.error.lower(),
           f"{rouge} (attendu {palette.error})")
     check("la barre du bas annonce la reconnexion",
           "reconnexion" in window.status_live.text().lower(),
           window.status_live.text())
     check("l'infobulle du voyant donne la raison",
-          "perdue" in window.connection_dot.toolTip().lower(),
-          window.connection_dot.toolTip().splitlines()[0])
+          "perdue" in window.connection_tooltip.lower(),
+          window.connection_tooltip.splitlines()[0])
 
-    # C'est le point qui manquait : un message temporaire de la barre d'etat
-    # masque les widgets « normaux », et le voyant s'evanouissait au moment ou
-    # il devenait utile.
+    # Un message temporaire de la barre d'etat masque les widgets « normaux » :
+    # l'identite de l'automate doit rester affichee.
     window.statusBar().showMessage("Message temporaire quelconque", 0)
     pump(250)
-    check("le voyant reste visible malgre un message temporaire",
-          window.connection_dot.isVisible() and window.connection_dot.state == STATE_LOST,
-          f"visible={window.connection_dot.isVisible()}, etat={window.connection_dot.state}")
-    check("le nom de l'automate reste visible lui aussi",
+    check("le nom de l'automate reste visible malgre un message temporaire",
           window.status_connection.isVisible())
     window.statusBar().clearMessage()
     pump(150)
@@ -153,8 +147,8 @@ def main():
     # Aucune action de l'utilisateur : on remet simplement le fichier en place.
     shutil.move(ecarte, log_path)
     check("le voyant repasse au vert tout seul",
-          wait_for(lambda: window.connection_dot.state == STATE_ONLINE, 6000),
-          window.connection_dot.state)
+          wait_for(lambda: window.connection_state == STATE_ONLINE, 6000),
+          window.connection_state)
     check("la mention de reconnexion disparait",
           "reconnexion" not in window.status_live.text().lower(),
           window.status_live.text())
@@ -171,13 +165,13 @@ def main():
     window._stop_watcher()
     pump(200)
     check("le voyant s'eteint quand le suivi s'arrete",
-          window.connection_dot.state == STATE_OFFLINE,
-          window.connection_dot.state)
+          window.connection_state == STATE_OFFLINE,
+          window.connection_state)
 
     print("=== captures ===")
     out = tempfile.mkdtemp(prefix="ftolog_conn_shots_")
     for state, nom in ((STATE_ONLINE, "vert"), (STATE_LOST, "rouge")):
-        window.connection_dot.set_state(state, "detail")
+        window.connection_state = state
         pump(150)
         window.statusBar().grab().save(os.path.join(out, f"footer_{nom}.png"))
     print("  captures dans:", out)

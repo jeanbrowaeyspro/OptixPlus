@@ -181,3 +181,27 @@ def test_live_theme_change_keeps_application_style_on_tabs(ui):
     _wait(lambda: False, 0.3)
     assert page.dock_manager.styleSheet() == ""  # le style par défaut de QtAds est retiré
     controller.context.theme.set_theme("light")
+
+
+def test_tab_dot_follows_the_connection_state(ui, share):
+    """La pastille de l'onglet suit l'état de la connexion (plus de voyant dans la barre du bas)."""
+    from optixplus.common import theme
+
+    _controller, page, _probes = ui
+    tab = page.new_tab(_ipc("PLC-A"))
+    dock = next(iter(page._docks.values()))[0]
+    p = theme.current()
+
+    def dot() -> str:
+        image = dock.icon().pixmap(16, 16).toImage()
+        return image.pixelColor(image.width() // 2, image.height() // 2).name()
+
+    assert _wait(lambda: tab.connection_state == "online")
+    assert _wait(lambda: dot() == p.success.lower())
+    assert "Connexion établie" in dock.tabWidget().toolTip()
+    (share / "FTOptixRuntime.0.log").rename(share / "ecarte.log")
+    assert _wait(lambda: tab.connection_state == "lost")
+    assert _wait(lambda: dot() == p.error.lower())
+    assert "Connexion perdue" in dock.tabWidget().toolTip()
+    (share / "ecarte.log").rename(share / "FTOptixRuntime.0.log")
+    assert _wait(lambda: dot() == p.success.lower())

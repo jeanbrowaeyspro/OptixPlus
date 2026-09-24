@@ -182,7 +182,9 @@ class MainWindow(QMainWindow):
         log_action.setText(tr("Log"))
         log_action.setShortcut(QKeySequence("Ctrl+J"))
         log_action.setIcon(icons.themed_icon("journal"))
-        self._themed_actions.append((log_action, "journal"))
+        # Pas mémorisée dans _themed_actions : la référence Python à l'action d'un
+        # QDockWidget est invalidée après coup (l'action Qt, elle, vit toujours) ;
+        # elle est redemandée au dock à chaque changement de thème.
         view_menu.addAction(log_action)
 
         help_menu = bar.addMenu(tr("&Help"))
@@ -212,6 +214,7 @@ class MainWindow(QMainWindow):
         self.home.refresh_icons()
         for action, icon_name in self._themed_actions:
             action.setIcon(icons.themed_icon(icon_name))
+        self._log_dock.toggleViewAction().setIcon(icons.themed_icon("journal"))
         for module in self._modules.values():
             for action in module.toolbar_actions():
                 name = action.property("themedIcon") if action is not None else None

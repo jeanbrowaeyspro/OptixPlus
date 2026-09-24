@@ -209,3 +209,17 @@ def test_tool_shortcuts_work_as_soon_as_the_tool_is_shown(controller, qapp, monk
     page.act_analyse.setEnabled(True)
     QTest.keyClick(qapp.focusWidget(), Qt.Key.Key_F5)
     assert triggered
+
+
+def test_theme_change_after_startup_recolours_without_error(controller, qapp, monkeypatch):
+    """Changer de thème une fois la fenêtre installée : aucune erreur, toutes les icônes suivent."""
+    import sys
+
+    errors = []
+    monkeypatch.setattr(sys, "excepthook", lambda *exc: errors.append(exc))
+    window = controller.show_main_window()
+    window.show_page("linkcheck")
+    qapp.processEvents()
+    controller.context.theme.set_theme("dark")
+    qapp.processEvents()
+    assert errors == []
