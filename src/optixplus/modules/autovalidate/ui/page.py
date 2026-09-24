@@ -76,10 +76,6 @@ class AutoValidatePage(QWidget):
             discovery.setWordWrap(True)
             texts.addWidget(discovery)
         header_layout.addLayout(texts, 1)
-        self.toggle_button = QPushButton()
-        self.toggle_button.setProperty("accent", True)
-        self.toggle_button.clicked.connect(lambda: service.set_enabled(not service.enabled))
-        header_layout.addWidget(self.toggle_button, 0, Qt.AlignmentFlag.AlignVCenter)
         outer.addWidget(header)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -331,4 +327,3 @@ class AutoValidatePage(QWidget):
     def refresh_state(self) -> None:
         service = self._service
         self.state_label.setText(service.status_text())
-        self.toggle_button.setText(tr("Suspend monitoring") if service.enabled else tr("Start monitoring"))
