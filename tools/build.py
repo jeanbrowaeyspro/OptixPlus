@@ -61,7 +61,7 @@ def write_version_info() -> Path:
   kids=[
     StringFileInfo([StringTable('040C04B0', [
       StringStruct('CompanyName', {AUTHOR!r}),
-      StringStruct('FileDescription', {APP_NAME + ' - boîte à outils FactoryTalk Optix'!r}),
+      StringStruct('FileDescription', {APP_NAME + ' - Boîte à outils FactoryTalk Optix'!r}),
       StringStruct('FileVersion', {__version__!r}),
       StringStruct('InternalName', {APP_NAME!r}),
       StringStruct('LegalCopyright', {'© ' + str(datetime.date.today().year) + ' ' + AUTHOR!r}),

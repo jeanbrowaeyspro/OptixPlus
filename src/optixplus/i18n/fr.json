@@ -395,6 +395,8 @@
   "Opens the monitoring log file in the default editor.": "Ouvre le fichier journal de la surveillance dans l'éditeur par défaut.",
   "Optix project": "Projet Optix",
   "OptixPlus is already running but does not respond.": "OptixPlus est déjà lancé mais ne répond pas.",
+  "OptixPlus is still running": "OptixPlus reste actif",
+  "OptixPlus keeps running in the background: it goes on confirming the “Project already exists” prompt of FT Optix Studio automatically. To quit it, right-click its icon in the notification area, then Quit.": "OptixPlus reste actif en arrière-plan : il continue de valider automatiquement la fenêtre « Le projet existe déjà » de FT Optix Studio. Pour le quitter, faites un clic droit sur son icône dans la zone de notification, puis Quitter.",
   "OptixPlus — comparison report": "OptixPlus — rapport de comparaison",
   "Origin: {origin}": "Origine : {origin}",
   "Orphan YAML files (not referenced by a `- File:`):": "YAML orphelins (non référencés par un `- File:`) :",

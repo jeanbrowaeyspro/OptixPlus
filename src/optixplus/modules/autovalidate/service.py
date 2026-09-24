@@ -282,6 +282,13 @@ class AutoValidateService(BackgroundService):
             self.log.warning("Impossible de rendre le focus à la fenêtre précédente")
 
     # ---- intégration à la coquille ------------------------------------------------
+    def background_notice(self) -> str:
+        return tr(
+            "OptixPlus keeps running in the background: it goes on confirming the “Project already exists” "
+            "prompt of FT Optix Studio automatically. To quit it, right-click its icon in the notification "
+            "area, then Quit."
+        )
+
     def status_text(self) -> str:
         state = tr("active") if self._enabled else tr("suspended")
         count = tr_n("{n} confirmation", "{n} confirmations", self.validation_count).format(n=self.validation_count)

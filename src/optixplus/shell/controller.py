@@ -116,6 +116,17 @@ class AppController(QObject):
         log.info("Fenêtre principale fermée")
         if self.context.mode is LaunchMode.DISCOVERY or self.tray is None:
             self.quit()
+            return
+        # Mode installé : OptixPlus ne reste dans le tray que si un service travaille pour
+        # l'utilisateur (surveillance active), et il le dit ; sinon il se ferme complètement.
+        running = [s for s in self.context.services.values() if not s.suspended]
+        if not running:
+            log.info("Aucun service actif : arrêt complet")
+            self.quit()
+            return
+        notice = next((text for text in (s.background_notice() for s in running) if text), "")
+        if notice:
+            self.tray.notify(notice, tr("OptixPlus is still running"), 10_000)
 
     # ---- langue ------------------------------------------------------------------
     def change_language(self, settings_state: dict | None = None) -> None:

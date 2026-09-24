@@ -9,6 +9,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - L'À propos et la page Validation auto indiquent le mode découverte.
 
 ### Modifié
+- Fermer la fenêtre de la version installée : si la surveillance de FT Optix Studio est active, OptixPlus reste dans la zone de notification et le signale par une bulle ; si elle est suspendue, OptixPlus se ferme complètement.
 - Installation dans `C:\Program Files\OptixPlus`, comme un logiciel classique, pour tous les utilisateurs du poste (une confirmation administrateur est demandée, y compris pour les mises à jour). Une version 1.0.0 installée dans le profil est remplacée, réglages conservés.
 
 ### Corrigé

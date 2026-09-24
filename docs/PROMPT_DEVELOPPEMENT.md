@@ -104,7 +104,7 @@ Le mode est détecté au démarrage, dans cet ordre : argument `--decouverte` ou
 
 - **Mode installé**, le seul livré en phase 1 :
   - le processus reste résident avec l'icône du tray et la surveillance Auto Validate ;
-  - fermer la fenêtre principale **détruit** la fenêtre et ses pages pour libérer la mémoire ; seuls le tray, la surveillance et les réglages restent ;
+  - fermer la fenêtre principale **détruit** la fenêtre et ses pages pour libérer la mémoire. Si la surveillance est active, OptixPlus reste dans le tray et le signale par une bulle (il continue de valider la boîte de FT Optix Studio) ; si elle est suspendue, OptixPlus se ferme complètement ;
   - « Quitter » dans le tray arrête tout.
 - **Mode découverte**, distribué en exécutable portable (`OptixPlus-Portable-X.Y.Z.exe`, un seul fichier, marqué « portable » à la construction et toujours dans ce mode) :
   - pas de tray ; la surveillance est désactivée par défaut, mais activable à la main tant que la fenêtre est ouverte ;

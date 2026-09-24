@@ -157,6 +157,10 @@ class BackgroundService(QObject):
         """État court pour la barre d'état et l'infobulle du tray."""
         return ""
 
+    def background_notice(self) -> str:
+        """Bulle du tray quand la fenêtre se ferme alors que ce service tourne (vide : aucune)."""
+        return ""
+
     def tray_actions(self, parent: QObject) -> list[QAction | None]:
         """Entrées ajoutées au menu du tray ; ``None`` insère un séparateur."""
         return []
