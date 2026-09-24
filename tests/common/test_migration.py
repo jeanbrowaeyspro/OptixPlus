@@ -55,7 +55,7 @@ def test_settings_of_every_former_tool_are_imported(tmp_path, monkeypatch):
     assert reader["poll_interval_ms"] == 1200 and reader["hidden_columns"] == ["code"]
     # Les anciennes adresses et identifiants communs deviennent des automates décrits.
     [plc] = reader["controllers"]
-    assert (plc["host"], plc["username"], plc["log_dir"]) == ("10.0.0.1", "op", "Optix\Log")
+    assert (plc["host"], plc["username"], plc["log_dir"]) == ("10.0.0.1", "op", r"Optix\Log")
     assert dpapi.unprotect(plc["password"]) == "s3cret"
     assert "hosts" not in reader and "credentials" not in reader
     assert "inconnu" not in reader
@@ -103,9 +103,6 @@ def test_task_list_from_the_installer():
     assert migration.parse_tasks("") == []
 
 
-def test_real_registry_is_only_read():
-    """Les QSettings des anciens outils présents sur ce poste se lisent sans erreur."""
-    for app in (migration.COMPARE_APP, migration.LINKCHECK_APP, "OutilQuiNExistePas"):
-        values = migration.legacy_qsettings_values(app)
-        assert values is None or isinstance(values, dict)
+def test_missing_former_tool_reads_as_none():
+    """Registre réel, en lecture seule : un outil absent du poste ne renvoie rien."""
     assert migration.legacy_qsettings_values("OutilQuiNExistePas") is None

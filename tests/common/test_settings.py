@@ -26,10 +26,7 @@ def test_invalid_values_fall_back_to_defaults():
     assert demo.enabled is True  # 1 n'est pas un booléen : défaut conservé
     assert demo.name == "x"
     assert demo.items == ["a"]
-
-
-def test_bool_is_not_accepted_as_int():
-    assert section_from_dict(_Demo, {"count": True}).count == 3
+    assert section_from_dict(_Demo, {"count": True}).count == 3  # un booléen n'est pas un entier
 
 
 def test_round_trip_keeps_unknown_sections(tmp_path):

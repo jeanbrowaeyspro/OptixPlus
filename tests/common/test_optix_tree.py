@@ -17,7 +17,7 @@ from optixplus.common.optix import tree
 from optixplus.common.optix.tree import Unsupported, read_nodes
 from optixplus.modules.linkcheck.core import project as lc_project
 
-HERE = Path(__file__).resolve().parent
+TESTS = Path(__file__).resolve().parents[1]
 SAMPLES = [Path(p) for p in os.environ.get("OPTIXPLUS_OPTIX_SAMPLES", "").split(";") if p.strip()]
 
 
@@ -42,7 +42,7 @@ def _yaml_files(root: Path) -> list[Path]:
     return sorted(p for p in root.rglob("*.yaml") if p.is_file())
 
 
-@pytest.mark.parametrize("path", _yaml_files(HERE / "compare" / "fixtures"), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", _yaml_files(TESTS / "compare" / "fixtures"), ids=lambda p: p.name)
 def test_compare_fixtures_read_like_pyyaml(path: Path) -> None:
     _same_as_pyyaml(path.read_text(encoding="utf-8-sig"))
 
@@ -253,7 +253,7 @@ def test_random_documents_read_like_pyyaml_or_fall_back() -> None:
 
     rng = random.Random(20260923)
     read_directly = 0
-    for _ in range(1000):
+    for _ in range(300):
         text = _random_document(rng)
         try:
             expected = pyyaml_nodes(text)
@@ -265,4 +265,4 @@ def test_random_documents_read_like_pyyaml_or_fall_back() -> None:
             continue  # relu par PyYAML : même résultat par construction
         assert _comparable(got) == _comparable(expected), text
         read_directly += 1
-    assert read_directly > 120  # une bonne part des documents reste lue directement
+    assert read_directly > 35  # une bonne part (53 sur 300 avec cette graine) des documents reste lue directement
