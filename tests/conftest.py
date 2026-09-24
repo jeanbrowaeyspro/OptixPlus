@@ -1,8 +1,14 @@
-"""Configuration commune des tests : interface hors écran, données dans un dossier temporaire."""
+"""Configuration commune des tests : interface hors écran, données dans un dossier temporaire.
+
+Fixtures partagées : ``qapp``, ``make_controller`` / ``controller`` (coquille complète hors
+écran), ``message_boxes`` (boîtes de message simulées et relevées). Les aides sans fixture
+(``wait_until``, projets et simulations) sont dans ``tests/helpers``, importable directement.
+"""
 
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -16,9 +22,26 @@ os.environ["APPDATA"] = _APPDATA
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tools"))
+# Aides communes (projets synthétiques, simulations, attente) : ``from support import …``.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "helpers"))
 
 import pytest  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
+
+
+def pytest_collection_modifyitems(config, items) -> None:
+    """Tests marqués ``windows_only`` : ignorés hors de Windows (API Windows réelle)."""
+    if sys.platform == "win32":
+        return
+    skip = pytest.mark.skip(reason="API Windows réelle")
+    for item in items:
+        if "windows_only" in item.keywords:
+            item.add_marker(skip)
+
+
+def pytest_unconfigure(config) -> None:
+    """Fin de session : le dossier %APPDATA% temporaire de ce processus est supprimé."""
+    shutil.rmtree(_APPDATA, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")
@@ -27,9 +50,37 @@ def qapp():
     yield app
 
 
-@pytest.fixture
-def appdata() -> Path:
-    return Path(_APPDATA)
+# --------------------------------------------------------------------------- isolation
+@pytest.fixture(autouse=True)
+def _never_elevated(monkeypatch):
+    """Même lancés depuis un terminal administrateur, les tests se croient en droits normaux.
+
+    Sans cela, chaque contrôleur poserait un vrai crochet clavier (avis Impr. écran) ; les
+    tests qui en ont besoin le demandent explicitement (``CaptureNotice(elevated=True)``).
+    ``capture_notice`` et ``app`` appellent ``win32.is_elevated`` par le module : c'est ce
+    nom-là qui est remplacé.
+    """
+    from optixplus.common import win32
+
+    monkeypatch.setattr(win32, "is_elevated", lambda: False)
+
+
+@pytest.fixture(autouse=True)
+def _restore_language(qapp):
+    """Après chaque test : catalogue de l'application et traducteur de Qt remis à l'état d'avant.
+
+    C'est l'anglais, sauf si une fixture plus large a choisi une langue pour tout un dossier
+    (``tests/compare`` travaille en français) : on la rétablit alors, sans la défaire.
+    """
+    from optixplus.common import i18n, qt_translation
+
+    language = i18n.current_language()
+    qt_language = "fr" if qt_translation._translator is not None else "en"
+    yield
+    if i18n.current_language() != language:
+        i18n.install(language)
+    if ("fr" if qt_translation._translator is not None else "en") != qt_language:
+        qt_translation.apply(qapp, qt_language)
 
 
 @pytest.fixture(autouse=True)
@@ -68,3 +119,67 @@ def _destroy_qt_leftovers():
     QCoreApplication.processEvents()
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     QCoreApplication.processEvents()
+
+
+# --------------------------------------------------------------------------- boîtes et coquille
+class MessageBoxes:
+    """Boîtes de message statiques simulées : hors écran, personne ne peut y répondre.
+
+    ``question`` répond ``answer`` (Oui par défaut) ; ``information`` et ``warning`` répondent
+    OK. Chaque boîte est relevée dans ``shown`` sous la forme ``(genre, texte)``.
+    """
+
+    def __init__(self) -> None:
+        self.shown: list[tuple[str, str]] = []
+        self.answer = QMessageBox.StandardButton.Yes
+
+    def of(self, kind: str) -> list[str]:
+        """Textes des boîtes d'un genre (``"question"``, ``"information"``, ``"warning"``)."""
+        return [text for k, text in self.shown if k == kind]
+
+    def _fake(self, kind: str, answer):
+        def show(*args, **kwargs):
+            self.shown.append((kind, args[2] if len(args) > 2 else kwargs.get("text", "")))
+            return self.answer if answer is None else answer
+
+        return staticmethod(show)
+
+    def install(self, monkeypatch) -> None:
+        monkeypatch.setattr(QMessageBox, "question", self._fake("question", None))
+        monkeypatch.setattr(QMessageBox, "information", self._fake("information", QMessageBox.StandardButton.Ok))
+        monkeypatch.setattr(QMessageBox, "warning", self._fake("warning", QMessageBox.StandardButton.Ok))
+
+
+@pytest.fixture
+def message_boxes(monkeypatch) -> MessageBoxes:
+    boxes = MessageBoxes()
+    boxes.install(monkeypatch)
+    return boxes
+
+
+@pytest.fixture
+def make_controller(qapp, tmp_path, message_boxes):
+    """Fabrique de contrôleurs : ``make_controller(mode=…, language=…, theme=…)``.
+
+    Réglages dans ``tmp_path/settings.json``, journal sans fichier, boîtes de message
+    simulées. La destruction se fait après le test (``_destroy_qt_leftovers``).
+    """
+    from optixplus.common import i18n, logging_setup
+    from optixplus.common.settings import Settings
+    from optixplus.common.theme import install_manager
+    from optixplus.shell.context import LaunchMode
+    from optixplus.shell.controller import AppController
+
+    def make(mode: LaunchMode = LaunchMode.INSTALLED, language: str = "fr", theme: str = "light") -> AppController:
+        i18n.install(language)
+        logging_setup.configure(to_file=False)
+        settings = Settings.load(tmp_path / "settings.json")
+        return AppController(qapp, settings, install_manager(qapp, theme), mode)
+
+    return make
+
+
+@pytest.fixture
+def controller(make_controller):
+    """Contrôleur installé, en français, thème clair."""
+    return make_controller()

@@ -24,4 +24,8 @@ optixplus = ["resources/**/*", "i18n/*.json"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-markers = ["couple_reel: tests sur un couple réel runtime / projet (ignorés s'il est absent)"]
+markers = [
+    "couple_reel: tests sur un couple réel runtime / projet (ignorés s'il est absent)",
+    "slow: tests lents (interface complète, sous-processus) ; à exclure par -m \"not slow\"",
+    "windows_only: tests sur l'API Windows réelle (ignorés hors de Windows)",
+]
