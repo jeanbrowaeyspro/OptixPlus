@@ -21,7 +21,7 @@ Chaque fonctionnalité existante doit être conservée, sauf si Jean décide exp
 ## 2. Décisions validées avec Jean
 
 1. **Une seule application, un seul processus.** L'icône du tray sert de lanceur de la fenêtre principale.
-2. **Icône** : anneau **rond** violet `#7C3AED` (variante A). Un « + » violet cerclé d'un liseré blanc fin (environ 2,5 unités sur une icône de 100) est **centré sur le tracé de l'anneau**, en bas à droite à 45°, comme le « x » du logo FT Optix. Fond transparent. Il existe aussi une variante grise (`#A1A1AA`) pour la surveillance suspendue.
+2. **Icône** : même construction que celle de FT Optix Studio, en violet `#7C3AED`. Un disque plein percé d'un trou en gélule orienté vers le bas à droite forme un anneau très épais. Un « + » massif remplace le « x » de FT Optix en bas à droite ; il est détouré dans le disque par un espace transparent, sans liseré. Fond transparent. Il existe aussi une variante grise (`#A1A1AA`) pour la surveillance suspendue.
 3. **Navigation** : barre latérale verticale à gauche (Accueil, Log Reader, Link Checker, Compare, Auto Validate, puis Paramètres en bas). Sous le menu, une barre d'outils **contextuelle** affiche les actions de l'outil actif. Le menu « Outils » reprend la même navigation, avec les raccourcis Ctrl+1 à Ctrl+5.
 4. **Distribution** : un installateur Windows classique d'abord. La version portable (« mode découverte ») viendra plus tard, mais l'architecture doit la permettre dès maintenant (§5).
 5. **Mises à jour** : via les Releases GitHub du dépôt public.

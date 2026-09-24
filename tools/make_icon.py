@@ -1,7 +1,8 @@
 """Génère les icônes .ico et .png de l'application à partir des SVG maîtres.
 
-Icône OptixPlus : anneau rond violet et « + » violet cerclé d'un liseré blanc fin,
-centré sur le tracé de l'anneau en bas à droite (clin d'œil au « x » du logo FT Optix).
+Icône OptixPlus : construction de celle de FT Optix Studio, en violet. Un disque percé
+d'un trou en gélule (anneau épais) et un « + » massif à la place du « x », détouré par un
+espace transparent (masque SVG).
 La variante grise signale la surveillance suspendue.
 
 Chaque taille est rendue directement depuis le vecteur (pas de réduction d'une grande
