@@ -182,6 +182,8 @@ def test_two_tabs_fit_side_by_side(ui):
     assert _wait(lambda: tab.model.rowCount() == 11)
     # Deux onglets côte à côte doivent tenir dans une fenêtre de 1366 px de large.
     assert tab.minimumSizeHint().width() <= 620
+    tab.period_button.setChecked(True)  # barre de période affichée : toujours dans la limite
+    assert tab.minimumSizeHint().width() <= 620
     tab.filter_bar.resize(500, tab.filter_bar.height())
     assert not tab.filter_bar.wide  # les niveaux passent à la ligne
     tab.filter_bar.resize(1400, tab.filter_bar.height())

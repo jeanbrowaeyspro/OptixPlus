@@ -11,6 +11,7 @@ jobs:
     runs-on: windows-latest
     env:
       QT_QPA_PLATFORM: offscreen
+      QT_QPA_FONTDIR: C:/Windows/Fonts
       PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v5

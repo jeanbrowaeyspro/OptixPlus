@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
 
 from ....common import theme as common_theme
 from ....common.i18n import tr, tr_n
-from ....common.widgets import ElidedLabel
+from ....common.widgets import ElidedLabel, FlowLayout
 from ..core import export
 from ..core.config import Settings
 from ..core.discovery import Ipc
@@ -275,29 +275,36 @@ class LogTab(QWidget):
         return self.filter_bar
 
     def _build_period_bar(self) -> QWidget:
+        # Trois groupes (« De … », « à … », boutons) qui passent à la ligne quand l'onglet
+        # est étroit : deux journaux côte à côte gardent leur barre de période utilisable.
         bar = QWidget()
-        layout = QHBoxLayout(bar)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
-        layout.addWidget(QLabel(tr("From")))
+        layout = FlowLayout(bar)
+
+        def group(*widgets: QWidget) -> QWidget:
+            box = QWidget()
+            row = QHBoxLayout(box)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(8)
+            for widget in widgets:
+                row.addWidget(widget)
+            layout.addWidget(box)
+            return box
+
         self.from_edit = DateTimeField(self.palette_)
         self.from_edit.valueChanged.connect(self._period_changed)
         self.from_edit.dateEdited.connect(lambda date: self._snap_time_to_events(self.from_edit, date, start=True))
-        layout.addWidget(self.from_edit)
-        layout.addWidget(QLabel(tr("to")))
+        group(QLabel(tr("From")), self.from_edit)
         self.to_edit = DateTimeField(self.palette_)
         self.to_edit.valueChanged.connect(self._period_changed)
         self.to_edit.dateEdited.connect(lambda date: self._snap_time_to_events(self.to_edit, date, start=False))
-        layout.addWidget(self.to_edit)
+        group(QLabel(tr("to")), self.to_edit)
         span = QPushButton(tr("Whole range"))
         span.setToolTip(tr("Puts the bounds back on the first and last loaded lines."))
         span.clicked.connect(self._reset_period_bounds)
-        layout.addWidget(span)
         last_hour = QPushButton(tr("Last hour"))
         last_hour.setToolTip(tr("Keeps only the last sixty minutes of the log."))
         last_hour.clicked.connect(self._set_last_hour)
-        layout.addWidget(last_hour)
-        layout.addStretch(1)
+        group(span, last_hour)
         self.period_bar = bar
         bar.hide()
         return bar
@@ -322,9 +329,9 @@ class LogTab(QWidget):
         self.status_notice = ElidedLabel("")
         self.status_notice.setProperty("muted", True)
         status.addPermanentWidget(self.status_notice, 2)
-        self.status_counts = QLabel("")
+        self.status_counts = ElidedLabel("")
         status.addPermanentWidget(self.status_counts)
-        self.status_live = QLabel("")
+        self.status_live = ElidedLabel("")
         status.addPermanentWidget(self.status_live)
 
     def notify(self, text: str, duration_ms: int = 8000) -> None:

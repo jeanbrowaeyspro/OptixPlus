@@ -43,7 +43,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - Environ un tiers de mémoire en moins par ligne : la ligne brute est reconstruite à la demande.
 - Compteurs d'erreurs et d'avertissements tenus à jour au fil de l'eau, sans recompter tout le journal.
 - Réglages validés au chargement : une valeur invalide revient au défaut au lieu de bloquer le démarrage.
-- La barre de filtres passe sur deux lignes et la barre d'état s'abrège quand la place manque : deux journaux tiennent côte à côte.
+- Les barres de filtres et de période passent à la ligne et la barre d'état s'abrège quand la place manque : deux journaux tiennent côte à côte.
 
 ### Corrigé (par rapport à l'ancien FTOCompare)
 - La prévisualisation du plan est calculée en arrière-plan : l'interface ne se fige plus sur un gros projet.
