@@ -128,7 +128,7 @@ class AppController(QObject):
             self.quit()
             return
         notice = next((text for text in (s.background_notice() for s in running) if text), "")
-        if notice:
+        if notice and self.context.settings.general.notify_on_close:
             self.tray.notify(notice, tr("OptixPlus is still running"), 10_000)
 
     # ---- langue ------------------------------------------------------------------

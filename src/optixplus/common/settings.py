@@ -43,6 +43,7 @@ class GeneralSettings:
     recent_controllers: list[dict] = field(default_factory=list)  # [{"host": …, "name": …}]
     last_seen_version: str = ""
     warn_elevated_capture: bool = True  # prévenir si Impr. écran est bloquée (OptixPlus en administrateur)
+    notify_on_close: bool = True  # bulle « OptixPlus reste actif » quand la fenêtre se ferme, surveillance active
 
 
 LANGUAGES = ("auto", "fr", "en")

@@ -104,3 +104,26 @@ def test_discovery_mode_is_explained(make_controller, monkeypatch):
     assert any("Mode découverte" in label.text() for label in page.findChildren(QLabel))
     controller.open_about()
     assert any("Version portable" in label.text() for label in controller._about_dialog.findChildren(QLabel))
+
+
+def test_close_notice_can_be_turned_off(installed, monkeypatch):
+    """Case décochée dans les Paramètres : OptixPlus reste actif, mais sans bulle."""
+    controller, service, quits, notices = installed
+    _monitoring(monkeypatch, service, {"suspended": False})
+    controller.context.settings.general.notify_on_close = False
+    controller.show_main_window().close()
+    assert quits == [] and notices == []
+
+
+def test_message_options_are_in_general_settings_and_checked_by_default(controller):
+    general = controller.context.settings.general
+    assert general.notify_on_close and general.warn_elevated_capture
+    controller.show_main_window()
+    controller.open_settings()
+    page = controller._settings_dialog._general
+    assert page.close_notice.isChecked() and page.capture_notice.isChecked()
+    page.close_notice.setChecked(False)
+    page.capture_notice.setChecked(False)
+    controller._settings_dialog._apply()
+    assert not general.notify_on_close and not general.warn_elevated_capture
+    controller._settings_dialog.close()

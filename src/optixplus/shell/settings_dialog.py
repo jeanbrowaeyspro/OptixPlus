@@ -76,6 +76,28 @@ class GeneralPage(QWidget):
             self.autostart.setToolTip(tr("Only available when OptixPlus is installed."))
         form.addRow("", self.autostart)
 
+        heading = QLabel(tr("Messages"))
+        heading.setProperty("heading", True)
+        form.addRow(heading)
+        self.close_notice = QCheckBox(tr("Notify when OptixPlus keeps running after its window is closed"))
+        self.close_notice.setToolTip(
+            tr(
+                "When the monitoring of FT Optix Studio is active, closing the window leaves OptixPlus "
+                "in the notification area; a message says so."
+            )
+        )
+        self.close_notice.setChecked(general.notify_on_close)
+        form.addRow("", self.close_notice)
+        self.capture_notice = QCheckBox(tr("Explain why Print Screen does nothing when OptixPlus runs as administrator"))
+        self.capture_notice.setToolTip(
+            tr(
+                "Windows blocks the screenshot tools started normally while an OptixPlus window run as "
+                "administrator has the focus; a message explains it at the first press."
+            )
+        )
+        self.capture_notice.setChecked(general.warn_elevated_capture)
+        form.addRow("", self.capture_notice)
+
         heading = QLabel(tr("Updates"))
         heading.setProperty("heading", True)
         form.addRow(heading)
@@ -130,6 +152,8 @@ class GeneralPage(QWidget):
         if language != general.language:
             general.language = language
             language_changed = i18n.resolve_language(language) != i18n.current_language()
+        general.notify_on_close = self.close_notice.isChecked()
+        general.warn_elevated_capture = self.capture_notice.isChecked()
         theme = self.theme.currentData()
         if theme != general.theme:
             general.theme = theme
