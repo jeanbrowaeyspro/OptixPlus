@@ -46,15 +46,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def _install_dir() -> Path | None:
-    """Dossier d'installation inscrit par l'installateur, s'il existe."""
+    """Dossier d'installation inscrit par l'installateur (Program Files, ou profil pour la 1.0.0)."""
     try:
         import winreg
-
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, INSTALL_KEY) as key:
-            value, _kind = winreg.QueryValueEx(key, "InstallDir")
-            return Path(value)
-    except OSError:
+    except ImportError:
         return None
+    for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        try:
+            with winreg.OpenKey(hive, INSTALL_KEY) as key:
+                value, _kind = winreg.QueryValueEx(key, "InstallDir")
+                return Path(value)
+        except OSError:
+            continue
+    return None
 
 
 def detect_mode(args: argparse.Namespace) -> LaunchMode:

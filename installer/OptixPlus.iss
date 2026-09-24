@@ -2,7 +2,10 @@
 ; Ne pas compiler directement : « python tools\build.py » fournit les définitions ci-dessous
 ; (AppVersion, AppVersionNumeric, SourceDir, OutputDir) après la construction PyInstaller.
 ;
-; - installation pour l'utilisateur courant, sans droits administrateur ;
+; - installation dans C:\Program Files\OptixPlus pour tous les utilisateurs (droits administrateur) ;
+;   démarrage avec Windows, reprise des anciens outils et premier lancement restent propres
+;   à l'utilisateur qui installe (exécutés sous son identité, pas celle de l'administrateur) ;
+; - une ancienne installation 1.0.0 dans le profil est désinstallée d'abord (réglages gardés) ;
 ; - langue de l'assistant : français si Windows est en français, anglais sinon ;
 ; - « Démarrer avec Windows » cochée ; reprise des anciens outils proposée, décochée,
 ;   et seulement si l'un d'eux est détecté ; OptixPlus l'exécute lui-même (--migrer=…) ;
@@ -18,9 +21,10 @@
 #define AppUrl "https://github.com/jeanbrowaeyspro/OptixPlus"
 #define RunKey "Software\Microsoft\Windows\CurrentVersion\Run"
 #define AppMutexName "Local\OptixPlus_SingleInstance"
+#define AppGuid "{6E1B6F4C-3C2B-4E7A-9C5D-0B7F2A1D8E43}"
 
 [Setup]
-AppId={{6E1B6F4C-3C2B-4E7A-9C5D-0B7F2A1D8E43}
+AppId={{#AppGuid}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
@@ -30,8 +34,8 @@ AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases
 VersionInfoVersion={#AppVersionNumeric}
 VersionInfoProductVersion={#AppVersionNumeric}
-PrivilegesRequired=lowest
-DefaultDirName={userpf}\{#AppName}
+PrivilegesRequired=admin
+DefaultDirName={autopf}\{#AppName}
 DisableDirPage=auto
 DisableProgramGroupPage=yes
 UsedUserAreasWarning=no
@@ -89,15 +93,15 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 
 [Registry]
 ; Dossier d'installation : OptixPlus s'y reconnaît « installé » (tray, surveillance, mises à jour).
-Root: HKCU; Subkey: "Software\{#AppName}"; ValueType: string; ValueName: "InstallDir"; ValueData: "{app}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\{#AppName}"; ValueType: string; ValueName: "InstallDir"; ValueData: "{app}"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "{#RunKey}"; ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"" ""--demarrage"""; Tasks: startup; Flags: uninsdeletevalue
 
 [Run]
 ; Reprise des anciens outils : OptixPlus l'exécute lui-même au premier lancement.
-Filename: "{app}\{#AppExe}"; Parameters: "--installe --migrer={code:MigrationTasks}"; Flags: nowait; Check: MigrationRequested
-Filename: "{app}\{#AppExe}"; Parameters: "--installe"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent; Check: not MigrationRequested
+Filename: "{app}\{#AppExe}"; Parameters: "--installe --migrer={code:MigrationTasks}"; Flags: nowait runasoriginaluser; Check: MigrationRequested
+Filename: "{app}\{#AppExe}"; Parameters: "--installe"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent runasoriginaluser; Check: not MigrationRequested
 ; Mise à jour silencieuse lancée par OptixPlus : relance, puis Nouveautés.
-Filename: "{app}\{#AppExe}"; Parameters: "--installe --apres-maj"; Flags: nowait; Check: WizardSilent
+Filename: "{app}\{#AppExe}"; Parameters: "--installe --apres-maj"; Flags: nowait runasoriginaluser; Check: WizardSilent
 
 [Code]
 function LegacyCompareOrLinkCheckFound(): Boolean;
@@ -144,6 +148,28 @@ end;
 function MigrationRequested(): Boolean;
 begin
   Result := (not WizardSilent()) and (MigrationTasks('') <> '');
+end;
+
+// Ancienne installation 1.0.0, par utilisateur (%LOCALAPPDATA%\Programs) : désinstallée
+// silencieusement avant d'installer dans Program Files. Les réglages restent (%APPDATA%).
+procedure RemovePerUserInstall();
+var
+  Uninstaller: String;
+  Code: Integer;
+begin
+  if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#AppGuid}_is1',
+                         'UninstallString', Uninstaller) then
+  begin
+    Uninstaller := RemoveQuotes(Uninstaller);
+    if FileExists(Uninstaller) then
+      Exec(Uninstaller, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  RemovePerUserInstall();
+  Result := '';
 end;
 
 function InitializeSetup(): Boolean;

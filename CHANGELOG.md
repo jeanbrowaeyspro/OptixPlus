@@ -8,6 +8,9 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - Version portable : `OptixPlus-Portable-X.Y.Z.exe`, un seul fichier à lancer sans installation. Elle fonctionne en mode découverte : pas d'icône dans la zone de notification, rien d'écrit dans le registre, et la surveillance de FT Optix Studio s'arrête à la fermeture de la fenêtre. Les réglages sont les mêmes que ceux de la version installée.
 - L'À propos et la page Validation auto indiquent le mode découverte.
 
+### Modifié
+- Installation dans `C:\Program Files\OptixPlus`, comme un logiciel classique, pour tous les utilisateurs du poste (une confirmation administrateur est demandée, y compris pour les mises à jour). Une version 1.0.0 installée dans le profil est remplacée, réglages conservés.
+
 ### Corrigé
 - La page Validation auto ne reste plus abonnée au service de surveillance après sa fermeture (changement de langue, fenêtre refermée).
 

@@ -10,7 +10,6 @@ import hashlib
 import logging
 import os
 import re
-import subprocess
 import tempfile
 import urllib.error
 import urllib.request
@@ -126,11 +125,24 @@ def fetch_installer(
     return path
 
 
+def _shell_execute(path: str, parameters: str) -> int:
+    """``ShellExecuteW`` : un programme qui demande l'élévation déclenche l'invite UAC (valeur > 32 : lancé)."""
+    import ctypes
+
+    return int(ctypes.windll.shell32.ShellExecuteW(None, "open", path, parameters, None, 1))
+
+
 def launch(path: Path) -> None:
-    """Lance l'installateur, détaché d'OptixPlus qui doit ensuite quitter."""
-    flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    """Lance l'installateur (droits administrateur : invite UAC), puis OptixPlus doit quitter.
+
+    ``CreateProcess`` refuse un programme qui exige l'élévation (erreur 740) : on passe par le
+    shell de Windows, qui affiche la demande de confirmation.
+    """
     log.info("Lancement de l'installateur %s", path)
     try:
-        subprocess.Popen([os.fspath(path), *INSTALLER_ARGS], creationflags=flags, close_fds=True)
-    except OSError as exc:
+        result = _shell_execute(os.fspath(path), " ".join(INSTALLER_ARGS))
+    except (AttributeError, OSError) as exc:
         raise UpdateError(tr("The installer could not be started: {error}").format(error=exc)) from exc
+    if result <= 32:
+        # 5 : accès refusé, notamment si l'utilisateur a refusé l'élévation.
+        raise UpdateError(tr("The installer could not be started: {error}").format(error=f"ShellExecute {result}"))

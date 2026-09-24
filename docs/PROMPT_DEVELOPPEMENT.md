@@ -244,7 +244,7 @@ Le mode est détecté au démarrage, dans cet ordre : argument `--decouverte` ou
 
 - **PyInstaller en mode `onedir`** : démarrage rapide, pas de décompression à chaque lancement, et moins de faux positifs d'antivirus. On reprend les exclusions de modules Qt de Log Reader et Compare et on vise l'exe le plus léger possible. L'icône est embarquée, ainsi que les versions de fichier Windows (`version_file`).
 - **Inno Setup 6** (`installer/OptixPlus.iss`) :
-  - installation pour l'utilisateur courant, sans droits administrateur (`PrivilegesRequired=lowest`), dans `{localappdata}\Programs\OptixPlus` ;
+  - installation dans `C:\Program Files\OptixPlus` pour tous les utilisateurs (`PrivilegesRequired=admin`, demande UAC), à la demande de Jean ; dossier d'installation inscrit dans `HKLM\Software\OptixPlus` ; démarrage avec Windows, reprise des anciens outils et lancements restent propres à l'utilisateur qui installe (`runasoriginaluser`) ; une installation 1.0.0 dans le profil est d'abord désinstallée, réglages gardés ;
   - raccourci dans le menu Démarrer ; raccourci sur le Bureau en option ;
   - entrée dans « Applications installées » avec un désinstalleur ;
   - instance en cours : l'installateur attend jusqu'à 15 s qu'OptixPlus se ferme (mise à jour lancée depuis l'application), puis la ferme par le gestionnaire de redémarrage de Windows (`CloseApplications=force`) ; pas d'`AppMutex`, qui ferait échouer la mise à jour silencieuse ;

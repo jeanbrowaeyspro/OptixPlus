@@ -200,11 +200,17 @@ def test_checksum_file_formats():
         installer.expected_checksum("pas d'empreinte", "x.exe")
 
 
-def test_installer_is_launched_silently(monkeypatch, tmp_path):
+def test_installer_is_launched_silently_through_the_shell(monkeypatch, tmp_path):
     calls = []
-    monkeypatch.setattr(installer.subprocess, "Popen", lambda args, **kw: calls.append(args))
+    monkeypatch.setattr(installer, "_shell_execute", lambda path, params: calls.append((path, params)) or 42)
     installer.launch(tmp_path / "setup.exe")
-    assert calls[0][1:] == ["/SILENT", "/CLOSEAPPLICATIONS"]
+    assert calls == [(str(tmp_path / "setup.exe"), "/SILENT /CLOSEAPPLICATIONS")]
+
+
+def test_refused_elevation_is_reported(monkeypatch, tmp_path):
+    monkeypatch.setattr(installer, "_shell_execute", lambda path, params: 5)  # accès refusé (UAC refusé)
+    with pytest.raises(UpdateError):
+        installer.launch(tmp_path / "setup.exe")
 
 
 # --------------------------------------------------------------------------- Nouveautés

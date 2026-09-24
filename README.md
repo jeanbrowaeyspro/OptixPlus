@@ -11,7 +11,7 @@ Une fois installé, OptixPlus reste dans la zone de notification : son icône ou
 
 ## Installation
 
-Télécharger `OptixPlus-Setup-X.Y.Z.exe` depuis les [Releases](https://github.com/jeanbrowaeyspro/OptixPlus/releases) et le lancer. L'installation se fait pour l'utilisateur courant, sans droits administrateur, dans `%LOCALAPPDATA%\Programs\OptixPlus`. Elle propose :
+Télécharger `OptixPlus-Setup-X.Y.Z.exe` depuis les [Releases](https://github.com/jeanbrowaeyspro/OptixPlus/releases) et le lancer. L'installation se fait dans `C:\Program Files\OptixPlus`, pour tous les utilisateurs du poste (confirmation administrateur demandée). Elle propose :
 
 - de démarrer OptixPlus avec Windows (coché) ;
 - si les anciens outils sont détectés, d'importer leurs réglages et de retirer le démarrage automatique de l'ancien OptixAutoValidate (décochés). Rien n'est supprimé des anciens outils.
