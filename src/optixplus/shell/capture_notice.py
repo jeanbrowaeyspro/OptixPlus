@@ -14,6 +14,7 @@ plan est à OptixPlus. Le filtre d'événements Qt reste en secours.
 from __future__ import annotations
 
 import logging
+import time
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtWidgets import QApplication, QCheckBox, QMessageBox
@@ -31,6 +32,7 @@ class CaptureNotice(QObject):
         super().__init__(parent)
         self._settings = settings
         self._box: QMessageBox | None = None
+        self._last_key = 0.0
         self.active = win32.is_elevated() if elevated is None else elevated
         self._watcher: win32.PrintScreenWatcher | None = None
         if self.active:
@@ -42,9 +44,20 @@ class CaptureNotice(QObject):
                 log.warning("Surveillance de la touche Impr. écran impossible (crochet clavier refusé)")
             app.aboutToQuit.connect(self._watcher.stop)
 
-    def _on_key(self, pressed: bool) -> None:
+    #: Appui et relâchement d'une même frappe (ou seulement l'un des deux, selon la
+    #: combinaison) : un seul message.
+    SAME_PRESS_S = 1.0
+
+    def _on_key(self, pressed: bool, vk: int = 0, scan: int = 0) -> None:
         """Rappel du crochet : bref, l'affichage est programmé pour la boucle Qt."""
-        if not pressed and win32.foreground_is_own_window() and self._settings.general.warn_elevated_capture:
+        now = time.monotonic()
+        if now - self._last_key < self.SAME_PRESS_S:
+            return
+        if not win32.foreground_is_own_window():
+            return
+        self._last_key = now
+        log.info("Impr. écran vue (%s, vk=0x%02X, scan=0x%02X)", "appui" if pressed else "relâchement", vk, scan)
+        if self._settings.general.warn_elevated_capture:
             QTimer.singleShot(0, self.show_notice)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802 (API Qt)

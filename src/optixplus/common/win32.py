@@ -120,6 +120,9 @@ def is_elevated() -> bool:
 
 # --------------------------------------------------------------------------- touche Impr. écran
 VK_SNAPSHOT = 0x2C
+SCAN_PRINT_SCREEN = 0x37  # avec le drapeau « étendu » : Impr. écran (sans lui : * du pavé numérique)
+SCAN_SYSRQ = 0x54  # Alt+Impr. écran (touche Syst)
+_LLKHF_EXTENDED = 0x01
 _WH_KEYBOARD_LL = 13
 _KEY_MESSAGES = (0x0100, 0x0101, 0x0104, 0x0105)  # WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP
 
@@ -184,12 +187,21 @@ class PrintScreenWatcher:
             user32.UnhookWindowsHookEx(self._handle)
             self._handle = None
 
+    @staticmethod
+    def is_print_screen(vk: int, scan: int, flags: int) -> bool:
+        """Touche Impr. écran, quelle que soit la combinaison (Fn, Alt, Ctrl, Maj, Win)."""
+        return (
+            vk == VK_SNAPSHOT
+            or scan == SCAN_SYSRQ
+            or (scan == SCAN_PRINT_SCREEN and flags & _LLKHF_EXTENDED)
+        )
+
     def _callback(self, code: int, wparam: int, lparam: int) -> int:
         if code == 0 and wparam in _KEY_MESSAGES:
             info = ctypes.cast(lparam, ctypes.POINTER(_KbdLLHookStruct)).contents
-            if info.vkCode == VK_SNAPSHOT:
+            if self.is_print_screen(info.vkCode, info.scanCode, info.flags):
                 try:
-                    self._on_press(wparam in (0x0100, 0x0104))
+                    self._on_press(wparam in (0x0100, 0x0104), info.vkCode, info.scanCode)
                 except Exception:  # jamais d'exception à travers le crochet
                     pass
         return user32.CallNextHookEx(self._handle, code, wparam, lparam)
