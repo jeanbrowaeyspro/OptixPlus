@@ -160,10 +160,13 @@ def test_open_log_reader_tabs_receive_the_new_settings(controller):
     controller._settings_dialog.close()
 
 
-def test_reader_settings_action_opens_the_settings_window_on_its_category(controller):
+def test_reader_settings_request_opens_the_settings_window_on_its_category(controller):
+    """Plus de bouton de réglages dans la barre du lecteur ; la boîte de connexion les demande encore."""
     window = controller.show_main_window()
     window.show_page("logreader")
-    window.module("logreader").page.action_settings.trigger()
+    page = window.module("logreader").page
+    assert not hasattr(page, "action_settings")
+    page.settingsRequested.emit()
     dialog = controller._settings_dialog
     assert dialog is not None and dialog._categories.currentItem().text() == "Lecteur de logs"
     dialog.close()

@@ -159,11 +159,6 @@ class LogReaderPage(QWidget):
             tr("Active tab: exports the displayed lines (current filters) to a CSV file."),
             lambda: self._current_tab_call("export_log", True),
         )
-        self.action_settings = self._action(
-            tr("Reader settings…"), "settings",
-            tr("Controllers, highlighting and reading settings, common to all tabs (Settings window)."),
-            self.settingsRequested.emit,
-        )
 
     def toolbar_actions(self) -> list[QAction | None]:
         return [
@@ -176,8 +171,6 @@ class LogReaderPage(QWidget):
             None,
             self.action_export_xlsx,
             self.action_export_csv,
-            None,
-            self.action_settings,
         ]
 
     # ------------------------------------------------------------------ onglets
