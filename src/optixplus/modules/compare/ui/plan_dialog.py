@@ -98,6 +98,7 @@ class PlanDialog(QDialog):
         right_layout.addWidget(self.diff, 1)
         right_layout.addWidget(self.notes)
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setProperty("cards", True)  # séparation sans trait, même écart
         splitter.addWidget(self.files)
         splitter.addWidget(right)
         splitter.setSizes([480, 820])
