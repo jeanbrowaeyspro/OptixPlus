@@ -1,7 +1,7 @@
-"""Page de l'outil Auto Validate : état, réglages et journal de la surveillance.
+"""Page de l'outil Auto Validate : état et journal de la surveillance.
 
-Reprend les boîtes « Paramètres » et « Journal » de l'ancien Auto Validate, réunies sur
-une seule page. Les réglages s'appliquent par « Enregistrer ».
+Reprend la boîte « Journal » de l'ancien Auto Validate ; ses réglages sont dans la
+boîte Paramètres de l'application (``settings_page``).
 """
 
 from __future__ import annotations
@@ -9,23 +9,14 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices, QFontDatabase
 from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QCheckBox,
-    QFormLayout,
     QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QPlainTextEdit,
-    QPushButton,
-    QSpinBox,
-    QSplitter,
     QVBoxLayout,
     QWidget,
 )
@@ -33,7 +24,6 @@ from PySide6.QtWidgets import (
 from ....common import signals, theme
 from ....shell.log_panel import append_colored
 from ....common.i18n import tr
-from ..core.config import AutoValidateSettings
 
 if TYPE_CHECKING:
     from ..service import AutoValidateService
@@ -78,199 +68,22 @@ class AutoValidatePage(QWidget):
         header_layout.addLayout(texts, 1)
         outer.addWidget(header)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        # Deux cadres côte à côte : la poignée reste déplaçable mais sans trait visible.
-        splitter.setProperty("cards", True)
-        splitter.setHandleWidth(12)
-        splitter.addWidget(self._build_settings())
-        splitter.addWidget(self._build_journal())
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([420, 700])
-        outer.addWidget(splitter, 1)
-        self._splitter = splitter
+        outer.addWidget(self._build_journal(), 1)
 
         # Signaux du service (durable) : relayés tant que la page existe.
         signals.follow(service.state_changed, self, self.refresh_state)
         signals.follow(service.activity.relay.entry_added, self, self._append)
         signals.follow(service.activity.relay.cleared, self, self._clear_journal)
-        self._load(service.settings)
         self.refresh_state()
         self._recolor()
         theme.follow(self, self._recolor)
 
-    # ---- réglages ----------------------------------------------------------------
-    def _build_settings(self) -> QWidget:
-        box = QGroupBox(tr("Settings"))
-        layout = QVBoxLayout(box)
-        layout.setSpacing(10)
-
-        layout.addWidget(QLabel(tr("Watched window titles")))
-        self.titles = QListWidget()
-        self.titles.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.titles.setEditTriggers(
-            QAbstractItemView.EditTrigger.DoubleClicked
-            | QAbstractItemView.EditTrigger.EditKeyPressed
-            | QAbstractItemView.EditTrigger.SelectedClicked
-        )
-        self.titles.setMaximumHeight(120)
-        self.titles.itemChanged.connect(self._mark_dirty)
-        layout.addWidget(self.titles)
-        hint = QLabel(tr("Case-insensitive match on part of the title. Double-click an entry to edit it."))
-        hint.setProperty("muted", True)
-        hint.setWordWrap(True)
-        layout.addWidget(hint)
-        title_buttons = QHBoxLayout()
-        add = QPushButton(tr("Add"))
-        add.clicked.connect(self._add_title)
-        remove = QPushButton(tr("Remove"))
-        remove.clicked.connect(self._remove_title)
-        title_buttons.addWidget(add)
-        title_buttons.addWidget(remove)
-        title_buttons.addStretch(1)
-        layout.addLayout(title_buttons)
-
-        form = QFormLayout()
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self.process = QLineEdit()
-        self.process.setPlaceholderText("FTOptixStudio.exe")
-        self.process.textEdited.connect(self._mark_dirty)
-        form.addRow(tr("Owner process"), self.process)
-        self.retries = QSpinBox()
-        self.retries.setRange(1, 10)
-        self.retries.valueChanged.connect(self._mark_dirty)
-        form.addRow(tr("Attempts"), self.retries)
-        self.retry_delay = QSpinBox()
-        self.retry_delay.setRange(50, 5000)
-        self.retry_delay.setSingleStep(50)
-        self.retry_delay.setSuffix(" ms")
-        self.retry_delay.valueChanged.connect(self._mark_dirty)
-        form.addRow(tr("Delay between attempts"), self.retry_delay)
-        self.fallback = QSpinBox()
-        self.fallback.setRange(500, 60_000)
-        self.fallback.setSingleStep(500)
-        self.fallback.setSuffix(" ms")
-        self.fallback.setToolTip(
-            tr("Windows reports new windows instantly; this slow check only catches a missed event.")
-        )
-        self.fallback.valueChanged.connect(self._mark_dirty)
-        form.addRow(tr("Safety check every"), self.fallback)
-        layout.addLayout(form)
-
-        self.restore_focus = QCheckBox(tr("Give focus back to the previous window after confirming"))
-        self.restore_focus.toggled.connect(self._mark_dirty)
-        self.notify = QCheckBox(tr("Show a notification at each confirmation"))
-        self.notify.toggled.connect(self._mark_dirty)
-        layout.addWidget(self.restore_focus)
-        layout.addWidget(self.notify)
-        layout.addStretch(1)
-
-        buttons = QHBoxLayout()
-        defaults = QPushButton(tr("Restore defaults"))
-        defaults.clicked.connect(self._restore_defaults)
-        self.save_button = QPushButton(tr("Save"))
-        self.save_button.setProperty("accent", True)
-        self.save_button.clicked.connect(self._save)
-        buttons.addWidget(defaults)
-        buttons.addStretch(1)
-        buttons.addWidget(self.save_button)
-        layout.addLayout(buttons)
-        return box
-
-    def _load(self, settings: AutoValidateSettings) -> None:
-        self._loading = True
-        self.titles.clear()
-        for title in settings.titles:
-            self._append_title(title)
-        self.process.setText(settings.process_name)
-        self.retries.setValue(settings.max_retries)
-        self.retry_delay.setValue(settings.retry_delay_ms)
-        self.fallback.setValue(settings.fallback_scan_ms)
-        self.restore_focus.setChecked(settings.restore_focus)
-        self.notify.setChecked(settings.notify)
-        self._loading = False
-        self.save_button.setEnabled(False)
-
-    def _mark_dirty(self, *_args) -> None:
-        if not getattr(self, "_loading", False):
-            self.save_button.setEnabled(True)
-
-    def _append_title(self, text: str) -> QListWidgetItem:
-        item = QListWidgetItem(text)
-        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-        self.titles.addItem(item)
-        return item
-
-    def _add_title(self) -> None:
-        item = self._append_title(tr("New title"))
-        self.titles.setCurrentItem(item)
-        self.titles.editItem(item)
-        self._mark_dirty()
-
-    def _remove_title(self) -> None:
-        row = self.titles.currentRow()
-        if row >= 0:
-            self.titles.takeItem(row)
-            self._mark_dirty()
-
-    def _restore_defaults(self) -> None:
-        defaults = AutoValidateSettings()
-        self._load(defaults)
-        self.save_button.setEnabled(True)
-
-    def _save(self) -> None:
-        settings = self._service.settings
-        settings.titles = [
-            self.titles.item(i).text().strip()
-            for i in range(self.titles.count())
-            if self.titles.item(i).text().strip()
-        ]
-        settings.process_name = self.process.text().strip()
-        settings.max_retries = self.retries.value()
-        settings.retry_delay_ms = self.retry_delay.value()
-        settings.fallback_scan_ms = self.fallback.value()
-        settings.restore_focus = self.restore_focus.isChecked()
-        settings.notify = self.notify.isChecked()
-        self._service.apply_settings()
-        self._load(settings)  # affiche les valeurs normalisées (titres vides retirés…)
-
-    def has_unsaved_changes(self) -> bool:
-        return self.save_button.isEnabled()
-
     def snapshot(self) -> dict:
-        """Formulaire tel qu'affiché (même non enregistré), séparation et défilement du journal."""
+        """Défilement du journal (les réglages sont dans la boîte Paramètres)."""
         bar = self.journal.verticalScrollBar()
-        return {
-            "titles": [self.titles.item(i).text() for i in range(self.titles.count())],
-            "current_title": self.titles.currentRow(),
-            "process": self.process.text(),
-            "retries": self.retries.value(),
-            "retry_delay": self.retry_delay.value(),
-            "fallback": self.fallback.value(),
-            "restore_focus": self.restore_focus.isChecked(),
-            "notify": self.notify.isChecked(),
-            "dirty": self.has_unsaved_changes(),
-            "splitter": self._splitter.sizes(),
-            "journal_scroll": bar.value(),
-            "journal_at_end": bar.value() >= bar.maximum(),
-        }
+        return {"journal_scroll": bar.value(), "journal_at_end": bar.value() >= bar.maximum()}
 
     def restore(self, state: dict) -> None:
-        self._loading = True
-        self.titles.clear()
-        for title in state.get("titles", []):
-            self._append_title(title)
-        self.titles.setCurrentRow(state.get("current_title", -1))
-        self.process.setText(state.get("process", self.process.text()))
-        self.retries.setValue(state.get("retries", self.retries.value()))
-        self.retry_delay.setValue(state.get("retry_delay", self.retry_delay.value()))
-        self.fallback.setValue(state.get("fallback", self.fallback.value()))
-        self.restore_focus.setChecked(state.get("restore_focus", self.restore_focus.isChecked()))
-        self.notify.setChecked(state.get("notify", self.notify.isChecked()))
-        self._loading = False
-        self.save_button.setEnabled(bool(state.get("dirty")))
-        if state.get("splitter"):
-            self._splitter.setSizes(state["splitter"])
         bar = self.journal.verticalScrollBar()
         bar.setValue(bar.maximum() if state.get("journal_at_end", True) else state.get("journal_scroll", 0))
 

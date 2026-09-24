@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QWidget
 
 from ...common import icons
 from ...common.i18n import tr
@@ -31,7 +31,12 @@ class AutoValidateModule(ToolModule):
         self._open.triggered.connect(self.page.open_log_file)
         self._folder = icons.themed_action(QAction(tr("Open log folder"), self), "window")
         self._folder.triggered.connect(self.page.open_log_folder)
+        self._settings = icons.themed_action(QAction(tr("Monitoring settings…"), self), "settings")
+        self._settings.triggered.connect(self._open_settings)
         self._toggle.setToolTip(tr("Starts or suspends the monitoring of FT Optix Studio."))
+        self._settings.setToolTip(
+            tr("Opens the monitoring settings (watched titles, attempts, notification) in the Settings window.")
+        )
         self._clear.setToolTip(tr("Empties the monitoring log (window and file)."))
         self._open.setToolTip(tr("Opens the monitoring log file in the default editor."))
         self._folder.setToolTip(tr("Opens the folder that contains the monitoring log files, in the Explorer."))
@@ -45,7 +50,10 @@ class AutoValidateModule(ToolModule):
         self._toggle.blockSignals(False)
 
     def toolbar_actions(self) -> list[QAction | None]:
-        return [self._toggle, None, self._open, self._folder, self._clear]
+        return [self._toggle, self._settings, None, self._open, self._folder, self._clear]
+
+    def _open_settings(self) -> None:
+        self.context.controller.open_settings(self.spec.id)
 
     def snapshot(self) -> dict | None:
         return self.page.snapshot() if self.page is not None else {}
@@ -53,13 +61,3 @@ class AutoValidateModule(ToolModule):
     def restore(self, state: dict) -> None:
         if self.page is not None and state:
             self.page.restore(state)
-
-    def can_close(self) -> bool:
-        if self.page is None or not self.page.has_unsaved_changes():
-            return True
-        answer = QMessageBox.question(
-            self.page,
-            tr(self.spec.title),
-            tr("The monitoring settings have unsaved changes. Close anyway?"),
-        )
-        return answer == QMessageBox.StandardButton.Yes

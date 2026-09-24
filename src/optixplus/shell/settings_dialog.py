@@ -145,22 +145,36 @@ class GeneralPage(QWidget):
         return language_changed
 
 
+GENERAL = "general"
+
+
 class SettingsDialog(QDialog):
-    """Paramètres de l'application."""
+    """Paramètres de l'application : « Général », puis une catégorie par outil qui en propose.
+
+    La page d'un outil vient de son service (``BackgroundService.settings_page``) : elle
+    existe même si l'outil n'a pas encore été ouvert dans la fenêtre.
+    """
 
     def __init__(self, context: AppContext, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._context = context
         self.setWindowTitle(tr("Settings"))
-        self.resize(680, 440)
+        self.resize(720, 560)
 
         self._categories = QListWidget()
         self._categories.setFixedWidth(170)
         self._pages = QStackedWidget()
         self._categories.currentRowChanged.connect(self._pages.setCurrentIndex)
+        self._category_ids: list[str] = []
 
         self._general = GeneralPage(context)
-        self._add_page(tr("General"), self._general)
+        self._add_page(GENERAL, tr("General"), self._general)
+        self._tool_pages: dict[str, QWidget] = {}
+        for service in context.services.values():
+            page = service.settings_page(None)
+            if page is not None:
+                self._tool_pages[service.spec.id] = page
+                self._add_page(service.spec.id, tr(service.spec.title), page)
 
         body = QHBoxLayout()
         body.setSpacing(14)
@@ -181,19 +195,37 @@ class SettingsDialog(QDialog):
         layout.addWidget(buttons)
         self._categories.setCurrentRow(0)
 
+    def select(self, category: str) -> None:
+        """Affiche la catégorie ``category`` (« general » ou l'identifiant d'un outil)."""
+        if category in self._category_ids:
+            self._categories.setCurrentRow(self._category_ids.index(category))
+
+    def tool_page(self, module_id: str) -> QWidget | None:
+        return self._tool_pages.get(module_id)
+
     def snapshot(self) -> dict:
-        return {"category": self._categories.currentRow(), "geometry": bytes(self.saveGeometry().toBase64().data())}
+        return {
+            "category": self._categories.currentRow(),
+            "geometry": bytes(self.saveGeometry().toBase64().data()),
+            "pages": {module_id: page.snapshot() for module_id, page in self._tool_pages.items()},
+        }
 
     def restore(self, state: dict) -> None:
         self._categories.setCurrentRow(max(0, state.get("category", 0)))
         if state.get("geometry"):
             self.restoreGeometry(QByteArray.fromBase64(state["geometry"]))
+        for module_id, page_state in state.get("pages", {}).items():
+            if module_id in self._tool_pages and page_state:
+                self._tool_pages[module_id].restore(page_state)
 
-    def _add_page(self, title: str, page: QWidget) -> None:
+    def _add_page(self, category: str, title: str, page: QWidget) -> None:
+        self._category_ids.append(category)
         self._categories.addItem(title)
         self._pages.addWidget(page)
 
     def _apply(self) -> None:
+        for page in self._tool_pages.values():
+            page.apply()
         language_changed = self._general.apply()
         self._context.settings.save()
         if language_changed:

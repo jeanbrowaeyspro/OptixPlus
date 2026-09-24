@@ -125,7 +125,7 @@ class AutoValidateService(BackgroundService):
             self.state_changed.emit()
 
     def apply_settings(self) -> None:
-        """À appeler après modification de ``self.settings`` (page de l'outil)."""
+        """À appeler après modification de ``self.settings`` (catégorie de la boîte Paramètres)."""
         self.settings.normalized()
         self._patterns = matching.normalize_patterns(self.settings.titles)
         self._fallback.setInterval(self.settings.fallback_scan_ms)
@@ -305,3 +305,8 @@ class AutoValidateService(BackgroundService):
         from .ui.summary import MonitoringSummary
 
         return MonitoringSummary(self, parent)
+
+    def settings_page(self, parent: QWidget) -> QWidget | None:
+        from .ui.settings_page import AutoValidateSettingsPage
+
+        return AutoValidateSettingsPage(self, parent)

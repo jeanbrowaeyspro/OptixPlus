@@ -131,24 +131,29 @@ def test_language_change_restores_everything_as_it_was(controller):
     window = controller.show_main_window()
     window.show_page("linkcheck")
     window.show_page("autovalidate")
-    page = window.module("autovalidate").page
-    page.process.setText("AutreStudio.exe")
-    page._mark_dirty()
-    page.retries.setValue(7)
     window.show_page("compare")
     controller.open_about()
+    controller.open_settings("autovalidate")
+    form = controller._settings_dialog.tool_page("autovalidate")
+    form.process.setText("AutreStudio.exe")
+    form._mark_dirty()
+    form.retries.setValue(7)
+    settings_state = controller._settings_dialog.snapshot()
+    controller._settings_dialog.close()
 
     controller.context.settings.general.language = "en"
-    controller.change_language(settings_state={"category": 0})
+    controller.change_language(settings_state=settings_state)
 
     rebuilt = controller.window
     assert rebuilt is not window
     assert rebuilt.current_page == "compare"
     assert {"linkcheck", "autovalidate", "compare"} <= set(rebuilt._modules)
-    new_page = rebuilt.module("autovalidate").page
-    assert new_page.process.text() == "AutreStudio.exe"
-    assert new_page.retries.value() == 7
-    assert new_page.has_unsaved_changes()
+    new_form = controller._settings_dialog.tool_page("autovalidate")
+    assert new_form is not form
+    assert controller._settings_dialog._categories.currentItem().text() == "Auto Validate"
+    assert new_form.process.text() == "AutreStudio.exe"
+    assert new_form.retries.value() == 7
+    assert new_form.has_unsaved_changes()
     # Rien n'a été enregistré : la saisie n'est que conservée à l'écran.
     from optixplus.modules.autovalidate.core.config import AutoValidateSettings
 
@@ -159,5 +164,25 @@ def test_language_change_restores_everything_as_it_was(controller):
         dialog.close()
     controller.context.settings.general.language = "fr"
     controller.change_language()
-    # Abandon de la saisie : sinon la fermeture finale demanderait confirmation.
-    controller.window.module("autovalidate").page.save_button.setEnabled(False)
+
+
+def test_monitoring_settings_live_in_the_settings_window(controller):
+    """Réglages de Validation auto : catégorie de la boîte Paramètres, appliqués par « Appliquer »."""
+    from optixplus.modules.autovalidate.core.config import AutoValidateSettings
+
+    window = controller.show_main_window()
+    window.show_page("autovalidate")
+    module = window.module("autovalidate")
+    assert not hasattr(module.page, "process")  # plus de formulaire sur la page
+    settings_action = next(a for a in module.toolbar_actions() if a is not None and a.text() == "Paramètres de la surveillance…")
+    settings_action.trigger()
+    dialog = controller._settings_dialog
+    assert dialog._categories.currentItem().text() == "Validation auto"
+    form = dialog.tool_page("autovalidate")
+    form.process.setText("AutreStudio.exe")
+    form._mark_dirty()
+    assert controller.context.settings.section(AutoValidateSettings).process_name == "FTOptixStudio.exe"
+    dialog._apply()
+    assert controller.context.services["autovalidate"].settings.process_name == "AutreStudio.exe"
+    assert not form.has_unsaved_changes()
+    dialog.close()

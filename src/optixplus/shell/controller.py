@@ -225,15 +225,17 @@ class AppController(QObject):
         self._show(dialog)
         return True
 
-    def open_settings(self) -> None:
-        if self._raise_existing(self._settings_dialog):
-            return
-        from .settings_dialog import SettingsDialog
+    def open_settings(self, category: str = "") -> None:
+        """Ouvre les Paramètres, sur la catégorie ``category`` (identifiant d'outil) si donnée."""
+        if not self._raise_existing(self._settings_dialog):
+            from .settings_dialog import SettingsDialog
 
-        dialog = SettingsDialog(self.context, self._window)
-        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        signals.track(self, "_settings_dialog", dialog)
-        self._show(dialog)
+            dialog = SettingsDialog(self.context, self._window)
+            dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            signals.track(self, "_settings_dialog", dialog)
+            self._show(dialog)
+        if category:
+            self._settings_dialog.select(category)
 
     def open_about(self) -> None:
         if self._raise_existing(self._about_dialog):

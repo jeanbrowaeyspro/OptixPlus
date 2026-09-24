@@ -100,10 +100,6 @@ class ToolModule(QObject):
         """Demande venue d'ailleurs (tray, second lancement) ; vrai si traitée."""
         return False
 
-    def settings_page(self, parent: QWidget) -> QWidget | None:
-        """Page de réglages de l'outil dans la boîte Paramètres (facultatif)."""
-        return None
-
 
 class CheckedSync(QObject):
     """Garde une action cochable alignée sur un état ; meurt avec l'action.
@@ -167,4 +163,13 @@ class BackgroundService(QObject):
 
     def summary_widget(self, parent: QWidget) -> QWidget | None:
         """Carte affichée sur la page d'accueil (facultatif)."""
+        return None
+
+    def settings_page(self, parent: QWidget) -> QWidget | None:
+        """Catégorie de l'outil dans la boîte Paramètres (facultatif).
+
+        La page n'applique rien à la saisie ; elle offre ``apply()`` (« OK », « Appliquer »),
+        ``has_unsaved_changes()``, et ``snapshot()`` / ``restore()`` pour être rouverte en
+        l'état au changement de langue.
+        """
         return None
