@@ -2,19 +2,20 @@
 
 Le tableau ne montre qu'une ligne de texte par entrée ; ce panneau restitue le
 message complet avec ses retours à la ligne (les tabulations du fichier), la
-pile d'appels éventuelle et le chemin du nœud, le tout sélectionnable pour
-pouvoir être copié.
+pile d'appels éventuelle et, dans l'en-tête, le chemin du nœud. Le texte est
+sélectionnable pour pouvoir être copié.
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QAction, QFont, QGuiApplication
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QPlainTextEdit, QVBoxLayout, QWidget,
 )
 
 from ....common.i18n import tr
+from ....common.widgets import ElidedLabel
 from ....common.theme import Palette
 from .log_model import level_label
 
@@ -54,7 +55,20 @@ class DetailPanel(QWidget):
         self.meta_label = QLabel()
         self.meta_label.setProperty("muted", True)
         self.meta_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        header.addWidget(self.meta_label, 1)
+        header.addWidget(self.meta_label)
+
+        # Chemin du nœud à droite du numéro de ligne : une ligne de moins sous le message.
+        # Abrégé au milieu s'il manque de place ; l'infobulle donne le chemin complet et
+        # le clic droit le copie. Pas de sélection à la souris : sur un libellé abrégé
+        # (texte remplacé à chaque redimensionnement), elle fait planter Qt.
+        self.node_label = ElidedLabel(mode=Qt.TextElideMode.ElideMiddle)
+        self.node_label.setProperty("muted", True)
+        copy_node = QAction(tr("Copy the node path"), self.node_label)
+        copy_node.triggered.connect(self._copy_node_path)
+        self.node_label.addAction(copy_node)
+        self.node_label.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
+        header.addSpacing(12)
+        header.addWidget(self.node_label, 1)
 
         layout.addLayout(header)
 
@@ -76,11 +90,9 @@ class DetailPanel(QWidget):
         self.details_view.setFont(monospace)
         layout.addWidget(self.details_view, 2)
 
-        self.node_label = QLabel()
-        self.node_label.setWordWrap(True)
-        self.node_label.setProperty("muted", True)
-        self.node_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        layout.addWidget(self.node_label)
+    def _copy_node_path(self) -> None:
+        if self._entry is not None and self._entry.node_path:
+            QGuiApplication.clipboard().setText(self._entry.node_path)
 
     def set_palette_colors(self, palette: Palette) -> None:
         self.palette_ = palette
@@ -100,6 +112,7 @@ class DetailPanel(QWidget):
             self.details_title.hide()
             self.details_view.hide()
             self.node_label.setText("")
+            self.node_label.setToolTip("")
             return
 
         colour = getattr(self.palette_, LEVEL_COLOR_KEYS.get(entry.level, "text_muted"))
@@ -124,4 +137,6 @@ class DetailPanel(QWidget):
         self.details_view.setVisible(bool(details))
         self.details_view.setPlainText(details)
 
-        self.node_label.setText(tr("Node: {path}").format(path=entry.node_path) if entry.node_path else "")
+        node = tr("Node: {path}").format(path=entry.node_path) if entry.node_path else ""
+        self.node_label.setText(node)
+        self.node_label.setToolTip(entry.node_path or "")

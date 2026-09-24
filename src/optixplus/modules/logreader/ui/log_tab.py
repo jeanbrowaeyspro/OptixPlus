@@ -240,8 +240,9 @@ class LogTab(QWidget):
         # Tout l'espace gagné va au tableau, le détail garde sa hauteur.
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 0)
-        detail_container.setMinimumHeight(150)
-        splitter.setSizes([640, 200])
+        # Le chemin du nœud est dans l'en-tête du détail : une ligne de moins, rendue au tableau.
+        detail_container.setMinimumHeight(124)
+        splitter.setSizes([666, 174])
         self.splitter = splitter
         layout.addWidget(splitter, 1)
 

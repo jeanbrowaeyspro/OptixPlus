@@ -205,3 +205,18 @@ def test_tab_dot_follows_the_connection_state(ui, share):
     assert "Connexion perdue" in dock.tabWidget().toolTip()
     (share / "ecarte.log").rename(share / "FTOptixRuntime.0.log")
     assert _wait(lambda: dot() == p.success.lower())
+
+
+def test_detail_shows_node_path_in_header_and_copies_it(ui, qapp):
+    """Chemin du nœud dans l'en-tête du détail, à droite du numéro de ligne ; clic droit : copier."""
+    _controller, page, _probes = ui
+    tab = page.new_tab(_ipc("PLC-A"))
+    assert _wait(lambda: tab.model.rowCount() == 11)
+    tab.table.selectRow(0)
+    label = tab.detail.node_label
+    assert label.text() == "Nœud : Root/X" and label.toolTip() == "Root/X"
+    header = tab.detail.layout().itemAt(0).layout()
+    widgets = [header.itemAt(i).widget() for i in range(header.count())]
+    assert widgets.index(label) > widgets.index(tab.detail.meta_label)
+    label.actions()[0].trigger()
+    assert qapp.clipboard().text() == "Root/X"
