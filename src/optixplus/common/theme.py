@@ -262,8 +262,8 @@ def build_stylesheet(p: Palette) -> str:
         color: {p.text_muted};
     }}
     QStatusBar::item {{ border: none; }}
-    /* Barre d'état intégrée à une page (onglet du Lecteur de logs) : fond de la page. */
-    QStatusBar[embedded="true"] {{ background: transparent; }}
+    /* Barre d'état intégrée à une page (onglet du Lecteur de logs) : fond de la page, sans filet. */
+    QStatusBar[embedded="true"] {{ background: transparent; border: none; }}
 
     /* Même hauteur utile que les boutons : sans cette contrainte, une liste
        déroulante et un bouton placés sur la même ligne ne s'alignent pas. */
