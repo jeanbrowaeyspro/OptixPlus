@@ -178,8 +178,9 @@ def test_live_theme_change_keeps_application_style_on_tabs(ui):
     controller, page, _probes = ui
     page.new_tab(_ipc("PLC-A"))
     controller.context.theme.set_theme("dark")
-    _wait(lambda: False, 0.3)
-    assert page.dock_manager.styleSheet() == ""  # le style par défaut de QtAds est retiré
+    # Le style par défaut de QtAds, remis après le changement de palette, est retiré
+    # (délai variable selon le nombre de widgets à repolir).
+    assert _wait(lambda: page.dock_manager.styleSheet() == "", 5)
     controller.context.theme.set_theme("light")
 
 

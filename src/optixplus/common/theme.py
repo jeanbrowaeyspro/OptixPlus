@@ -158,7 +158,7 @@ def build_qpalette(palette: Palette) -> QPalette:
     return qp
 
 
-def build_stylesheet(p: Palette) -> str:
+def build_stylesheet(p: Palette, header_height: int = 0) -> str:
     """Feuille de style de l'application pour la palette donnée."""
     # Attention au format : Qt interprète un hexadécimal à huit chiffres comme
     # #AARRGGBB et non #RRGGBBAA. « #FFFFFF14 » n'est donc pas un blanc à 8 %
@@ -375,6 +375,10 @@ def build_stylesheet(p: Palette) -> str:
         font-weight: 600;
     }}
     QHeaderView::section:hover {{ color: {p.text}; }}
+    /* Ascenseur vertical d'un tableau ou d'un arbre (marqué par widgets.scrollbar_below_header) :
+       il commence sous l'en-tête des colonnes au lieu d'empiéter sur la ligne des titres
+       (hauteur mesurée, voir apply). */
+    QScrollBar[underHeader="true"]:vertical {{ margin: {header_height + 2}px 2px 2px 2px; }}
     QTableView QTableCornerButton::section {{
         background: {p.surface_alt};
         border: none;
@@ -644,12 +648,32 @@ def popup_stylesheet(name: str, p: Palette) -> str:
     """
 
 
+_header_height = 0
+
+
+def _measure_header_height() -> int:
+    """Hauteur d'un en-tête de colonnes sous la feuille de style (ne dépend pas des couleurs)."""
+    from PySide6.QtGui import QStandardItemModel
+    from PySide6.QtWidgets import QTableView
+
+    view = QTableView()
+    view.setModel(QStandardItemModel(1, 1, view))
+    header = view.horizontalHeader()
+    header.ensurePolished()
+    return header.sizeHint().height()
+
+
 def apply(app, theme: str) -> Palette:
     """Applique le thème à l'application et renvoie la palette retenue."""
+    global _header_height
     palette = resolve(theme)
     app.setStyle("Fusion")
     app.setPalette(build_qpalette(palette))
-    app.setStyleSheet(build_stylesheet(palette))
+    if not _header_height:
+        # Première fois : feuille posée, en-tête mesuré, puis feuille complète.
+        app.setStyleSheet(build_stylesheet(palette))
+        _header_height = _measure_header_height()
+    app.setStyleSheet(build_stylesheet(palette, _header_height))
     return palette
 
 

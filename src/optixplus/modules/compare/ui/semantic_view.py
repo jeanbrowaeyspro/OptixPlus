@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 from ..core.analysis import Comparison, FileDiff
 from ..core.nodes import SemanticHunk
 from ....common.i18n import tr
+from ....common.widgets import scrollbar_below_header
 from ..core.labels import SYMBOLE_SENS, decision_label, genre_label, sens_label
 from ..core.plan import DECISIONS, Plan
 from .style import couleur_sens
@@ -239,6 +240,7 @@ class SemanticView(QWidget):
         self.counter = QLabel("")
 
         self.table = QTableView()
+        scrollbar_below_header(self.table)
         self.table.setModel(self.proxy)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)

@@ -32,6 +32,7 @@ from .semantic_view import SemanticRow, SemanticView
 from .specialized.views import SpecializedTabs
 from ....common import theme
 from ....common.i18n import tr
+from ....common.widgets import scrollbar_below_header
 from ..core.labels import etat_label, sens_label
 from .style import couleur_etat, couleur_sens, pastille, taille_lisible
 
@@ -59,6 +60,7 @@ class FileTree(QTreeWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setHeaderLabels([tr("File"), tr("Differences"), tr("State"), tr("Project"), tr("Runtime")])
+        scrollbar_below_header(self)
         self.setAlternatingRowColors(True)
         self.setUniformRowHeights(True)
         self.setIndentation(14)

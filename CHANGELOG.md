@@ -19,6 +19,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - Installation dans `C:\Program Files\OptixPlus`, comme un logiciel classique, pour tous les utilisateurs du poste (une confirmation administrateur est demandée, y compris pour les mises à jour). Une version 1.0.0 installée dans le profil est remplacée, réglages conservés.
 
 ### Corrigé
+- Tableaux et arborescences de tous les outils : l'ascenseur vertical commence sous la ligne des titres de colonnes au lieu d'empiéter dessus.
 - Lecteur de logs : la pastille de l'onglet suit l'état de la connexion (elle restait verte après une perte de connexion). Le voyant de la barre du bas, devenu inutile, est retiré ; cette barre prend le fond de la page, sans filet de séparation.
 - Changement de thème : une erreur interrompait la recoloration des icônes (barres d'outils des outils comprises).
 - Raccourcis des outils (F5 : Analyser…) actifs dès l'affichage de l'outil : il fallait auparavant cliquer d'abord dans sa page. À l'ouverture d'un outil, le focus clavier passe dans sa page.

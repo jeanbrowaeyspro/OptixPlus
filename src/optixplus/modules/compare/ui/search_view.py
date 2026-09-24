@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....common.i18n import tr
+from ....common.widgets import scrollbar_below_header
 from ....common.progress import Cancelled
 from ..core.scan import Inventory
 from ..core.search import SearchHit, search_inventory
@@ -83,6 +84,7 @@ class SearchView(QWidget):
         self.model = QStandardItemModel(0, 4, self)
         self.model.setHorizontalHeaderLabels(self.colonnes())
         self.table = QTableView()
+        scrollbar_below_header(self.table)
         self.table.setModel(self.model)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)

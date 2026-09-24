@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
 
 from ....common import theme as common_theme
 from ....common.i18n import tr, tr_n
-from ....common.widgets import ElidedLabel, FlowLayout
+from ....common.widgets import ElidedLabel, FlowLayout, scrollbar_below_header
 from ..core import export
 from ..core.config import Settings
 from ..core.discovery import Ipc
@@ -200,6 +200,7 @@ class LogTab(QWidget):
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.setChildrenCollapsible(False)
         self.table = QTableView()
+        scrollbar_below_header(self.table)
         self.table.setModel(self.proxy)
         self.table.setSortingEnabled(True)
         self.table.setAlternatingRowColors(True)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QRect, QSize, Qt
-from PySide6.QtWidgets import QLabel, QLayout, QWidget
+from PySide6.QtWidgets import QAbstractScrollArea, QLabel, QLayout, QWidget
 
 
 class ElidedLabel(QLabel):
@@ -113,3 +113,17 @@ class FlowLayout(QLayout):
             x += hint.width() + spacing
             line_height = max(line_height, hint.height())
         return y + line_height - rect.y() + margins.bottom()
+
+
+def scrollbar_below_header(view: QAbstractScrollArea) -> None:
+    """L'ascenseur vertical d'un tableau ou d'un arbre commence sous l'en-tête des colonnes.
+
+    Qt le fait partir du haut de la vue, à côté des titres. La feuille de style du thème
+    décale les ascenseurs marqués ``underHeader`` de la hauteur de l'en-tête (un sélecteur
+    « ascenseur dans un tableau » ne les atteint pas). À appeler à la création de la vue.
+    """
+    bar = view.verticalScrollBar()
+    bar.setProperty("underHeader", True)
+    # L'ascenseur est déjà préparé par Qt à la création de la vue : style à relire.
+    bar.style().unpolish(bar)
+    bar.style().polish(bar)

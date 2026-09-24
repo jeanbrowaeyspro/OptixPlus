@@ -223,3 +223,45 @@ def test_theme_change_after_startup_recolours_without_error(controller, qapp, mo
     controller.context.theme.set_theme("dark")
     qapp.processEvents()
     assert errors == []
+
+
+def test_vertical_scrollbars_start_below_column_headers(controller, qapp):
+    """Ascenseur vertical d'un tableau ou d'un arbre : sa poignée commence sous l'en-tête."""
+    from PySide6.QtGui import QStandardItemModel
+    from PySide6.QtWidgets import QStyle, QStyleOptionSlider, QTableView, QTreeView
+
+    from optixplus.common.widgets import scrollbar_below_header
+
+    model = QStandardItemModel(200, 3)
+    for view in (QTableView(), QTreeView()):
+        scrollbar_below_header(view)
+        view.setModel(model)
+        view.resize(400, 200)
+        view.show()
+        qapp.processEvents()
+        header = view.horizontalHeader() if isinstance(view, QTableView) else view.header()
+        bar = view.verticalScrollBar()
+        bar.setValue(0)
+        option = QStyleOptionSlider()
+        bar.initStyleOption(option)
+        handle = bar.style().subControlRect(QStyle.ComplexControl.CC_ScrollBar, option, QStyle.SubControl.SC_ScrollBarSlider, bar)
+        top = bar.mapTo(view, handle.topLeft()).y()
+        assert top >= header.mapTo(view, header.rect().topLeft()).y() + header.height()
+        view.close()
+
+
+def test_every_tool_table_has_its_scrollbar_below_the_header(controller):
+    """Tous les tableaux et arbres des outils (en-tête visible) sont concernés."""
+    from PySide6.QtWidgets import QTableView, QTreeView
+
+    window = controller.show_main_window()
+    for spec in MODULES:
+        window.show_page(spec.id)
+    views = [
+        v for v in window.findChildren(QTableView) + window.findChildren(QTreeView)
+        if not (v.horizontalHeader() if isinstance(v, QTableView) else v.header()).isHidden()
+        and type(v).__name__ != "QCalendarView"
+    ]
+    assert views
+    unmarked = [f"{type(v).__name__} in {type(v.parent()).__name__}" for v in views if not v.verticalScrollBar().property("underHeader")]
+    assert unmarked == []

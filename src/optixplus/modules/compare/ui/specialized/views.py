@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 
 from ...core.analysis import Comparison
 from .....common.i18n import tr
+from .....common.widgets import scrollbar_below_header
 from ...core.labels import line_state_label
 from ..style import couleur_etat_ligne
 ROLE_ETAT = Qt.ItemDataRole.UserRole + 3
@@ -67,6 +68,7 @@ class TableView(QWidget):
         self.only_gaps.toggled.connect(self._toggle)
         self.counter = QLabel("")
         self.table = QTableView()
+        scrollbar_below_header(self.table)
         self.table.setModel(self.proxy)
         self.table.setSortingEnabled(True)
         self.table.setAlternatingRowColors(True)

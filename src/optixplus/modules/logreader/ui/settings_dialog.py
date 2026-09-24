@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from ..core.config import Credential, HighlightRule, Settings, default_rules
 from ....common.i18n import tr
+from ....common.widgets import scrollbar_below_header
 
 
 def scope_labels() -> dict[str, str]:
@@ -250,6 +251,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(description)
 
         self.credentials_table = QTableWidget(0, 4)
+        scrollbar_below_header(self.credentials_table)
         self.credentials_table.setHorizontalHeaderLabels(
             [tr("Active"), tr("Label"), tr("User"), tr("Password")]
         )
@@ -331,6 +333,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(description)
 
         self.rules_table = QTableWidget(0, 6)
+        scrollbar_below_header(self.rules_table)
         self.rules_table.setHorizontalHeaderLabels(
             [tr("Active"), tr("Name"), tr("Colour"), tr("Keywords (comma separated)"), tr("Whole word"), tr("Scope")]
         )

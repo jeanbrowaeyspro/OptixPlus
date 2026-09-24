@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from ....common import theme
 from ....common.i18n import tr
+from ....common.widgets import scrollbar_below_header
 from ..core.diffing import Opcode
 
 CONTEXTE = 3
@@ -264,6 +265,7 @@ class DiffView(QWidget):
         super().__init__(parent)
         self.model = DiffModel(self)
         self.table = QTableView()
+        scrollbar_below_header(self.table)
         self.table.setModel(self.model)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)

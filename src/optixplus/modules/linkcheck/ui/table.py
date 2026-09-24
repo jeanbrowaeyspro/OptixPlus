@@ -6,6 +6,7 @@ from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTableView, QWidget
 
 from ....common.i18n import tr
+from ....common.widgets import scrollbar_below_header
 from ..core.project import BrokenLink, reason_label
 
 COLUMN_WIDTHS = [170, 430, 110, 330, 220, 330]
@@ -67,6 +68,7 @@ class LinkTable(QTableView):
         super().__init__(parent)
         self._last_user = 0
         self._adjusting = False
+        scrollbar_below_header(self)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
