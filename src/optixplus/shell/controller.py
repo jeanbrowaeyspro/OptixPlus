@@ -46,6 +46,9 @@ class AppController(QObject):
         self.tray = None
         self._create_services()
         self.updates = UpdateManager(self)
+        from .capture_notice import CaptureNotice
+
+        self.capture_notice = CaptureNotice(app, settings, self)
         if mode is LaunchMode.INSTALLED:
             if QSystemTrayIcon.isSystemTrayAvailable():
                 from .tray import TrayIcon

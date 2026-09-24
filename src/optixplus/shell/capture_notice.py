@@ -1,0 +1,68 @@
+"""Impr. écran dans une fenêtre d'OptixPlus lancé en administrateur : expliquer pourquoi rien ne se passe.
+
+Quand une fenêtre élevée est au premier plan, Windows (UIPI) empêche les logiciels lancés
+normalement (Greenshot…) de recevoir la touche Impr. écran : la capture n'a pas lieu et rien
+ne l'indique. OptixPlus, lui, reçoit la touche : il prévient l'utilisateur, une fois par appui,
+sans empiler les messages ; « Ne plus afficher » est mémorisé dans les réglages.
+"""
+
+from __future__ import annotations
+
+import logging
+
+from PySide6.QtCore import QEvent, QObject, Qt
+from PySide6.QtWidgets import QApplication, QCheckBox, QMessageBox
+
+from ..common import win32
+from ..common.i18n import tr
+
+log = logging.getLogger("optixplus.app")
+
+
+class CaptureNotice(QObject):
+    """Filtre d'événements de l'application, actif seulement si OptixPlus tourne élevé."""
+
+    def __init__(self, app: QApplication, settings, parent: QObject | None = None, elevated: bool | None = None) -> None:
+        super().__init__(parent)
+        self._settings = settings
+        self._box: QMessageBox | None = None
+        self.active = win32.is_elevated() if elevated is None else elevated
+        if self.active:
+            app.installEventFilter(self)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802 (API Qt)
+        if (
+            event.type() in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease)
+            and event.key() == Qt.Key.Key_Print
+            and not event.isAutoRepeat()
+            and self._settings.general.warn_elevated_capture
+        ):
+            self.show_notice()
+        return False  # la touche poursuit son chemin
+
+    def show_notice(self) -> None:
+        if self._box is not None and self._box.isVisible():
+            return
+        log.info("Impr. écran dans une fenêtre élevée : capture bloquée par Windows, utilisateur prévenu")
+        box = QMessageBox(QMessageBox.Icon.Information, "OptixPlus", tr("Screenshot not possible on this window"),
+                          QMessageBox.StandardButton.Ok, QApplication.activeWindow())
+        box.setInformativeText(
+            tr(
+                "OptixPlus is running as administrator: Windows prevents screenshot tools started normally "
+                "(Greenshot…) from receiving the Print Screen key while an OptixPlus window is active.\n\n"
+                "To take the screenshot: click another window first, start OptixPlus normally, or start "
+                "your screenshot tool as administrator."
+            )
+        )
+        dont_show = QCheckBox(tr("Do not show this message again"))
+        box.setCheckBox(dont_show)
+        box.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        box.finished.connect(lambda _result: self._remember(dont_show.isChecked()))
+        self._box = box
+        box.open()
+
+    def _remember(self, dont_show: bool) -> None:
+        self._box = None
+        if dont_show:
+            self._settings.general.warn_elevated_capture = False
+            self._settings.save()

@@ -42,6 +42,7 @@ class GeneralSettings:
     recent_projects: list[str] = field(default_factory=list)
     recent_controllers: list[dict] = field(default_factory=list)  # [{"host": …, "name": …}]
     last_seen_version: str = ""
+    warn_elevated_capture: bool = True  # prévenir si Impr. écran est bloquée (OptixPlus en administrateur)
 
 
 LANGUAGES = ("auto", "fr", "en")
