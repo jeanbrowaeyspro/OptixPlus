@@ -10,7 +10,7 @@ affichée en anglais (texte français écrit en dur).
 from __future__ import annotations
 
 import json
-import time
+import re
 from pathlib import Path
 
 import pytest
@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMenu,
-    QMessageBox,
     QTabBar,
     QTabWidget,
     QWidget,
@@ -36,20 +35,13 @@ from optixplus.common.theme import install_manager
 from optixplus.modules import MODULES
 from optixplus.shell.context import LaunchMode
 from optixplus.shell.controller import AppController
+from support import MessageBoxes, wait_until
 
-ROOT = Path(__file__).resolve().parent.parent
-CATALOG = json.loads((ROOT / "src" / "optixplus" / "i18n" / "fr.json").read_text(encoding="utf-8"))
-COMPARE = Path(__file__).resolve().parent / "compare" / "fixtures"
+pytestmark = pytest.mark.slow  # toute l'interface construite deux fois, analyses comprises
 
-
-def _wait(condition, timeout: float = 60.0) -> bool:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        QCoreApplication.processEvents()
-        if condition():
-            return True
-        time.sleep(0.01)
-    return condition()
+TESTS = Path(__file__).resolve().parents[1]
+CATALOG = json.loads((TESTS.parent / "src" / "optixplus" / "i18n" / "fr.json").read_text(encoding="utf-8"))
+COMPARE = TESTS / "compare" / "fixtures"
 
 
 def _texts_of(widget: QWidget) -> set[str]:
@@ -113,7 +105,7 @@ def _interface_texts(tmp_path: Path, monkeypatch, language: str) -> set[str]:
         # Contrôle des liens : un projet analysé (tableau, résumé).
         linkcheck = window.module("linkcheck").page
         linkcheck.open_project(str(make_project(tmp_path / language)))
-        assert _wait(lambda: not linkcheck.busy and linkcheck.project is not None)
+        assert wait_until(lambda: not linkcheck.busy and linkcheck.project is not None, 60)
         texts |= _texts_of(linkcheck)
 
         # Comparaison : résultats, plan et application.
@@ -121,12 +113,12 @@ def _interface_texts(tmp_path: Path, monkeypatch, language: str) -> set[str]:
         compare.setup_page.runtime.set_path(COMPARE / "runtime" / "IHM_Demo")
         compare.setup_page.projet.set_path(COMPARE / "projet" / "IHM_Demo")
         compare.setup_page.compare_button.click()
-        assert _wait(lambda: compare.comparison is not None and not compare.busy)
+        assert wait_until(lambda: compare.comparison is not None and not compare.busy, 60)
         results = compare.results_page
         results.semantic.mass_action("ajouts", tout=True)
         texts |= _texts_of(compare)
         plan = results.open_plan_dialog()
-        assert _wait(lambda: plan.preview is not None and not plan.busy)
+        assert wait_until(lambda: plan.preview is not None and not plan.busy, 60)
         texts |= _texts_of(plan)
         apply = results.open_apply_dialog(plan.preview, plan)
         texts |= _texts_of(apply)
@@ -164,10 +156,10 @@ def _interface_texts(tmp_path: Path, monkeypatch, language: str) -> set[str]:
 
 @pytest.fixture(scope="module")
 def texts(qapp, tmp_path_factory):
+    # Relevé construit une fois pour le module : fixtures de fonction (``controller``,
+    # ``message_boxes``) inutilisables ici, d'où ces équivalents directs.
     monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes))
-    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Ok))
-    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Ok))
+    MessageBoxes().install(monkeypatch)
     try:
         base = tmp_path_factory.mktemp("i18n-ui")
         yield {lang: _interface_texts(base, monkeypatch, lang) for lang in ("fr", "en")}
@@ -187,6 +179,10 @@ def test_english_interface_shows_no_french_text(texts):
     french = {value for key, value in CATALOG.items() if value != key}
     leaks = sorted(t for t in texts["en"] if t in french and t not in CATALOG)
     assert leaks == [], f"Textes français affichés en anglais : {leaks}"
+    # Textes composés (« {n} lignes… ») que la comparaison exacte ne voit pas : accents français.
+    accents = re.compile(r"[àâçéèêëîïôûùüÿœ«»]", re.IGNORECASE)
+    fragments = sorted(t for t in texts["en"] if accents.search(t.replace("Français", "")))
+    assert fragments == [], f"Fragments français dans l'interface anglaise : {fragments}"
 
 
 def test_every_page_was_visited(texts):
@@ -194,13 +190,3 @@ def test_every_page_was_visited(texts):
     for lang, samples in (("fr", ("Nouvel onglet…", "Comparer")), ("en", ("New tab…", "Run the comparison"))):
         for sample in samples:
             assert sample in texts[lang], (lang, sample)
-
-
-
-def test_english_interface_has_no_french_fragment(texts):
-    """Rattrape les textes composés (« {n} lignes… ») que la comparaison exacte ne voit pas."""
-    import re
-
-    french = re.compile(r"[àâçéèêëîïôûùüÿœ«»]", re.IGNORECASE)
-    leaks = sorted(t for t in texts["en"] if french.search(t.replace("Français", "")))
-    assert leaks == [], f"Fragments français dans l'interface anglaise : {leaks}"

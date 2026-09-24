@@ -10,9 +10,8 @@ import subprocess
 import sys
 import time
 
-from PySide6.QtCore import QCoreApplication
-
 from optixplus.common.single_instance import SingleInstance
+from support import wait_until
 
 SECOND_LAUNCH = """
 import sys
@@ -35,10 +34,12 @@ def test_second_instance_forwards_message(qapp):
     first.message_received.connect(received.append)
 
     process = subprocess.Popen([sys.executable, "-c", SECOND_LAUNCH, key])
-    deadline = time.monotonic() + 10
-    while (process.poll() is None or not received) and time.monotonic() < deadline:
-        QCoreApplication.processEvents()
-        time.sleep(0.01)
-    first.release()
+    try:
+        wait_until(lambda: process.poll() is not None and received, timeout=10)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(5)
+        first.release()
     assert process.returncode == 0
     assert received == [["open-tool", "compare"]]

@@ -26,7 +26,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parent / "helpers"))
 
 import pytest  # noqa: E402
-from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
+from PySide6.QtWidgets import QApplication  # noqa: E402
+from support import MessageBoxes  # noqa: E402
 
 
 def pytest_collection_modifyitems(config, items) -> None:
@@ -122,36 +123,9 @@ def _destroy_qt_leftovers():
 
 
 # --------------------------------------------------------------------------- boîtes et coquille
-class MessageBoxes:
-    """Boîtes de message statiques simulées : hors écran, personne ne peut y répondre.
-
-    ``question`` répond ``answer`` (Oui par défaut) ; ``information`` et ``warning`` répondent
-    OK. Chaque boîte est relevée dans ``shown`` sous la forme ``(genre, texte)``.
-    """
-
-    def __init__(self) -> None:
-        self.shown: list[tuple[str, str]] = []
-        self.answer = QMessageBox.StandardButton.Yes
-
-    def of(self, kind: str) -> list[str]:
-        """Textes des boîtes d'un genre (``"question"``, ``"information"``, ``"warning"``)."""
-        return [text for k, text in self.shown if k == kind]
-
-    def _fake(self, kind: str, answer):
-        def show(*args, **kwargs):
-            self.shown.append((kind, args[2] if len(args) > 2 else kwargs.get("text", "")))
-            return self.answer if answer is None else answer
-
-        return staticmethod(show)
-
-    def install(self, monkeypatch) -> None:
-        monkeypatch.setattr(QMessageBox, "question", self._fake("question", None))
-        monkeypatch.setattr(QMessageBox, "information", self._fake("information", QMessageBox.StandardButton.Ok))
-        monkeypatch.setattr(QMessageBox, "warning", self._fake("warning", QMessageBox.StandardButton.Ok))
-
-
 @pytest.fixture
 def message_boxes(monkeypatch) -> MessageBoxes:
+    """Boîtes de message simulées (``question`` → Oui, sinon OK) et relevées."""
     boxes = MessageBoxes()
     boxes.install(monkeypatch)
     return boxes
