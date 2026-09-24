@@ -10,6 +10,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - OptixPlus lancé en administrateur : un appui sur Impr. écran seule (sans Alt, Ctrl, Maj ni Windows, qui fonctionnent) dans une de ses fenêtres affiche un message qui explique pourquoi la capture n'a pas lieu (Windows bloque les logiciels de capture lancés normalement) et comment faire ; « Ne plus afficher ce message » est mémorisé.
 
 ### Modifié
+- Menu de l'icône de la zone de notification allégé : Ouvrir OptixPlus, Surveillance active, Rechercher les mises à jour, À propos, Quitter. Les outils et les paramètres s'ouvrent depuis la fenêtre.
 - Fermer la fenêtre de la version installée : si la surveillance de FT Optix Studio est active, OptixPlus reste dans la zone de notification et le signale par une bulle ; si elle est suspendue, OptixPlus se ferme complètement.
 - Installation dans `C:\Program Files\OptixPlus`, comme un logiciel classique, pour tous les utilisateurs du poste (une confirmation administrateur est demandée, y compris pour les mises à jour). Une version 1.0.0 installée dans le profil est remplacée, réglages conservés.
 

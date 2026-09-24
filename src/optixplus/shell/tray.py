@@ -9,7 +9,6 @@ from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
 from ..common import icons
 from ..common.i18n import tr
-from ..modules import MODULES
 from ..version import APP_NAME, __version__
 
 if TYPE_CHECKING:
@@ -51,19 +50,9 @@ class TrayIcon(QObject):
                     self.menu.addSeparator()
                 else:
                     self.menu.addAction(action)
+        # Menu volontairement court : les outils et les paramètres s'ouvrent depuis la fenêtre.
         if self._controller.context.services:
             self.menu.addSeparator()
-        for module in MODULES:
-            action = self._add(module.icon, tr(module.title))
-            action.triggered.connect(lambda _c=False, mid=module.id: self._controller.open_tool(mid))
-            if module.controller_action:
-                open_controller = self._add("plus", tr(module.controller_action))
-                open_controller.triggered.connect(
-                    lambda _c=False, mid=module.id: self._controller.handle_message(["open-controller", mid])
-                )
-        self.menu.addSeparator()
-        settings_action = self._add("settings", tr("Settings…"))
-        settings_action.triggered.connect(self._controller.open_settings)
         update_action = self._add("refresh", tr("Check for updates…"))
         update_action.triggered.connect(lambda: self._controller.check_for_updates())
         about_action = self._add("info", tr("About OptixPlus"))

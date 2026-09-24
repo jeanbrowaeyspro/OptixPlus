@@ -321,7 +321,6 @@
   "Modified values": "Valeurs modifiées",
   "Monitoring active": "Surveillance active",
   "Monitoring log": "Journal de la surveillance",
-  "Monitoring log…": "Journal de la surveillance…",
   "Monitoring {state} · {count}": "Surveillance {state} · {count}",
   "Move YAML files that became orphans to a discard folder (never deleted)": "Déplacer les YAML devenus orphelins dans un dossier de rebut (jamais de suppression)",
   "Move down": "Descendre",

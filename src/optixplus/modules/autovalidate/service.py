@@ -27,7 +27,6 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QWidget
 
-from ...common import icons
 from ...common.i18n import tr, tr_n
 from ..base import BackgroundService, CheckedSync, ModuleSpec
 from .activity import ActivityLog
@@ -300,10 +299,7 @@ class AutoValidateService(BackgroundService):
         toggle.setChecked(self._enabled)
         toggle.toggled.connect(self.set_enabled)
         CheckedSync(toggle, self.state_changed, lambda: self._enabled)
-        journal = QAction(icons.themed_icon("journal"), tr("Monitoring log…"), parent)
-        journal.setProperty("themedIcon", "journal")  # recoloré par le tray au changement de thème
-        journal.triggered.connect(lambda: self.context.controller.open_tool(self.spec.id))
-        return [toggle, journal]
+        return [toggle]
 
     def summary_widget(self, parent: QWidget) -> QWidget | None:
         from .ui.summary import MonitoringSummary

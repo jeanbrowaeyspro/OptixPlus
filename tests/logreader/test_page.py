@@ -160,22 +160,6 @@ def test_opened_controllers_appear_on_home_and_reopen(ui):
     assert len(page.tabs) == 2
 
 
-def test_tray_menu_offers_open_log(ui, monkeypatch):
-    from optixplus.shell.tray import TrayIcon
-
-    controller, _page, _probes = ui
-    messages = []
-    monkeypatch.setattr(controller, "handle_message", messages.append)
-    tray = TrayIcon(controller)  # hors écran : rien ne s'affiche
-    try:
-        action = next(a for a in tray.menu.actions() if a.text() == "Ouvrir un journal…")
-        assert not action.icon().isNull()
-        action.trigger()
-        assert messages == [["open-controller", "logreader"]]
-    finally:
-        tray.hide()
-
-
 def test_two_tabs_fit_side_by_side(ui):
     _controller, page, _probes = ui
     tab = page.new_tab(_ipc("PLC-A"))
