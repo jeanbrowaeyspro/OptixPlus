@@ -27,7 +27,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 
 ### Ajouté
 - Socle de l'application : fenêtre principale avec barre latérale, page d'accueil, journal intégré, paramètres, « À propos ».
-- Icône OptixPlus : celle de FT Optix Studio en violet, le « x » devenu « + ».
+- Icône OptixPlus : le disque de FT Optix Studio en violet, trou rond centré, « + » détouré de blanc posé sur le bord du trou.
 - Instance unique : un second lancement ramène la fenêtre existante.
 - Icône dans la zone de notification en mode installé.
 - Interface bilingue français / anglais, qui suit la langue de Windows ; chaque texte affiché est vérifié dans les deux langues. La ligne de commande suit la même langue que la fenêtre.

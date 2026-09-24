@@ -1,7 +1,8 @@
 """Génère les icônes .ico et .png de l'application à partir des SVG maîtres.
 
-Icône OptixPlus : l'icône de FT Optix Studio reproduite en vectoriel (relevée au pixel
-sur son 64 px), en violet, le « x » tourné de 45° en « + ».
+Icône OptixPlus : le disque de FT Optix Studio (relevé au pixel sur son 64 px) en violet,
+percé d'un trou rond centré ; le « x » tourné en « + », détouré de blanc, dont l'angle
+rentrant entre bras haut et bras gauche touche le bord du trou.
 La variante grise signale la surveillance suspendue.
 
 Chaque taille est rendue directement depuis le vecteur (pas de réduction d'une grande
