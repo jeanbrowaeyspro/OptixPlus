@@ -1,4 +1,6 @@
 -r requirements.txt
 pytest==9.1.1
+# Tests répartis sur plusieurs processus : pytest -n auto.
+pytest-xdist==3.8.0
 pyinstaller==6.22.3
 pillow==12.3.0

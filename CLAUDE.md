@@ -10,7 +10,7 @@ OptixPlus réunit quatre utilitaires FactoryTalk Optix (Log Reader, Link Checker
 
 - Environnement virtuel `.venv` (Python 3.14), dépendances épinglées dans `requirements*.txt`. PySide6 est imposé en 6.11.1 par PySide6-QtAds.
 - Installer : `.venv\Scripts\python -m pip install -r requirements-dev.txt -e .`
-- Tests : `.venv\Scripts\python -m pytest`
+- Tests : `.venv\Scripts\python -m pytest -n auto` (répartis sur tous les cœurs ; sans `-n auto` pour un seul fichier ou un seul test)
 - Traductions : `.venv\Scripts\python tools\i18n_check.py`
 - Icônes : `.venv\Scripts\python tools\make_icon.py`
 

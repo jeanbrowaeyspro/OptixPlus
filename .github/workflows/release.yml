@@ -36,7 +36,7 @@ jobs:
           if ("v$code" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} ≠ version du code $code" }
 
       - name: Tests
-        run: python -m pytest -p no:cacheprovider --junitxml=pytest.xml
+        run: python -m pytest -p no:cacheprovider -n auto --junitxml=pytest.xml
 
       - name: Détail des tests en échec
         if: failure()
