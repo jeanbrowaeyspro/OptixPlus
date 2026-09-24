@@ -1,72 +1,36 @@
-"""Interface des phases 2 et 3 : colonne Décision, actions de masse, prévisualisation, application, restauration."""
+"""Interface du plan : colonne Décision, actions de masse, prévisualisation, application, restauration.
+
+Ces tests vérifient le câblage de l'interface ; le contenu écrit sur disque est vérifié par
+``test_apply``.
+"""
 
 from __future__ import annotations
 
 import os
-import shutil
+import stat
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QMessageBox
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-pytest.importorskip("PySide6")
+from optixplus.modules.compare.core.analysis import Comparison, compare
+from optixplus.modules.compare.ui.apply_dialog import format_report
+from optixplus.modules.compare.ui.results_page import ResultsPage
+from optixplus.modules.compare.ui.semantic_view import SemanticModel
 
-from PySide6.QtCore import QEventLoop, QSettings, Qt, QTimer  # noqa: E402
-from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
-
-from optixplus.modules.compare.core.analysis import compare  # noqa: E402
-from optixplus.common.optix.text import md5_of_file  # noqa: E402
-from optixplus.modules.compare.ui.apply_dialog import format_report  # noqa: E402
-from optixplus.modules.compare.ui.page import ComparePage as MainWindow  # noqa: E402
-from optixplus.modules.compare.ui.results_page import ResultsPage  # noqa: E402
-from optixplus.modules.compare.ui.semantic_view import SemanticModel  # noqa: E402
-
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
-TAGS = "Nodes/CommDrivers/CODESYSDriver/API_Demo/Tags/Tags.yaml"
-TRANSLATIONS = "Nodes/Translations/Translations.yaml"
+from .conftest import TAGS, TRANSLATIONS, compared_page, find_item, ini_settings, wait_until
 
 
-@pytest.fixture(scope="module")
-def app() -> QApplication:
-    return QApplication.instance() or QApplication([])
-
-
-@pytest.fixture
-def couple(tmp_path: Path) -> tuple[Path, Path]:
-    runtime = tmp_path / "Runtime" / "IHM_Demo"
-    projet = tmp_path / "Projet" / "IHM_Demo"
-    shutil.copytree(FIXTURES / "runtime" / "IHM_Demo", runtime)
-    shutil.copytree(FIXTURES / "projet" / "IHM_Demo", projet)
-    return runtime, projet
-
-
-def _wait(signal, timeout_ms: int = 15000) -> None:
-    loop = QEventLoop()
-    signal.connect(loop.quit)
-    QTimer.singleShot(timeout_ms, loop.quit)
-    loop.exec()
-
-
-def _find(item, name):
-    if item.text(0) == name:
-        return item
-    for k in range(item.childCount()):
-        found = _find(item.child(k), name)
-        if found is not None:
-            return found
-    return None
-
-
-def test_colonne_decision_et_actions_de_masse(app: QApplication, couple: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch) -> None:
-    runtime, projet = couple
+def test_colonne_decision_et_actions_de_masse(qapp, demo: Comparison, monkeypatch: pytest.MonkeyPatch) -> None:
     page = ResultsPage()
-    page.set_comparison(compare(runtime, projet))
+    page.set_comparison(demo)
     sem = page.semantic
     model = sem.model
     assert not sem.preview_button.isEnabled() and "aucune décision" in sem.plan_label.text()
 
     # Décision individuelle via le modèle (ce que fait la liste déroulante).
-    page.tree.setCurrentItem(_find(page.tree.topLevelItem(0), "Tags.yaml"))
+    page.tree.setCurrentItem(find_item(page.tree.topLevelItem(0), "Tags.yaml"))
     index = model.index(0, SemanticModel.COL_DECISION)
     assert model.data(index) == "Ignorer" and model.flags(index) & Qt.ItemFlag.ItemIsEditable
     assert model.setData(index, "prendre_runtime")
@@ -94,16 +58,11 @@ def test_colonne_decision_et_actions_de_masse(app: QApplication, couple: tuple[P
     assert "alignement complet" in sem.plan_label.text()
 
 
-def test_previsualisation_puis_application_et_restauration(app: QApplication, couple: tuple[Path, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_previsualisation_puis_application_et_restauration(
+    qapp, couple: tuple[Path, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     runtime, projet = couple
-    avant = {p.relative_to(projet).as_posix(): md5_of_file(p) for p in projet.rglob("*") if p.is_file()}
-    settings = QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
-    window = MainWindow(settings)
-    window.setup_page.runtime.set_path(runtime)
-    window.setup_page.projet.set_path(projet)
-    window.setup_page.compare_button.click()
-    _wait(window.worker.finished)
-    app.processEvents()
+    window = compared_page(ini_settings(tmp_path / "s.ini"), runtime, projet)
     assert window.action_preview.isEnabled()
     page = window.results_page
     page.semantic.mass_action("ajouts", tout=True)
@@ -145,12 +104,9 @@ def test_previsualisation_puis_application_et_restauration(app: QApplication, co
     reports = []
     apply_dialog.applied.connect(reports.append)
     apply_dialog.start()
-    _wait(apply_dialog.worker.finished)
-    app.processEvents()
+    assert wait_until(lambda: reports and (apply_dialog.worker is None or apply_dialog.worker.isFinished()))
     assert len(reports) == 1 and reports[0].succes
     assert "Fichiers écrits et vérifiés" in apply_dialog.output.toPlainText()
-    assert (projet / TRANSLATIONS).read_bytes() == (runtime / TRANSLATIONS).read_bytes()
-    assert b"Acquit_Z1" in (projet / TAGS).read_bytes()
     assert window.last_backup is not None and window.last_backup.is_dir()
     texte = format_report(reports[0])
     assert TAGS in texte and "Reste à faire" in texte
@@ -159,16 +115,12 @@ def test_previsualisation_puis_application_et_restauration(app: QApplication, co
     monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
     restaures = window.restore_backup(str(window.last_backup))
     assert sorted(restaures) == sorted([TAGS, TRANSLATIONS])
-    apres = {p.relative_to(projet).as_posix(): md5_of_file(p) for p in projet.rglob("*") if p.is_file()}
-    assert apres == avant
     dialog.close()
     apply_dialog.close()
     window.close()
 
 
-def test_application_refusee_si_verrou(app: QApplication, couple: tuple[Path, Path]) -> None:
-    import stat
-
+def test_application_refusee_si_verrou(qapp, couple: tuple[Path, Path]) -> None:
     runtime, projet = couple
     cible = projet / TAGS
     cible.chmod(stat.S_IREAD)

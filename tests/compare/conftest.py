@@ -138,6 +138,22 @@ def demo(_interface_en_francais):
 
 
 @pytest.fixture
+def window(qapp, demo, tmp_path: Path):
+    """Une page Compare qui affiche la comparaison partagée du couple synthétique.
+
+    La comparaison n'est pas recalculée : la page reçoit ``demo`` comme après une analyse.
+    La page elle-même est neuve à chaque test, car les fenêtres sont détruites après chaque
+    test (``tests/conftest.py``).
+    """
+    from optixplus.modules.compare.ui.page import ComparePage
+
+    page = ComparePage(ini_settings(tmp_path / "compare.ini"))
+    page.set_comparison(demo)
+    yield page
+    page.close()
+
+
+@pytest.fixture
 def couple(tmp_path: Path) -> tuple[Path, Path]:
     """``(runtime, projet)`` : une copie du couple synthétique, que le test peut modifier."""
     runtime = tmp_path / "Runtime" / "IHM_Demo"
