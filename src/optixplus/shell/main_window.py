@@ -268,7 +268,28 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"{title} — {APP_NAME}" if title else APP_NAME)
         if module is not None:
             module.on_activated()
+        self._focus_page(page)
         self.context.settings.general.last_tool = page_id
+
+    @staticmethod
+    def _focus_page(page: QWidget) -> None:
+        """Donne le focus clavier à la page affichée.
+
+        Les raccourcis d'un outil (F5 : Analyser…) ne valent que dans sa page : sans cela,
+        après un clic dans la barre latérale, ils ne répondraient qu'une fois la page cliquée.
+        Reprend le dernier élément qui avait le focus dans la page, sinon le premier accessible
+        au clavier.
+        """
+        target = page.focusWidget()
+        if target is None or not target.isVisible():
+            target = None
+            widget = page.nextInFocusChain()
+            while widget is not page and page.isAncestorOf(widget):
+                if widget.isVisible() and widget.isEnabled() and widget.focusPolicy() & Qt.FocusPolicy.TabFocus:
+                    target = widget
+                    break
+                widget = widget.nextInFocusChain()
+        (target or page).setFocus(Qt.FocusReason.OtherFocusReason)
 
     def _set_toolbar(self, module: ToolModule | None) -> None:
         self._toolbar.clear()

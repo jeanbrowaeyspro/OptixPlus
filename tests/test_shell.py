@@ -186,3 +186,26 @@ def test_monitoring_settings_live_in_the_settings_window(controller):
     assert controller.context.services["autovalidate"].settings.process_name == "AutreStudio.exe"
     assert not form.has_unsaved_changes()
     dialog.close()
+
+
+def test_tool_shortcuts_work_as_soon_as_the_tool_is_shown(controller, qapp, monkeypatch):
+    """F5 (Analyser) répond dès l'affichage de l'outil, sans cliquer d'abord dans sa page."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QMessageBox
+
+    # Sans projet, Analyser avertit « dossier à saisir » : boîte modale, sans personne pour répondre.
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Ok))
+
+    window = controller.show_main_window()
+    window.activateWindow()
+    window.sidebar.setFocus()
+    window.show_page("linkcheck")
+    qapp.processEvents()
+    page = window.module("linkcheck").page
+    assert page.isAncestorOf(qapp.focusWidget())
+    triggered = []
+    page.act_analyse.triggered.connect(lambda: triggered.append(True))
+    page.act_analyse.setEnabled(True)
+    QTest.keyClick(qapp.focusWidget(), Qt.Key.Key_F5)
+    assert triggered

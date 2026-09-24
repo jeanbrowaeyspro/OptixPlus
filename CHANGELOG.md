@@ -18,6 +18,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 - Installation dans `C:\Program Files\OptixPlus`, comme un logiciel classique, pour tous les utilisateurs du poste (une confirmation administrateur est demandée, y compris pour les mises à jour). Une version 1.0.0 installée dans le profil est remplacée, réglages conservés.
 
 ### Corrigé
+- Raccourcis des outils (F5 : Analyser…) actifs dès l'affichage de l'outil : il fallait auparavant cliquer d'abord dans sa page. À l'ouverture d'un outil, le focus clavier passe dans sa page.
 - OptixPlus n'est plus lancé avec les droits administrateur par l'installateur (case « Lancer OptixPlus », relance après mise à jour) : une fenêtre élevée empêchait les logiciels de capture d'écran (Greenshot…) de recevoir leurs raccourcis. Lancé volontairement en administrateur, il le reste.
 - Recherche de mise à jour : la connexion sécurisée à GitHub est vérifiée par Windows, ce qui corrige l'erreur « CERTIFICATE_VERIFY_FAILED » sur les postes où le certificat racine n'était pas encore installé ou derrière un antivirus ou un proxy qui inspecte le HTTPS.
 - La page Validation auto ne reste plus abonnée au service de surveillance après sa fermeture (changement de langue, fenêtre refermée).
