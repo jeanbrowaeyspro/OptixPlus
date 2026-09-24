@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="2.50 2.50 60.25 60.25">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <mask id="hole" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
-      <rect width="64" height="64" fill="#FFFFFF"/>
+    <mask id="hole" maskUnits="userSpaceOnUse" x="0" y="0" width="65" height="65">
+      <rect width="65" height="65" fill="#FFFFFF"/>
       <circle cx="29.5" cy="29.5" r="8.7" fill="#000000"/>
     </mask>
   </defs>
