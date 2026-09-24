@@ -17,9 +17,9 @@ jobs:
       QT_QPA_PLATFORM: offscreen
       PYTHONIOENCODING: utf-8
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
           cache: pip
@@ -35,7 +35,11 @@ jobs:
           if ("v$code" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} ≠ version du code $code" }
 
       - name: Tests
-        run: python -m pytest
+        run: python -m pytest -p no:cacheprovider --junitxml=pytest.xml
+
+      - name: Détail des tests en échec
+        if: failure()
+        run: python tools/ci_report.py pytest.xml
 
       - name: Inno Setup
         run: choco install innosetup --no-progress -y
