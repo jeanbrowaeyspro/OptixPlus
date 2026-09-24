@@ -199,6 +199,11 @@ class PrintScreenWatcher:
             user32.UnhookWindowsHookEx(self._handle)
             self._handle = None
 
+    def __del__(self) -> None:
+        # Un crochet encore posé quand son rappel ctypes est libéré fait planter le processus
+        # à la frappe suivante (Windows appelle une adresse invalide) : on le retire d'abord.
+        self.stop()
+
     @staticmethod
     def is_print_screen(vk: int, scan: int, flags: int) -> bool:
         """Touche Impr. écran, quelle que soit la combinaison (Fn, Alt, Ctrl, Maj, Win)."""

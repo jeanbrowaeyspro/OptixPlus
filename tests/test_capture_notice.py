@@ -24,6 +24,24 @@ def _boxes() -> list[QMessageBox]:
     return [w for w in QApplication.topLevelWidgets() if isinstance(w, QMessageBox) and w.isVisible()]
 
 
+_ORPHANS: list[CaptureNotice] = []
+
+
+def _elevated_notice(app, settings) -> CaptureNotice:
+    """Avis « élevé » : pose un vrai crochet clavier, retiré à la fin du test par ``_dispose``."""
+    notice = CaptureNotice(app, settings, elevated=True)
+    _ORPHANS.append(notice)
+    return notice
+
+
+def _dispose(app, notice: CaptureNotice) -> None:
+    # Un crochet clavier bas niveau laissé posé après la libération de son rappel ctypes fait
+    # planter le processus à la frappe suivante, n'importe où sur le poste.
+    app.removeEventFilter(notice)
+    if notice._watcher is not None:
+        notice._watcher.stop()
+
+
 @pytest.fixture
 def window(qapp, tmp_path):
     i18n.install("fr")
@@ -31,6 +49,9 @@ def window(qapp, tmp_path):
     widget = QWidget()
     widget.show()
     yield qapp, settings, widget
+    for notice in _ORPHANS:
+        _dispose(qapp, notice)
+    _ORPHANS.clear()
     for box in _boxes():
         box.close()
     widget.close()
@@ -39,14 +60,13 @@ def window(qapp, tmp_path):
 
 def test_elevated_print_screen_explains_why_nothing_happens(window):
     app, settings, widget = window
-    notice = CaptureNotice(app, settings, elevated=True)
+    _elevated_notice(app, settings)
     _press_print_screen(widget)
     _press_print_screen(widget)  # pas de message empilé
     boxes = _boxes()
     assert len(boxes) == 1
     assert boxes[0].text() == "Capture d'écran impossible sur cette fenêtre"
     assert "administrateur" in boxes[0].informativeText()
-    app.removeEventFilter(notice)
 
 
 def test_normal_rights_show_nothing(window):
@@ -59,7 +79,7 @@ def test_normal_rights_show_nothing(window):
 
 def test_do_not_show_again_is_remembered(window):
     app, settings, widget = window
-    notice = CaptureNotice(app, settings, elevated=True)
+    _elevated_notice(app, settings)
     _press_print_screen(widget)
     box = _boxes()[0]
     box.checkBox().setChecked(True)
@@ -68,7 +88,6 @@ def test_do_not_show_again_is_remembered(window):
     assert json.loads(settings.path.read_text(encoding="utf-8"))["general"]["warn_elevated_capture"] is False
     _press_print_screen(widget)
     assert _boxes() == []
-    app.removeEventFilter(notice)
 
 
 def _hook_call(watcher, vk: int, message: int, scan: int = 0, flags: int = 0) -> None:

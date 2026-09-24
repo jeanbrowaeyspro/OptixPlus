@@ -315,6 +315,10 @@ class WinEventHook:
             user32.UnhookWinEvent(handle)
         self._handles.clear()
 
+    def __del__(self) -> None:
+        # Même raison que pour ``_proc`` : jamais de crochet posé sur un rappel libéré.
+        self.uninstall()
+
     def _dispatch(self, _hook, event, hwnd, id_object, id_child, _thread, _time) -> None:
         if id_object != OBJID_WINDOW or id_child != CHILDID_SELF or not hwnd:
             return
