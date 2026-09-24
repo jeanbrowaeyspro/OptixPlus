@@ -232,6 +232,7 @@ class LogReaderPage(QWidget):
                 if button.objectName() in DOCKING_TOOLTIPS and not button.property("tooltipTranslated"):
                     button.setProperty("tooltipTranslated", True)
                     button.installEventFilter(self._docking_tooltips)
+                    button.setToolTip(tr(DOCKING_TOOLTIPS[button.objectName()]))
 
     def _add_tab(self, session: LogSession, name: str | None = None) -> LogTab:
         if name is None:
