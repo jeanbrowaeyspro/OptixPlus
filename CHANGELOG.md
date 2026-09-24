@@ -4,6 +4,9 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 
 ## [Non publié]
 
+### Corrigé
+- Lecteur de logs : les infobulles des boutons des onglets (fermer l'onglet, liste des onglets, détacher le groupe…) s'affichent en français, et non plus en anglais.
+
 ### Modifié
 - Titre de la fenêtre et de la barre des tâches : « OptixPlus - Outil » (le nom de l'application en tête, séparé par un simple tiret).
 - Ascenseurs : poignées arrondies comme le reste de l'application, plus de carré visible dans le coin entre les deux ascenseurs, et la ligne des titres de colonnes se prolonge jusqu'au bord, au-dessus de l'ascenseur vertical.

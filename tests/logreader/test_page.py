@@ -194,3 +194,20 @@ def test_detail_shows_node_path_in_header_and_copies_it(ui, qapp):
     assert widgets.index(label) > widgets.index(tab.detail.meta_label)
     label.actions()[0].trigger()
     assert qapp.clipboard().text() == "Root/X"
+
+
+def test_docking_buttons_show_translated_tooltips(ui, qapp):
+    """Les boutons de QtAds (non traduit) affichent au survol une infobulle en français."""
+    from PySide6.QtCore import QEvent, QPoint
+    from PySide6.QtGui import QHelpEvent
+    from PySide6.QtWidgets import QAbstractButton, QToolTip
+
+    _controller, page, _probes = ui
+    page.new_tab(_ipc("PLC-A"))
+    page.new_tab(_ipc("PLC-B"))
+    buttons = {b.objectName(): b for b in page.dock_manager.findChildren(QAbstractButton) if b.objectName()}
+    for name, expected in (("tabCloseButton", "Fermer l'onglet"), ("tabsMenuButton", "Lister tous les onglets de ce groupe")):
+        button = buttons[name]
+        qapp.sendEvent(button, QHelpEvent(QEvent.Type.ToolTip, QPoint(2, 2), button.mapToGlobal(QPoint(2, 2))))
+        assert QToolTip.text() == expected
+    QToolTip.hideText()

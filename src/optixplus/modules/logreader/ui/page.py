@@ -15,11 +15,20 @@ import logging
 import PySide6QtAds as QtAds
 from PySide6.QtCore import QByteArray, QEvent, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtWidgets import QLabel, QMessageBox, QPushButton, QStackedLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QAbstractButton,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QStackedLayout,
+    QToolTip,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ....common import icons
 from ....common import theme as common_theme
-from ....common.i18n import tr
+from ....common.i18n import tr, tr_noop
 from ..core.config import Settings
 from ..core.discovery import Ipc
 from ..session import LogSession
@@ -57,6 +66,31 @@ def _configure_docking() -> None:
     _FLAGS_SET = True
 
 
+#: Infobulles des boutons de QtAds (onglets détachables), par nom d'objet. QtAds n'est pas
+#: traduit et réécrit lui-même ces infobulles quand l'état change : elles sont remplacées à
+#: l'affichage (``_DockingTooltips``) par ces textes, traduits.
+DOCKING_TOOLTIPS = {
+    "tabCloseButton": tr_noop("Close the tab"),
+    "tabsMenuButton": tr_noop("List all the tabs of this group"),
+    "detachGroupButton": tr_noop("Detach this group of tabs into a separate window"),
+    "dockAreaCloseButton": tr_noop("Close this group of tabs"),
+    "dockAreaAutoHideButton": tr_noop("Pin the active tab"),
+    "dockAreaMinimizeButton": tr_noop("Minimize"),
+}
+
+
+class _DockingTooltips(QObject):
+    """Affiche l'infobulle traduite d'un bouton de QtAds à la place de la sienne, en anglais."""
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802 (API Qt)
+        if event.type() == QEvent.Type.ToolTip:
+            text = DOCKING_TOOLTIPS.get(watched.objectName())
+            if text:
+                QToolTip.showText(event.globalPos(), tr(text), watched)
+                return True
+        return False
+
+
 class LogReaderPage(QWidget):
     """Onglets de journaux et actions sur l'onglet actif."""
 
@@ -80,6 +114,10 @@ class LogReaderPage(QWidget):
         self.dock_manager = QtAds.CDockManager(self)
         self.dock_manager.setStyleSheet("")  # style commun de l'application (common.theme)
         self.dock_manager.installEventFilter(self)
+        self._docking_tooltips = _DockingTooltips(self)
+        # Boutons créés avec chaque groupe d'onglets ou fenêtre détachée : infobulles traduites.
+        self.dock_manager.dockAreaCreated.connect(self._translate_docking_tooltips)
+        self.dock_manager.floatingWidgetCreated.connect(self._translate_docking_tooltips)
         self.dock_manager.focusedDockWidgetChanged.connect(self._on_focus_changed)
         self._stack.addWidget(self.dock_manager)
         self._build_actions()
@@ -187,6 +225,14 @@ class LogReaderPage(QWidget):
                 return tab
         return None
 
+    def _translate_docking_tooltips(self, *_args) -> None:
+        roots = [self.dock_manager, *self.dock_manager.floatingWidgets()]
+        for root in roots:
+            for button in root.findChildren(QAbstractButton):
+                if button.objectName() in DOCKING_TOOLTIPS and not button.property("tooltipTranslated"):
+                    button.setProperty("tooltipTranslated", True)
+                    button.installEventFilter(self._docking_tooltips)
+
     def _add_tab(self, session: LogSession, name: str | None = None) -> LogTab:
         if name is None:
             self._counter += 1
@@ -220,6 +266,7 @@ class LogReaderPage(QWidget):
         dock.setAsCurrentTab()
         self._refresh_title(name)
         self._update_state()
+        self._translate_docking_tooltips()  # bouton de fermeture du nouvel onglet
         return tab
 
     def new_tab(self, ipc: Ipc | None = None, host: str | None = None) -> LogTab | None:
