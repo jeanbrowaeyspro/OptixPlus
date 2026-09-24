@@ -211,7 +211,7 @@ Le mode est détecté au démarrage, dans cet ordre : argument `--decouverte` ou
 - Les boutons et dialogues standard de Qt passent par `QTranslator`, avec les `qtbase_fr.qm` fournis par PySide6 quand la langue est le français.
 - L'installateur Inno Setup suit la même règle (détection automatique de la langue, FR ou EN).
 - `tools/i18n_check.py` liste les chaînes non traduites et les entrées orphelines. Un test pytest échoue s'il manque une traduction française.
-- `tests/test_i18n_ui.py` construit toute l'interface hors écran dans chaque langue et relève chaque texte affiché : aucun texte de l'autre langue ne doit apparaître.
+- `tests/shell/test_i18n_ui.py` construit toute l'interface hors écran dans chaque langue et relève chaque texte affiché : aucun texte de l'autre langue ne doit apparaître.
 - La ligne de commande (`optixplus linkcheck`) suit le même réglage de langue que la fenêtre.
 
 ## 9. Mises à jour, À propos, Nouveautés
