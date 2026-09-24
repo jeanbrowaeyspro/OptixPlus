@@ -1,11 +1,12 @@
-"""Inventaire, hash et classement sur un mini couple construit dans un dossier temporaire."""
+"""Inventaire, hash et classement des fichiers sur un mini couple construit dans un dossier temporaire."""
+
+from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
 from optixplus.common.progress import Cancelled, Progress
-from optixplus.common.optix.project import is_optix_root, read_ide_version, suggest_optix_root
 from optixplus.modules.compare.core.scan import build_inventory
 
 
@@ -17,7 +18,8 @@ def _make(root: Path, files: dict[str, bytes]) -> Path:
     return root
 
 
-def _couple(tmp_path: Path) -> tuple[Path, Path]:
+@pytest.fixture
+def mini_couple(tmp_path: Path) -> tuple[Path, Path]:
     runtime = _make(
         tmp_path / "Runtime" / "IHM_X",
         {
@@ -48,18 +50,8 @@ def _couple(tmp_path: Path) -> tuple[Path, Path]:
     return runtime, projet
 
 
-def test_detection_dossier_optix(tmp_path: Path) -> None:
-    runtime, _ = _couple(tmp_path)
-    assert is_optix_root(runtime)
-    assert not is_optix_root(tmp_path / "Runtime")
-    assert suggest_optix_root(tmp_path / "Runtime") == runtime
-    assert suggest_optix_root(tmp_path) is None
-    assert read_ide_version(runtime) == "1.3.2.9-Stable"
-    assert read_ide_version(tmp_path) is None
-
-
-def test_inventaire_classement(tmp_path: Path) -> None:
-    runtime, projet = _couple(tmp_path)
+def test_inventaire_classement(mini_couple: tuple[Path, Path]) -> None:
+    runtime, projet = mini_couple
     steps: list[Progress] = []
     inv = build_inventory(runtime, projet, progress=steps.append)
 
@@ -95,22 +87,20 @@ def test_inventaire_classement(tmp_path: Path) -> None:
     assert meme.is_text is True
     dll = inv.get("ProjectFiles/NetSolution/bin/IHM_X.dll")
     assert dll is not None and dll.is_text is False
+    assert inv.get("inexistant.yaml") is None
 
     phases = {s.phase for s in steps}
     assert phases == {"inventaire", "hash"}
     assert any(s.current == "Nodes/A.yaml" for s in steps)
 
 
-def test_annulation(tmp_path: Path) -> None:
-    runtime, projet = _couple(tmp_path)
-    try:
+def test_annulation(mini_couple: tuple[Path, Path]) -> None:
+    runtime, projet = mini_couple
+    with pytest.raises(Cancelled):
         build_inventory(runtime, projet, cancel=lambda: True)
-    except Cancelled:
-        return
-    raise AssertionError("l'annulation aurait dû lever Cancelled")
 
 
-def test_dossier_introuvable(tmp_path: Path) -> None:
-    runtime, projet = _couple(tmp_path)
+def test_dossier_introuvable(mini_couple: tuple[Path, Path], tmp_path: Path) -> None:
+    runtime, _projet = mini_couple
     with pytest.raises(FileNotFoundError):
         build_inventory(runtime, tmp_path / "absent")

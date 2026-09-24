@@ -68,13 +68,6 @@ def test_compact_diff_rows_match_the_original(qapp, seed: int) -> None:
             assert getattr(model.rows[row], "a_no" if side == "projet" else "b_no") == line_no
 
 
-def test_inventory_get_uses_an_index() -> None:
-    demo = compare(FIXTURES / "runtime" / "IHM_Demo", FIXTURES / "projet" / "IHM_Demo")
-    entry = demo.inventory.entries[5]
-    assert demo.inventory.get(entry.rel) is entry
-    assert demo.inventory.get("inexistant.yaml") is None
-
-
 def _wait(condition, timeout: float = 60.0) -> bool:
     import time
 

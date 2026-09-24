@@ -1,38 +1,37 @@
-"""Phase 3 : sauvegarde, écriture vérifiée, rebut, intégrité, restauration — sur une copie du couple synthétique."""
+"""Application du plan : sauvegarde, écriture vérifiée, rebut, intégrité, restauration — sur une copie du couple synthétique."""
 
 from __future__ import annotations
 
 import os
-import shutil
 import stat
 from pathlib import Path
 
 import pytest
 
+from optixplus.common.optix.text import md5_of_file
+from optixplus.common.progress import Progress
 from optixplus.modules.compare.core import apply as apply_module
 from optixplus.modules.compare.core.analysis import USER_DEFINED_MODULE, compare
 from optixplus.modules.compare.core.apply import ApplyError, apply_preview, check_locks, list_backups, read_manifest, restore_backup
-from optixplus.common.optix.text import md5_of_file
 from optixplus.modules.compare.core.plan import REBUT_DIR, Plan, build_preview
-from optixplus.common.progress import Progress
 
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
-TAGS = "Nodes/CommDrivers/CODESYSDriver/API_Demo/Tags/Tags.yaml"
-TRANSLATIONS = "Nodes/Translations/Translations.yaml"
-DIVISION = "Nodes/UI/Parents/Division/Division.yaml"
-
-
-@pytest.fixture
-def couple(tmp_path: Path) -> tuple[Path, Path]:
-    runtime = tmp_path / "Runtime" / "IHM_Demo"
-    projet = tmp_path / "Projet" / "IHM_Demo"
-    shutil.copytree(FIXTURES / "runtime" / "IHM_Demo", runtime)
-    shutil.copytree(FIXTURES / "projet" / "IHM_Demo", projet)
-    return runtime, projet
+from .conftest import DIVISION, ORPHELIN, TAGS, TRANSLATIONS
 
 
 def _snapshot(root: Path) -> dict[str, str]:
     return {p.relative_to(root).as_posix(): md5_of_file(p) for p in root.rglob("*") if p.is_file()}
+
+
+def test_plan_vide_rien_a_appliquer(couple: tuple[Path, Path]) -> None:
+    runtime, projet = couple
+    comparison = compare(runtime, projet)
+    plan = Plan()
+    assert plan.est_vide()
+    preview = build_preview(plan, comparison)
+    assert preview.changes == [] and preview.avertissements == []
+    rapport = apply_preview(preview, plan, comparison)
+    assert rapport.backup_dir is None and rapport.avertissements == ["Rien à appliquer."]
+    assert list_backups(projet) == []
 
 
 def test_recuperer_les_ajouts_puis_restaurer(couple: tuple[Path, Path]) -> None:
@@ -85,12 +84,12 @@ def test_alignement_complet_avec_rebut_et_integrite(couple: tuple[Path, Path]) -
     assert dest.exists() and any(part.startswith(REBUT_DIR) for part in dest.parts)
     assert b"IType_Div_BP_Prog" not in (projet / USER_DEFINED_MODULE).read_bytes()
     assert b"IType_Div_BP_Prog" not in (projet / "ProjectFiles/NetSolution/Private/UITypeDefinitions.cs").read_bytes()
-    assert "Nodes/UI/Parents/Orphelin/Orphelin.yaml" in rapport.orphelins_restants
+    assert ORPHELIN in rapport.orphelins_restants
     assert any("rebut" in a for a in rapport.a_faire) and any(".NET" in a for a in rapport.a_faire)
 
     apres = compare(runtime, projet)
     assert apres.synthese().nb_divergents == 1, "il ne reste que le YAML orphelin d'origine côté projet"
-    assert [e.rel for e in apres.inventory.divergents()] == ["Nodes/UI/Parents/Orphelin/Orphelin.yaml"]
+    assert [e.rel for e in apres.inventory.divergents()] == [ORPHELIN]
 
     restore_backup(rapport.backup_dir, projet)
     assert (projet / DIVISION).exists()
@@ -135,10 +134,3 @@ def test_verrous(couple: tuple[Path, Path]) -> None:
         assert list_backups(projet) == [], "aucune sauvegarde créée si un verrou bloque"
     finally:
         os.chmod(cible, stat.S_IWRITE | stat.S_IREAD)
-
-
-def test_rien_a_appliquer(couple: tuple[Path, Path]) -> None:
-    runtime, projet = couple
-    comparison = compare(runtime, projet)
-    rapport = apply_preview(build_preview(Plan(), comparison), Plan(), comparison)
-    assert rapport.backup_dir is None and rapport.avertissements == ["Rien à appliquer."]

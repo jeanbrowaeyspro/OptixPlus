@@ -74,6 +74,24 @@ def find_item(item, name: str):
     return None
 
 
+def tags_file(names: list[str]) -> list[bytes]:
+    """Les lignes d'un ``Tags.yaml`` minimal : une structure ``App`` et un tag booléen par nom."""
+    lines = [b"Name: Tags", b"Type: FolderType", b"Children:", b"- Name: App", b"  Type: TagStructure", b"  Children:"]
+    for name in names:
+        lines += [
+            f"  - Name: {name}".encode(),
+            b"    Type: CODESYSTag",
+            b"    DataType: Boolean",
+            b"    Value: false",
+            b"    Children:",
+            b"    - Name: SymbolName",
+            b"      Type: BaseDataVariableType",
+            b"      DataType: String",
+            f'      Value: "App.IO.{name}"'.encode(),
+        ]
+    return lines
+
+
 def compared_page(settings, runtime: Path = RUNTIME, projet: Path = PROJET):
     """Une page Compare dont la comparaison ``runtime`` / ``projet`` est terminée."""
     from optixplus.modules.compare.ui.page import ComparePage

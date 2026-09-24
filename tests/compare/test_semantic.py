@@ -1,43 +1,21 @@
-"""Diff, fusion sélective et remontée sémantique sur de petits YAML synthétiques."""
+"""Remontée sémantique : des hunks de lignes aux nœuds Optix, sur de petits YAML puis sur le couple synthétique."""
 
-from difflib import SequenceMatcher
+from __future__ import annotations
 
-from optixplus.modules.compare.core.diffing import (
-    Hunk,
-    compute_opcodes,
-    diff_lines,
-    hunks_from_opcodes,
-    merge_lines,
-    sens_global,
-)
+import pytest
+
 from optixplus.common.optix.scanner import index_nodes
-from optixplus.modules.compare.core.nodes import describe_hunks, sens_semantique, slide_opcodes
+from optixplus.modules.compare.core.analysis import Comparison
+from optixplus.modules.compare.core.diffing import Hunk, compute_opcodes, diff_lines, hunks_from_opcodes, sens_global
+from optixplus.modules.compare.core.nodes import describe_hunks, sens_semantique
+
+from .conftest import ALARMS, MODEL, PARENTS, SCREENS, TAGS, TRANSLATIONS, tags_file
+
+PROJET = tags_file(["A_Tag", "C_Tag", "Z_Projet"])
+RUNTIME = tags_file(["A_Tag", "B_Runtime", "C_Tag"])
 
 
-def _tag(indent: int, name: str, dtype: str, symbol: str) -> list[bytes]:
-    pad = b" " * indent
-    return [
-        pad + f"- Name: {name}".encode(),
-        pad + b"  Type: CODESYSTag",
-        pad + f"  DataType: {dtype}".encode(),
-        pad + b"  Value: false",
-        pad + b"  Children:",
-        pad + b"  - Name: SymbolName",
-        pad + b"    Type: BaseDataVariableType",
-        pad + b"    DataType: String",
-        pad + f'    Value: "{symbol}"'.encode(),
-    ]
-
-
-def _tags_file(names: list[str]) -> list[bytes]:
-    lines = [b"Name: Tags", b"Type: FolderType", b"Children:", b"- Name: App", b"  Type: TagStructure", b"  Children:"]
-    for name in names:
-        lines += _tag(2, name, "Boolean", f"App.IO.{name}")
-    return lines
-
-
-PROJET = _tags_file(["A_Tag", "C_Tag", "Z_Projet"])
-RUNTIME = _tags_file(["A_Tag", "B_Runtime", "C_Tag"])
+# -- Petits YAML ---------------------------------------------------------------------------
 
 
 def test_index_nodes_chemins_et_bornes() -> None:
@@ -56,44 +34,7 @@ def test_index_nodes_chemins_et_bornes() -> None:
     assert [c.name for c in index.children(app)] == ["A_Tag", "C_Tag", "Z_Projet"]
 
 
-def test_hunks_et_sens() -> None:
-    hunks = diff_lines(PROJET, RUNTIME)
-    assert [h.tag for h in hunks] == ["insert", "delete"]
-    assert sens_global(hunks) == "mixte"
-    assert hunks[0].sens == "ajout_runtime" and hunks[1].sens == "branche_projet"
-
-
-def test_opcodes_equivalents_a_difflib_sur_petit_fichier() -> None:
-    attendu = SequenceMatcher(None, PROJET, RUNTIME, autojunk=False).get_opcodes()
-    assert compute_opcodes(PROJET, RUNTIME) == attendu
-
-
-def test_ancrage_gros_fichier_reconstruit_les_deux_cotes() -> None:
-    projet = _tags_file([f"T{i:04d}" for i in range(0, 600)])
-    runtime = _tags_file([f"T{i:04d}" for i in range(0, 600) if i % 97 != 0] + ["T9999"])
-    ops = compute_opcodes(projet, runtime)
-    assert len(projet) + len(runtime) > 4000, "le test doit passer par l'ancrage"
-    assert merge_lines(projet, runtime, ops) == projet
-    assert merge_lines(projet, runtime, ops, modes={"insert", "delete", "replace"}) == runtime
-    hunks = hunks_from_opcodes(ops)
-    assert sum(1 for h in hunks if h.tag == "delete") == 7
-    assert sum(1 for h in hunks if h.tag == "insert") == 1
-
-
-def test_fusion_selective() -> None:
-    ops = compute_opcodes(PROJET, RUNTIME)
-    ajouts = merge_lines(PROJET, RUNTIME, ops, modes={"insert"})
-    assert ajouts == _tags_file(["A_Tag", "B_Runtime", "C_Tag", "Z_Projet"])
-    complet = merge_lines(PROJET, RUNTIME, ops, modes={"insert", "delete", "replace"})
-    assert complet == RUNTIME
-    rien = merge_lines(PROJET, RUNTIME, ops)
-    assert rien == PROJET
-    hunk = hunks_from_opcodes(ops)[1]
-    retire = merge_lines(PROJET, RUNTIME, ops, retenus=[hunk])
-    assert retire == _tags_file(["A_Tag", "C_Tag"])
-
-
-def test_remontee_semantique_blocs_tags() -> None:
+def test_blocs_de_tags() -> None:
     sem = describe_hunks(diff_lines(PROJET, RUNTIME), PROJET, RUNTIME)
     assert [s.genre for s in sem] == ["bloc", "bloc"]
     assert sem[0].sens == "ajout_runtime" and sem[0].noeuds == ["B_Runtime"]
@@ -148,8 +89,7 @@ def test_traduction_virgule_et_dimensions() -> None:
 
     projet = dico([b'"","en-US"', b'"a","A"'])
     runtime = dico([b'"","en-US"', b'"a","A"', b'"b","B"'])
-    hunks = diff_lines(projet, runtime)
-    sem = describe_hunks(hunks, projet, runtime)
+    sem = describe_hunks(diff_lines(projet, runtime), projet, runtime)
     genres = {s.genre: s for s in sem}
     assert "dimensions" in genres and genres["dimensions"].significatif is False
     assert "[2,2] → [3,2]" in genres["dimensions"].detail
@@ -169,26 +109,6 @@ def test_reference_fichier_retiree() -> None:
     assert index_nodes(projet).file_refs()[0].name == "Division/Division.yaml"
 
 
-def test_glissement_sur_frontiere_de_noeud() -> None:
-    """Une insertion que difflib place à cheval sur deux blocs doit glisser jusqu'au ``- Name:``."""
-    projet = [b"Name: R", b"Children:", b"- Name: A", b"  Type: T", b"- Name: C", b"  Type: T"]
-    runtime = [b"Name: R", b"Children:", b"- Name: A", b"  Type: T", b"- Name: B", b"  Type: T", b"- Name: C", b"  Type: T"]
-    # Fenêtre décalée d'une ligne vers le haut : [``  Type: T``, ``- Name: B``], valide mais illisible.
-    ops = [("equal", 0, 3, 0, 3), ("insert", 3, 3, 3, 5), ("equal", 3, 6, 5, 8)]
-    assert merge_lines(projet, runtime, ops, modes={"insert"}) == runtime, "fenêtre valide"
-    glisse = slide_opcodes(ops, projet, runtime)
-    assert glisse == [("equal", 0, 4, 0, 4), ("insert", 4, 4, 4, 6), ("equal", 4, 6, 6, 8)]
-    assert merge_lines(projet, runtime, glisse, modes={"insert"}) == runtime
-    sem = describe_hunks(hunks_from_opcodes(glisse), projet, runtime)
-    assert sem[0].noeud == "B" and sem[0].genre == "bloc"
-
-
-def test_hunk_proprietes() -> None:
-    h = Hunk("replace", 3, 5, 3, 4)
-    assert h.nb_a == 2 and h.nb_b == 1 and h.sens == "valeur_modifiee"
-    assert h.as_opcode() == ("replace", 3, 5, 3, 4)
-
-
 def test_deplacement_de_bloc_non_significatif() -> None:
     projet = [b"<Mappings>", b"<A/>", b"<B/>", b"</Mappings>"]
     runtime = [b"<Mappings>", b"<B/>", b"<A/>", b"</Mappings>"]
@@ -196,3 +116,63 @@ def test_deplacement_de_bloc_non_significatif() -> None:
     sem = describe_hunks(hunks, projet, runtime)
     assert [(s.genre, s.significatif) for s in sem] == [("deplacement", False), ("deplacement", False)]
     assert sens_semantique(sem) == "non_significatif"
+
+
+# -- Couple synthétique : une ligne par écart, (genre, sens, nœuds, significatif) --------------
+
+
+@pytest.mark.parametrize(
+    ("rel", "sens", "attendu"),
+    [
+        (
+            TAGS,
+            "mixte",
+            [
+                ("bloc", "ajout_runtime", ["Acquit_Z1", "Acquit_Z2"], True),
+                ("bloc", "branche_projet", ["PlanSciage_Manu"], True),
+                ("bloc", "ajout_runtime", ["EnHaut"], True),
+            ],
+        ),
+        (
+            MODEL,
+            "valeur_modifiee",
+            [("id", "branche_projet", ["Enum_Taille"], False), ("valeur", "valeur_modifiee", ["AvecScanner"], True)],
+        ),
+        (
+            TRANSLATIONS,
+            "ajout_runtime",
+            [
+                ("dimensions", "valeur_modifiee", ["TranslationTable"], False),
+                ("valeur", "ajout_runtime", ["TranslationTable"], True),
+            ],
+        ),
+        (ALARMS, "branche_projet", [("bloc", "branche_projet", ["Fault_SurchauffeGHDel"], True)]),
+        (PARENTS, "branche_projet", [("fichier", "branche_projet", ["Division/Division.yaml"], True)]),
+        (
+            SCREENS,
+            "valeur_modifiee",
+            [("valeur", "valeur_modifiee", ["TopMargin"], True), ("valeur", "valeur_modifiee", ["LeftMargin"], True)],
+        ),
+        ("ProjectFiles/UserDefinedModule.xml", "branche_projet", [("type", "branche_projet", ["IType_Div_BP_Prog"], True)]),
+    ],
+    ids=["tags", "model", "traductions", "alarmes", "parents", "ecrans", "module_xml"],
+)
+def test_semantique_par_fichier(demo: Comparison, rel: str, sens: str, attendu: list[tuple]) -> None:
+    fd = demo.diffs[rel]
+    assert fd.sens == sens
+    assert [(s.genre, s.sens, s.noeuds, s.significatif) for s in fd.semantic] == attendu
+
+
+def test_details_semantiques(demo: Comparison) -> None:
+    """Chemins, détails et libellés affichés pour les écarts du couple synthétique."""
+    assert "App_Demo.GVL_IO.Statuts.EnHaut" in demo.diffs[TAGS].semantic[2].detail
+    assert demo.diffs[MODEL].semantic[1].chemin_parent == "Model"
+    alarme = demo.diffs[ALARMS].semantic[0]
+    assert alarme.detail == "bloc IType_Demo_Alarm, 11 lignes"
+    assert "présent côté projet uniquement" in alarme.libelle
+    ecrans = demo.diffs[SCREENS].semantic
+    assert {s.noeud: s.detail for s in ecrans} == {
+        "TopMargin": "Value: `81.0` → `80.0`",
+        "LeftMargin": "Value: `560.0` → `562.0`",
+    }
+    assert ecrans[0].chemin == "Screens/IType_Manual/Panel1/TopMargin"

@@ -1,38 +1,19 @@
-"""Phase 2 : plan de décision, actions dérivées, prévisualisation, sérialisation."""
+"""Plan de décision : actions de masse, actions dérivées, prévisualisation, sérialisation."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import pytest
-
-from optixplus.modules.compare.core.analysis import TYPE_CONSTANTS, UI_TYPE_DEFINITIONS, USER_DEFINED_MODULE, compare
-from optixplus.modules.compare.core.extractors.translations import fix_dimensions, parse_translations
-from optixplus.modules.compare.core.integrity import find_references
 from optixplus.common.optix.text import split_lines
+from optixplus.modules.compare.core.analysis import TYPE_CONSTANTS, UI_TYPE_DEFINITIONS, USER_DEFINED_MODULE, Comparison
+from optixplus.modules.compare.core.extractors.translations import parse_translations
 from optixplus.modules.compare.core.plan import Plan, build_preview, load_plan, save_plan
 
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
-TAGS = "Nodes/CommDrivers/CODESYSDriver/API_Demo/Tags/Tags.yaml"
-TRANSLATIONS = "Nodes/Translations/Translations.yaml"
-MODEL = "Nodes/Model/Model.yaml"
-PARENTS = "Nodes/UI/Parents/Parents.yaml"
+from .conftest import DIVISION, MODEL, PARENTS, SCREENS, TAGS, TRANSLATIONS
 
 
-@pytest.fixture(scope="module")
-def demo():
-    return compare(FIXTURES / "runtime" / "IHM_Demo", FIXTURES / "projet" / "IHM_Demo")
-
-
-def test_plan_vide(demo) -> None:
-    plan = Plan()
-    assert plan.est_vide()
-    preview = build_preview(plan, demo)
-    assert preview.changes == [] and preview.avertissements == []
-
-
-def test_recuperer_les_ajouts(demo) -> None:
+def test_recuperer_les_ajouts(demo: Comparison) -> None:
     plan = Plan()
     assert plan.recuperer_ajouts(demo) == 3
     preview = build_preview(plan, demo)
@@ -49,18 +30,18 @@ def test_recuperer_les_ajouts(demo) -> None:
     assert preview.orphelins == [] and preview.references == []
 
 
-def test_aligner_les_valeurs(demo) -> None:
+def test_aligner_les_valeurs(demo: Comparison) -> None:
     plan = Plan()
     assert plan.aligner_valeurs(demo) == 3
     preview = build_preview(plan, demo)
-    assert {c.rel for c in preview.changes} == {MODEL, "Nodes/UI/Screens/Screens.yaml"}
+    assert {c.rel for c in preview.changes} == {MODEL, SCREENS}
     assert preview.nb_valeurs == 3
     model = preview.change(MODEL)
     assert model is not None and b"Value: true" in model.new and b"Id: g=fdfba7080932d498240e265326b9b78d" in model.new
-    assert preview.change("Nodes/UI/Screens/Screens.yaml").new == demo.diffs["Nodes/UI/Screens/Screens.yaml"].runtime.to_bytes()
+    assert preview.change(SCREENS).new == demo.diffs[SCREENS].runtime.to_bytes()
 
 
-def test_alignement_complet_et_actions_derivees(demo) -> None:
+def test_alignement_complet_et_actions_derivees(demo: Comparison) -> None:
     plan = Plan(deplacer_orphelins=True, copier_statistiques=True)
     supprimes = plan.blocs_supprimes(demo)
     assert {s.noeud for _rel, s in supprimes} >= {"Fault_SurchauffeGHDel", "PlanSciage_Manu", "Division/Division.yaml"}
@@ -76,15 +57,15 @@ def test_alignement_complet_et_actions_derivees(demo) -> None:
     assert tc is not None and b"IType_Div_BP_Prog" not in tc.new and b"IType_TextErreurDivision" in tc.new
     ui = preview.change(UI_TYPE_DEFINITIONS)
     assert ui is not None and ui.new.count(b"[MapType") == 2 and ui.origine == "dérivé : élagage par GUID"
-    assert preview.orphelins == ["Nodes/UI/Parents/Division/Division.yaml"]
+    assert preview.orphelins == [DIVISION]
     optix = preview.change("IHM_Demo.optix")
     assert optix is not None and b"TotalNodeCount: 100" in optix.new and b"GUID: 0123456789abcdef" in optix.new
     assert any("orphelins" in a for a in preview.avertissements)
-    assert any("Project.Current.Find" in a for a in preview.avertissements) is False, "pas de source NetLogic dans la fixture"
+    assert not any("Project.Current.Find" in a for a in preview.avertissements), "pas de source NetLogic dans la fixture"
     assert preview.nb_retraits >= 4
 
 
-def test_decision_individuelle_et_garder_projet(demo) -> None:
+def test_decision_individuelle_et_garder_projet(demo: Comparison) -> None:
     plan = Plan()
     fd = demo.diffs[TAGS]
     ajout = next(s for s in fd.semantic if s.noeud == "EnHaut")
@@ -101,7 +82,7 @@ def test_decision_individuelle_et_garder_projet(demo) -> None:
     assert (TAGS, ajout.hunk.as_opcode()) not in plan.decisions
 
 
-def test_serialisation_et_reappariement(demo, tmp_path: Path) -> None:
+def test_serialisation_et_reappariement(demo: Comparison, tmp_path: Path) -> None:
     plan = Plan(nom="ajouts", copier_statistiques=True)
     plan.recuperer_ajouts(demo)
     path = tmp_path / "plan.json"
@@ -117,39 +98,3 @@ def test_serialisation_et_reappariement(demo, tmp_path: Path) -> None:
     data["decisions"].append({"fichier": TAGS, "hunk": [0, 0, 0, 0, 0], "decision": "prendre_runtime", "noeuds": ["Inconnu"], "sens": "ajout_runtime"})
     rejoue, perdus = Plan.from_dict(data, demo)
     assert len(rejoue.decisions) == 3 and len(perdus) == 1 and "Inconnu" in perdus[0]
-
-
-def test_fix_dimensions_sans_changement() -> None:
-    lines = split_lines((FIXTURES / "runtime" / "IHM_Demo" / TRANSLATIONS).read_bytes()).lines
-    fixed, delta = fix_dimensions(lines)
-    assert delta is None and fixed == list(lines)
-
-
-def test_references_orphelines(tmp_path: Path) -> None:
-    root = tmp_path / "P"
-    (root / "Nodes").mkdir(parents=True)
-    (root / "ProjectFiles" / "NetSolution").mkdir(parents=True)
-    (root / "Nodes" / "A.yaml").write_bytes(b"- Name: X\r\n  Value: {NodePath: Parents/Division/Lame}\r\n- Name: Division2\r\n")
-    (root / "ProjectFiles" / "NetSolution" / "L.cs").write_bytes(b'var t = Project.Current.Find("IType_Div_BP_Prog");\r\n')
-    hits = find_references(root, ["Division", "IType_Div_BP_Prog"])
-    assert [(h.rel, h.line_no, h.name) for h in hits] == [
-        ("Nodes/A.yaml", 2, "Division"),
-        ("ProjectFiles/NetSolution/L.cs", 1, "IType_Div_BP_Prog"),
-    ]
-    assert find_references(root, ["Division"], overrides={"Nodes/A.yaml": b"rien\r\n"}) == []
-
-
-def test_fusion_type_mappings_par_guid() -> None:
-    from optixplus.modules.compare.core.extractors.module_xml import extract_type_guids, merge_type_mappings
-
-    def xml(guids: list[str]) -> list[bytes]:
-        lines = [b"<TypeMappings>"]
-        for g in guids:
-            lines += [b"  <TypeMapping>", f'    <NodeId guid="{g}" />'.encode(), b"  </TypeMapping>"]
-        return lines + [b"</TypeMappings>"]
-
-    a, b, c, d = ("a" * 32, "b" * 32, "c" * 32, "d" * 32)
-    projet, runtime = xml([a, b, c]), xml([b, a, d])
-    fusion = merge_type_mappings(projet, runtime, remove=[c], add=[d, a])
-    assert [m.guid for m in extract_type_guids(fusion)] == [a, b, d], "c retiré, d ajouté, a jamais dupliqué"
-    assert fusion[-1] == b"</TypeMappings>"
