@@ -106,7 +106,7 @@ Le mode est détecté au démarrage, dans cet ordre : argument `--decouverte` ou
   - le processus reste résident avec l'icône du tray et la surveillance Auto Validate ;
   - fermer la fenêtre principale **détruit** la fenêtre et ses pages pour libérer la mémoire ; seuls le tray, la surveillance et les réglages restent ;
   - « Quitter » dans le tray arrête tout.
-- **Mode découverte**, prévu dans le code mais pas distribué pour l'instant :
+- **Mode découverte**, distribué en exécutable portable (`OptixPlus-Portable-X.Y.Z.exe`, un seul fichier, marqué « portable » à la construction et toujours dans ce mode) :
   - pas de tray ; la surveillance est désactivée par défaut, mais activable à la main tant que la fenêtre est ouverte ;
   - fermer la fenêtre arrête le processus ;
   - aucune écriture dans le registre, aucun démarrage automatique.
@@ -306,7 +306,7 @@ Il est repris aux sections 7.1 à 7.4. On y ajoute les points transverses :
 6. **Mises à jour, À propos, Nouveautés**.
 7. **Construction, installateur, migration, workflow de publication.** Release `v1.0.0` publiée seulement avec l'accord de Jean.
 8. *(Facultatif, après la 1.0.0)* **Lecture de projet Optix unifiée** pour Link Checker et Compare, dans `common/optix`, sans régression sur les tests.
-9. *(Plus tard)* **Mode découverte** distribué en exe portable.
+9. **Mode découverte** distribué en exe portable.
 
 ## 14. Évolutivité : futurs modules
 

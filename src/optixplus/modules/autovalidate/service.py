@@ -83,6 +83,11 @@ class AutoValidateService(BackgroundService):
 
     # ---- état ------------------------------------------------------------------
     @property
+    def persistent(self) -> bool:
+        """Faux en mode découverte : la surveillance s'arrête avec la fenêtre."""
+        return self._persist_state
+
+    @property
     def enabled(self) -> bool:
         return self._enabled
 

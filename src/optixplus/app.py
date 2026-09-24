@@ -5,7 +5,8 @@ Arguments reconnus :
 - ``--demarrage`` : lancé par la clé Run de Windows, sans ouvrir la fenêtre ;
 - ``--outil <id>`` : ouvre directement un outil.
 Sans argument de mode, l'application est en mode installé si elle s'exécute depuis son
-dossier d'installation, en mode découverte sinon.
+dossier d'installation, en mode découverte sinon. L'exécutable portable est toujours en mode
+découverte : pas de tray, rien dans le registre.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from .common.settings import Settings
 from .common.single_instance import SingleInstance
 from .common.theme import install_manager
 from .shell.context import LaunchMode
-from .version import APP_ID, APP_NAME, ORGANIZATION, __version__
+from .version import APP_ID, APP_NAME, ORGANIZATION, __version__, is_portable
 
 log = logging.getLogger("optixplus.app")
 
@@ -57,6 +58,9 @@ def _install_dir() -> Path | None:
 
 
 def detect_mode(args: argparse.Namespace) -> LaunchMode:
+    if is_portable():
+        # L'exécutable portable ne s'installe jamais : pas de tray, rien dans le registre.
+        return LaunchMode.DISCOVERY
     if args.installe:
         return LaunchMode.INSTALLED
     if args.decouverte:
@@ -166,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     from .common import icons
     from .shell.controller import AppController
 
-    if args.migrer:
+    if args.migrer and mode is LaunchMode.INSTALLED:  # la reprise touche le registre
         run_migration(args.migrer, settings)
 
     theme = install_manager(app, settings.general.theme)

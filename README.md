@@ -16,6 +16,8 @@ Télécharger `OptixPlus-Setup-X.Y.Z.exe` depuis les [Releases](https://github.c
 - de démarrer OptixPlus avec Windows (coché) ;
 - si les anciens outils sont détectés, d'importer leurs réglages et de retirer le démarrage automatique de l'ancien OptixAutoValidate (décochés). Rien n'est supprimé des anciens outils.
 
+**Version portable** : `OptixPlus-Portable-X.Y.Z.exe`, publiée avec chaque release, se lance sans installation (mode découverte). Pas d'icône dans la zone de notification ni de démarrage avec Windows, rien n'est écrit dans le registre, et la surveillance de FT Optix Studio ne tourne que tant que la fenêtre est ouverte. Les mises à jour ouvrent la page de téléchargement.
+
 L'exécutable n'est pas signé : Windows SmartScreen peut afficher « Windows a protégé votre ordinateur ». Cliquer sur « Informations complémentaires », puis « Exécuter quand même ». L'empreinte SHA-256 publiée avec chaque release permet de vérifier le fichier.
 
 Les mises à jour se font ensuite depuis OptixPlus (menu Aide, tray ou Paramètres) : l'installateur est téléchargé, vérifié par son empreinte, puis installé en silencieux.

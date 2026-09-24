@@ -2,6 +2,15 @@
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/).
 
+## [Non publié]
+
+### Ajouté
+- Version portable : `OptixPlus-Portable-X.Y.Z.exe`, un seul fichier à lancer sans installation. Elle fonctionne en mode découverte : pas d'icône dans la zone de notification, rien d'écrit dans le registre, et la surveillance de FT Optix Studio s'arrête à la fermeture de la fenêtre. Les réglages sont les mêmes que ceux de la version installée.
+- L'À propos et la page Validation auto indiquent le mode découverte.
+
+### Corrigé
+- La page Validation auto ne reste plus abonnée au service de surveillance après sa fermeture (changement de langue, fenêtre refermée).
+
 ## [1.0.0] - 2026-09-23
 
 ### Ajouté

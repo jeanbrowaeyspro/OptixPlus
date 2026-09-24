@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....common import theme
+from ....common import signals, theme
 from ....shell.log_panel import append_colored
 from ....common.i18n import tr
 from ..core.config import AutoValidateSettings
@@ -65,6 +65,16 @@ class AutoValidatePage(QWidget):
         explanation.setWordWrap(True)
         texts.addWidget(self.state_label)
         texts.addWidget(explanation)
+        if not service.persistent:
+            discovery = QLabel(
+                tr(
+                    "Discovery mode: monitoring stops when the window is closed. Install OptixPlus "
+                    "to keep it running in the notification area."
+                )
+            )
+            discovery.setProperty("muted", True)
+            discovery.setWordWrap(True)
+            texts.addWidget(discovery)
         header_layout.addLayout(texts, 1)
         self.toggle_button = QPushButton()
         self.toggle_button.setProperty("accent", True)
@@ -84,9 +94,10 @@ class AutoValidatePage(QWidget):
         outer.addWidget(splitter, 1)
         self._splitter = splitter
 
-        service.state_changed.connect(self.refresh_state)
-        service.activity.relay.entry_added.connect(self._append)
-        service.activity.relay.cleared.connect(self.journal.clear)
+        # Signaux du service (durable) : relayés tant que la page existe.
+        signals.follow(service.state_changed, self, self.refresh_state)
+        signals.follow(service.activity.relay.entry_added, self, self._append)
+        signals.follow(service.activity.relay.cleared, self, self._clear_journal)
         self._load(service.settings)
         self.refresh_state()
         self._recolor()
@@ -301,6 +312,9 @@ class AutoValidatePage(QWidget):
             except OSError:
                 return
         QDesktopServices.openUrl(QUrl.fromLocalFile(os.fspath(path)))
+
+    def _clear_journal(self) -> None:
+        self.journal.clear()
 
     def _append(self, line: str, level: int) -> None:
         append_colored(self.journal, line, level)

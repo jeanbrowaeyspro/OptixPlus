@@ -1,12 +1,14 @@
-"""Construit OptixPlus : exécutable PyInstaller (onedir), installateur Inno Setup, empreinte SHA-256.
+"""Construit OptixPlus : application installée (installateur Inno Setup) et exécutable portable.
 
 Usage :
-    .venv\\Scripts\\python tools\\build.py                  # exe + installateur
-    .venv\\Scripts\\python tools\\build.py --no-installer   # exe seul
+    .venv\\Scripts\\python tools\\build.py                  # installateur + portable
+    .venv\\Scripts\\python tools\\build.py --no-installer   # application (onedir) seule
+    .venv\\Scripts\\python tools\\build.py --no-portable    # sans l'exécutable portable
     .venv\\Scripts\\python tools\\build.py --notes 1.0.0    # notes de version (section du CHANGELOG)
 
-Résultats dans ``dist/`` : ``OptixPlus/`` (l'application), ``OptixPlus-Setup-X.Y.Z.exe`` et
-``OptixPlus-Setup-X.Y.Z.exe.sha256``. Le même script sert au workflow de publication GitHub.
+Résultats dans ``dist/`` : ``OptixPlus/`` (l'application), ``OptixPlus-Setup-X.Y.Z.exe``,
+``OptixPlus-Portable-X.Y.Z.exe`` (mode découverte, un seul fichier) et un ``.sha256`` pour
+chacun. Le même script sert au workflow de publication GitHub.
 """
 
 from __future__ import annotations
@@ -76,9 +78,11 @@ def write_version_info() -> Path:
     return path
 
 
-def prepare_sources() -> None:
-    """Date de build et CHANGELOG embarqués dans le paquet (retirés après la construction)."""
-    BUILD_INFO.write_text(f'BUILD_DATE = "{datetime.date.today().isoformat()}"\n', encoding="utf-8")
+def prepare_sources(portable: bool = False) -> None:
+    """Date de build, marque « portable » et CHANGELOG embarqués (retirés après la construction)."""
+    BUILD_INFO.write_text(
+        f'BUILD_DATE = "{datetime.date.today().isoformat()}"\nPORTABLE = {portable}\n', encoding="utf-8"
+    )
     shutil.copyfile(ROOT / "CHANGELOG.md", EMBEDDED_CHANGELOG)
 
 
@@ -87,8 +91,9 @@ def clean_sources() -> None:
     EMBEDDED_CHANGELOG.unlink(missing_ok=True)
 
 
-def run_pyinstaller() -> Path:
-    log(f"PyInstaller {APP_NAME} {__version__}")
+def run_pyinstaller(portable_name: str = "") -> Path:
+    log(f"PyInstaller {portable_name or APP_NAME} {__version__}")
+    env = {**os.environ, "OPTIXPLUS_PORTABLE": portable_name}
     subprocess.run(
         [
             sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
@@ -97,7 +102,13 @@ def run_pyinstaller() -> Path:
         ],
         check=True,
         cwd=ROOT,
+        env=env,
     )
+    if portable_name:
+        exe = DIST / f"{portable_name}.exe"
+        if not exe.is_file():
+            raise SystemExit("exécutable portable absent après PyInstaller")
+        return exe
     app_dir = DIST / APP_NAME
     if not (app_dir / f"{APP_NAME}.exe").is_file():
         raise SystemExit("exécutable absent après PyInstaller")
@@ -156,7 +167,8 @@ def release_notes(version: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--no-installer", action="store_true", help="construire l'exécutable seul")
+    parser.add_argument("--no-installer", action="store_true", help="construire l'application (onedir) seule")
+    parser.add_argument("--no-portable", action="store_true", help="ne pas construire l'exécutable portable")
     parser.add_argument("--notes", metavar="VERSION", help="afficher les notes de version et s'arrêter")
     args = parser.parse_args(argv)
 
@@ -177,6 +189,14 @@ def main(argv: list[str] | None = None) -> int:
     setup = run_inno_setup(app_dir)
     write_checksum(setup)
     log(f"Installateur : {setup} ({setup.stat().st_size / 1e6:.1f} Mo)")
+    if not args.no_portable:
+        prepare_sources(portable=True)
+        try:
+            portable = run_pyinstaller(f"{APP_NAME}-Portable-{__version__}")
+        finally:
+            clean_sources()
+        write_checksum(portable)
+        log(f"Portable : {portable} ({portable.stat().st_size / 1e6:.1f} Mo)")
     return 0
 
 

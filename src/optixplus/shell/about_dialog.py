@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 from ..common import icons, paths
 from ..common.i18n import tr
-from ..version import APP_NAME, AUTHOR, GITHUB_URL, POWERED_BY, __version__, build_date
+from ..version import APP_NAME, AUTHOR, GITHUB_URL, POWERED_BY, __version__, build_date, is_portable
 
 
 class AboutDialog(QDialog):
@@ -44,6 +44,8 @@ class AboutDialog(QDialog):
         version.setProperty("heading", True)
         built = build_date()
         date = QLabel(tr("Built on {date}").format(date=built) if built else tr("Run from source"))
+        if is_portable():
+            date.setText(date.text() + " · " + tr("Portable version (discovery mode)"))
         date.setProperty("muted", True)
         author = QLabel(f"{AUTHOR} — {tr('Independent automation engineer')}")
         powered = QLabel(tr("Powered by {model}").format(model=POWERED_BY))

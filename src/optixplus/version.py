@@ -13,6 +13,15 @@ GITHUB_REPO = "jeanbrowaeyspro/OptixPlus"
 GITHUB_URL = f"https://github.com/{GITHUB_REPO}"
 
 
+def is_portable() -> bool:
+    """Vrai pour l'exécutable portable (mode découverte), marqué par ``tools/build.py``."""
+    try:
+        from ._build_info import PORTABLE  # type: ignore[import-not-found]
+    except ImportError:
+        return False
+    return bool(PORTABLE)
+
+
 def build_date() -> str:
     """Date de build injectée par ``tools/build.py`` ; vide en exécution depuis les sources."""
     try:

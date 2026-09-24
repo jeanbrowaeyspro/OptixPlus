@@ -59,4 +59,5 @@ jobs:
           $options = @()
           if ($version.Contains("-")) { $options += "--prerelease" }
           gh release create $tag "dist/OptixPlus-Setup-$version.exe" "dist/OptixPlus-Setup-$version.exe.sha256" `
+            "dist/OptixPlus-Portable-$version.exe" "dist/OptixPlus-Portable-$version.exe.sha256" `
             --title "OptixPlus $version" --notes-file notes.md @options

@@ -6,6 +6,9 @@ d'antivirus qu'un exécutable unique. Les modules Qt que l'application n'utilise
 sont exclus (reprise des listes de Log Reader et de Compare) ; restent QtCore,
 QtGui, QtWidgets, QtSvg (icônes) et QtNetwork (instance unique), plus QtAds.
 
+Avec ``OPTIXPLUS_PORTABLE`` (nom de l'exécutable), la même application est produite en
+un seul fichier : la version portable, en mode découverte.
+
 Ne pas lancer directement : ``python tools/build.py`` prépare la date de build, le
 CHANGELOG embarqué et les informations de version Windows avant d'appeler PyInstaller.
 """
@@ -90,13 +93,8 @@ a.binaries = [e for e in a.binaries if _keep(e)]
 a.datas = [e for e in a.datas if _keep(e)]
 
 pyz = PYZ(a.pure)
-
-exe = EXE(
-    pyz,
-    a.scripts,
-    [],
-    exclude_binaries=True,
-    name="OptixPlus",
+PORTABLE = os.environ.get("OPTIXPLUS_PORTABLE", "")
+COMMON = dict(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -108,12 +106,10 @@ exe = EXE(
     version=os.path.join(BUILD, "version_info.txt"),
 )
 
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=False,
-    upx_exclude=[],
-    name="OptixPlus",
-)
+if PORTABLE:
+    # Un seul fichier, décompressé à chaque lancement : la version portable.
+    exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name=PORTABLE, runtime_tmpdir=None, **COMMON)
+else:
+    # Dossier « onedir » : la version installée.
+    exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="OptixPlus", **COMMON)
+    coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, upx_exclude=[], name="OptixPlus")
