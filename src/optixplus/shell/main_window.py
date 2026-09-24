@@ -127,6 +127,9 @@ class MainWindow(QMainWindow):
             self.statusBar().addPermanentWidget(_ServiceStatus(service))
         version = QLabel(f"v{__version__}")
         version.setProperty("muted", True)
+        # Écart avec l'état qui précède, et marge au bord droit : fenêtre agrandie, la
+        # poignée de redimensionnement disparaît et le numéro toucherait le bord.
+        version.setContentsMargins(10, 0, 14, 0)
         self.statusBar().addPermanentWidget(version)
 
         self._build_menus()
