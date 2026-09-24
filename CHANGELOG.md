@@ -7,7 +7,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 ### Ajouté
 - Version portable : `OptixPlus-Portable-X.Y.Z.exe`, un seul fichier à lancer sans installation. Elle fonctionne en mode découverte : pas d'icône dans la zone de notification, rien d'écrit dans le registre, et la surveillance de FT Optix Studio s'arrête à la fermeture de la fenêtre. Les réglages sont les mêmes que ceux de la version installée.
 - L'À propos et la page Validation auto indiquent le mode découverte.
-- OptixPlus lancé en administrateur : un appui sur Impr. écran dans une de ses fenêtres affiche un message qui explique pourquoi la capture n'a pas lieu (Windows bloque les logiciels de capture lancés normalement) et comment faire ; « Ne plus afficher ce message » est mémorisé.
+- OptixPlus lancé en administrateur : un appui sur Impr. écran seule (sans Alt, Ctrl, Maj ni Windows, qui fonctionnent) dans une de ses fenêtres affiche un message qui explique pourquoi la capture n'a pas lieu (Windows bloque les logiciels de capture lancés normalement) et comment faire ; « Ne plus afficher ce message » est mémorisé.
 
 ### Modifié
 - Fermer la fenêtre de la version installée : si la surveillance de FT Optix Studio est active, OptixPlus reste dans la zone de notification et le signale par une bulle ; si elle est suspendue, OptixPlus se ferme complètement.

@@ -93,7 +93,7 @@ def test_print_screen_is_recognised_in_every_combination(vk, scan, flags, monkey
     from optixplus.common import win32
 
     seen = []
-    watcher = win32.PrintScreenWatcher(lambda pressed, vk, scan: seen.append(pressed))
+    watcher = win32.PrintScreenWatcher(lambda pressed, vk, scan, alone: seen.append(pressed))
     monkeypatch.setattr(win32.user32, "CallNextHookEx", lambda *a: 0)
     _hook_call(watcher, vk, 0x0104, scan, flags)  # WM_SYSKEYDOWN (avec Alt)
     _hook_call(watcher, vk, 0x0101, scan, flags)  # WM_KEYUP
@@ -135,3 +135,33 @@ def test_keyboard_hook_can_be_installed_and_removed():
         assert watcher.start()
     finally:
         watcher.stop()
+
+
+@pytest.mark.parametrize(
+    ("scan", "flags", "modifier", "alone"),
+    [
+        (0x37, 0x01, False, True),  # Impr. écran seule (ou Fn+Impr. écran)
+        (0x54, 0x20, False, False),  # Alt+Impr. écran : Syst, drapeau Alt
+        (0x37, 0x01, True, False),  # Ctrl, Maj ou Windows enfoncée
+    ],
+)
+def test_only_print_screen_alone_counts(scan, flags, modifier, alone, monkeypatch):
+    from optixplus.common import win32
+
+    seen = []
+    watcher = win32.PrintScreenWatcher(lambda pressed, vk, scan, alone: seen.append(alone))
+    monkeypatch.setattr(win32.user32, "CallNextHookEx", lambda *a: 0)
+    monkeypatch.setattr(win32, "modifier_down", lambda: modifier)
+    _hook_call(watcher, 0x2C, 0x0101, scan, flags)
+    assert seen == [alone]
+
+
+def test_combinations_show_no_message(window, monkeypatch):
+    from optixplus.common import win32
+
+    app, settings, widget = window
+    notice = CaptureNotice(app, settings, elevated=False)
+    monkeypatch.setattr(win32, "foreground_is_own_window", lambda: True)
+    notice._on_key(False, 0x2C, 0x54, alone=False)
+    QCoreApplication.processEvents()
+    assert _boxes() == []

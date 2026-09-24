@@ -48,22 +48,30 @@ class CaptureNotice(QObject):
     #: combinaison) : un seul message.
     SAME_PRESS_S = 1.0
 
-    def _on_key(self, pressed: bool, vk: int = 0, scan: int = 0) -> None:
-        """Rappel du crochet : bref, l'affichage est programmé pour la boucle Qt."""
+    def _on_key(self, pressed: bool, vk: int = 0, scan: int = 0, alone: bool = True) -> None:
+        """Rappel du crochet : bref, l'affichage est programmé pour la boucle Qt.
+
+        Seule Impr. écran sans Alt, Ctrl, Maj ni Windows déclenche le message : Greenshot reçoit
+        les combinaisons (Alt+Impr. écran capture bien la fenêtre, par exemple).
+        """
         now = time.monotonic()
         if now - self._last_key < self.SAME_PRESS_S:
             return
         if not win32.foreground_is_own_window():
             return
         self._last_key = now
-        log.info("Impr. écran vue (%s, vk=0x%02X, scan=0x%02X)", "appui" if pressed else "relâchement", vk, scan)
-        if self._settings.general.warn_elevated_capture:
+        log.info(
+            "Impr. écran vue (%s, %s, vk=0x%02X, scan=0x%02X)",
+            "seule" if alone else "combinée", "appui" if pressed else "relâchement", vk, scan,
+        )
+        if alone and self._settings.general.warn_elevated_capture:
             QTimer.singleShot(0, self.show_notice)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802 (API Qt)
         if (
             event.type() in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease)
             and event.key() == Qt.Key.Key_Print
+            and event.modifiers() == Qt.KeyboardModifier.NoModifier
             and not event.isAutoRepeat()
             and self._settings.general.warn_elevated_capture
         ):

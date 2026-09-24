@@ -123,6 +123,9 @@ VK_SNAPSHOT = 0x2C
 SCAN_PRINT_SCREEN = 0x37  # avec le drapeau « étendu » : Impr. écran (sans lui : * du pavé numérique)
 SCAN_SYSRQ = 0x54  # Alt+Impr. écran (touche Syst)
 _LLKHF_EXTENDED = 0x01
+_LLKHF_ALTDOWN = 0x20
+# Maj, Ctrl, Alt, Windows gauche et droite (Fn est gérée par le clavier : Windows ne la voit pas).
+_MODIFIER_KEYS = (0x10, 0x11, 0x12, 0x5B, 0x5C)
 _WH_KEYBOARD_LL = 13
 _KEY_MESSAGES = (0x0100, 0x0101, 0x0104, 0x0105)  # WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP
 
@@ -146,8 +149,17 @@ if IS_WINDOWS:
     user32.GetForegroundWindow.restype = wintypes.HWND
     user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
     user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+    user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
+    user32.GetAsyncKeyState.restype = ctypes.c_short
     kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
     kernel32.GetModuleHandleW.restype = wintypes.HMODULE
+
+
+def modifier_down() -> bool:
+    """Vrai si Alt, Ctrl, Maj ou Windows est enfoncée en ce moment."""
+    if not IS_WINDOWS:
+        return False
+    return any(user32.GetAsyncKeyState(vk) & 0x8000 for vk in _MODIFIER_KEYS)
 
 
 def foreground_is_own_window() -> bool:
@@ -200,8 +212,9 @@ class PrintScreenWatcher:
         if code == 0 and wparam in _KEY_MESSAGES:
             info = ctypes.cast(lparam, ctypes.POINTER(_KbdLLHookStruct)).contents
             if self.is_print_screen(info.vkCode, info.scanCode, info.flags):
+                alone = not (info.scanCode == SCAN_SYSRQ or info.flags & _LLKHF_ALTDOWN or modifier_down())
                 try:
-                    self._on_press(wparam in (0x0100, 0x0104), info.vkCode, info.scanCode)
+                    self._on_press(wparam in (0x0100, 0x0104), info.vkCode, info.scanCode, alone)
                 except Exception:  # jamais d'exception à travers le crochet
                     pass
         return user32.CallNextHookEx(self._handle, code, wparam, lparam)
