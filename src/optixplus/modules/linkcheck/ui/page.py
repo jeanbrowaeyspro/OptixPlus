@@ -111,6 +111,9 @@ class LinkCheckPage(QWidget):
 
         # ---- tableau et détail ---------------------------------------------------------------
         self.splitter = QSplitter(Qt.Orientation.Vertical)
+        # Poignée sans trait visible, un peu d'air entre tableau et détail, toujours déplaçable.
+        self.splitter.setProperty("cards", True)
+        self.splitter.setHandleWidth(12)
         self.model = LinksModel(self)
         self.table = LinkTable()
         self.table.setModel(self.model)
