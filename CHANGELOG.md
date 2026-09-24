@@ -4,17 +4,21 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 
 ## [Non publié]
 
+## [1.1.0] - 2026-09-24
+
 ### Ajouté
 - Version portable : `OptixPlus-Portable-X.Y.Z.exe`, un seul fichier à lancer sans installation. Elle fonctionne en mode découverte : pas d'icône dans la zone de notification, rien d'écrit dans le registre, et la surveillance de FT Optix Studio s'arrête à la fermeture de la fenêtre. Les réglages sont les mêmes que ceux de la version installée.
 - L'À propos et la page Validation auto indiquent le mode découverte.
 - OptixPlus lancé en administrateur : un appui sur Impr. écran seule (sans Alt, Ctrl, Maj ni Windows, qui fonctionnent) dans une de ses fenêtres affiche un message qui explique pourquoi la capture n'a pas lieu (Windows bloque les logiciels de capture lancés normalement) et comment faire ; « Ne plus afficher ce message » est mémorisé.
 
 ### Modifié
-- Lecteur de logs : chaque automate a désormais sa propre fiche, avec un nom, une adresse IP, un identifiant, un mot de passe et un dossier des journaux. Seuls l'adresse IP et le dossier sont obligatoires. Le dossier est soit relatif à l'automate (`Optix\Log`), soit un dossier local ou un chemin réseau complet. « Dupliquer » crée un automate à partir d'un autre. Ces réglages sont maintenant dans la fenêtre Paramètres (catégorie « Lecteur de logs »), et le bouton « Paramètres du lecteur » de la barre d'outils est retiré ; les anciennes adresses et identifiants y sont repris automatiquement.
+- Nouvelle icône, sur le modèle de celle de FT Optix Studio : même disque en violet, trou rond centré, « + » détouré de blanc à la place du « x ».
+- Lecteur de logs : chaque automate a désormais sa propre fiche, avec un nom, une adresse IP, un identifiant, un mot de passe et un dossier des journaux. Seul le dossier est obligatoire : l'adresse IP ne sert qu'à un dossier relatif, qui se trouve sur l'automate. Le dossier est soit relatif à l'automate (`Optix\Log`), soit un dossier local ou un chemin réseau complet. « Dupliquer » crée un automate à partir d'un autre. Ces réglages sont maintenant dans la fenêtre Paramètres (catégorie « Lecteur de logs »), et le bouton « Paramètres du lecteur » de la barre d'outils est retiré ; les anciennes adresses et identifiants y sont repris automatiquement.
 - Lecteur de logs : le chemin du nœud s'affiche dans l'en-tête du détail, à droite du numéro de ligne (clic droit : le copier) ; la zone de détail, plus basse d'une ligne, laisse une ligne de plus au tableau.
 - Menu de l'icône de la zone de notification allégé : Ouvrir OptixPlus, Surveillance active, Rechercher les mises à jour, À propos, Quitter. Les outils et les paramètres s'ouvrent depuis la fenêtre.
 - Page Validation auto : les boutons en doublon de la barre d'outils sont retirés (Suspendre la surveillance, Effacer, Ouvrir le fichier journal) ; « Ouvrir le dossier du journal » passe dans la barre d'outils.
 - Réglages de la Validation auto déplacés dans la fenêtre Paramètres (catégorie « Validation auto »), appliqués par OK ou Appliquer ; la page de l'outil garde l'état et le journal, et sa barre d'outils ouvre ces réglages (« Paramètres de la surveillance… »).
+- Barre d'état : le numéro de version ne touche plus le bord droit de la fenêtre agrandie.
 - Contrôle des liens : la progression de l'analyse et le bouton Annuler s'affichent sur la ligne « Afficher », à la place de la synthèse ; le tableau des résultats ne change plus de taille à chaque analyse.
 - Fermer la fenêtre de la version installée : si la surveillance de FT Optix Studio est active, OptixPlus reste dans la zone de notification et le signale par une bulle ; si elle est suspendue, OptixPlus se ferme complètement.
 - Installation dans `C:\Program Files\OptixPlus`, comme un logiciel classique, pour tous les utilisateurs du poste (une confirmation administrateur est demandée, y compris pour les mises à jour). Une version 1.0.0 installée dans le profil est remplacée, réglages conservés.
@@ -32,7 +36,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 
 ### Ajouté
 - Socle de l'application : fenêtre principale avec barre latérale, page d'accueil, journal intégré, paramètres, « À propos ».
-- Icône OptixPlus : le disque de FT Optix Studio en violet, trou rond centré, « + » détouré de blanc posé sur le bord du trou.
+- Icône OptixPlus (anneau violet et « + »).
 - Instance unique : un second lancement ramène la fenêtre existante.
 - Icône dans la zone de notification en mode installé.
 - Interface bilingue français / anglais, qui suit la langue de Windows ; chaque texte affiché est vérifié dans les deux langues. La ligne de commande suit la même langue que la fenêtre.
