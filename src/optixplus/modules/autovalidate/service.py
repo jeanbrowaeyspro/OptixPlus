@@ -305,8 +305,3 @@ class AutoValidateService(BackgroundService):
         from .ui.summary import MonitoringSummary
 
         return MonitoringSummary(self, parent)
-
-    def settings_page(self, parent: QWidget) -> QWidget | None:
-        from .ui.settings_page import AutoValidateSettingsPage
-
-        return AutoValidateSettingsPage(self, parent)

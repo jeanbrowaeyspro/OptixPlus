@@ -13,6 +13,7 @@ MODULES: tuple[ModuleSpec, ...] = (
         shortcut="Ctrl+1",
         import_path="optixplus.modules.logreader.module:LogReaderModule",
         controller_action="Open a log…",
+        settings_path="optixplus.modules.logreader.ui.settings_page:LogReaderSettingsPage",
     ),
     ModuleSpec(
         id="linkcheck",
@@ -40,6 +41,7 @@ MODULES: tuple[ModuleSpec, ...] = (
         shortcut="Ctrl+4",
         import_path="optixplus.modules.autovalidate.module:AutoValidateModule",
         service_path="optixplus.modules.autovalidate.service:AutoValidateService",
+        settings_path="optixplus.modules.autovalidate.ui.settings_page:AutoValidateSettingsPage",
     ),
 )
 

@@ -52,8 +52,12 @@ def test_settings_of_every_former_tool_are_imported(tmp_path, monkeypatch):
     assert done == ["logreader", "linkcheck", "compare", "autovalidate"]
     saved = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
     reader = saved["logreader"]
-    assert reader["hosts"] == ["10.0.0.1"] and reader["poll_interval_ms"] == 1200 and reader["hidden_columns"] == ["code"]
-    assert dpapi.unprotect(reader["credentials"][0]["password"]) == "s3cret"
+    assert reader["poll_interval_ms"] == 1200 and reader["hidden_columns"] == ["code"]
+    # Les anciennes adresses et identifiants communs deviennent des automates décrits.
+    [plc] = reader["controllers"]
+    assert (plc["host"], plc["username"], plc["log_dir"]) == ("10.0.0.1", "op", "Optix\Log")
+    assert dpapi.unprotect(plc["password"]) == "s3cret"
+    assert "hosts" not in reader and "credentials" not in reader
     assert "inconnu" not in reader
     assert saved["compare"] == {
         "couples": registry[migration.COMPARE_APP]["couples"],

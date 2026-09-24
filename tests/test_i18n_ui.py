@@ -95,7 +95,6 @@ def _interface_texts(tmp_path: Path, monkeypatch, language: str) -> set[str]:
     from optixplus.modules.logreader.core.config import Settings as ReaderSettings
     from optixplus.modules.logreader.session import LogSession
     from optixplus.modules.logreader.ui.connect_dialog import ConnectDialog
-    from optixplus.modules.logreader.ui.settings_dialog import SettingsDialog as ReaderSettingsDialog
 
     monkeypatch.setattr(ConnectDialog, "start_scan", lambda self: None)  # pas de réseau
     i18n.install(language)
@@ -138,7 +137,6 @@ def _interface_texts(tmp_path: Path, monkeypatch, language: str) -> set[str]:
         reader = window.module("logreader").page
         reader._add_tab(LogSession(reader.settings))
         texts |= _texts_of(reader)
-        texts |= _texts_of(ReaderSettingsDialog(ReaderSettings(), reader))
         texts |= _texts_of(ConnectDialog(ReaderSettings(), reader.tabs[0].palette_, reader, auto_connect=False))
 
         from optixplus.shell.updates import UpdateDialog

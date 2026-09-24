@@ -393,26 +393,21 @@ class ArchiveLoader(QThread):
 
 
 class DiscoveryWorker(QThread):
-    """Sonde les adresses configurées et remonte les résultats au fil de l'eau."""
+    """Sonde les automates configurés et remonte les résultats au fil de l'eau."""
 
     hostProbed = Signal(object)   # discovery.Ipc
     finishedScan = Signal(list)   # list[discovery.Ipc]
 
-    def __init__(self, hosts, share: str, log_relative_path: str, credentials,
-                 ping_timeout_ms: int = 700, parent=None):
+    def __init__(self, controllers, log_filename: str, ping_timeout_ms: int = 700, parent=None):
         super().__init__(parent)
-        self._hosts = list(hosts)
-        self._share = share
-        self._log_relative_path = log_relative_path
-        self._credentials = list(credentials)
+        self._controllers = list(controllers)
+        self._log_filename = log_filename
         self._ping_timeout_ms = ping_timeout_ms
 
     def run(self) -> None:
         results = discovery.discover(
-            self._hosts,
-            self._share,
-            self._log_relative_path,
-            self._credentials,
+            self._controllers,
+            self._log_filename,
             self._ping_timeout_ms,
             on_result=self.hostProbed.emit,
         )

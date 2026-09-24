@@ -25,7 +25,6 @@ from ..core.discovery import Ipc
 from ..session import LogSession
 from .connect_dialog import ConnectDialog
 from .log_tab import LogTab
-from .settings_dialog import SettingsDialog
 from .status_indicator import state_colour
 
 log = logging.getLogger("optixplus.logreader")
@@ -63,8 +62,10 @@ class LogReaderPage(QWidget):
 
     #: Nombre d'onglets ou onglet actif changé (barre d'actions à mettre à jour).
     tabsChanged = Signal()
-    #: Journal d'un automate ouvert dans un onglet : (adresse, nom affiché).
+    #: Journal d'un automate ouvert dans un onglet : (identifiant ou adresse, nom affiché).
     controllerOpened = Signal(str, str)
+    #: Réglages du lecteur demandés : ouverts dans la boîte Paramètres d'OptixPlus.
+    settingsRequested = Signal()
 
     def __init__(self, settings: Settings, parent: QWidget | None = None, restore_session: bool = True) -> None:
         super().__init__(parent)
@@ -160,7 +161,8 @@ class LogReaderPage(QWidget):
         )
         self.action_settings = self._action(
             tr("Reader settings…"), "settings",
-            tr("Controllers, credentials, highlighting and reading settings, common to all tabs."), self.open_settings,
+            tr("Controllers, highlighting and reading settings, common to all tabs (Settings window)."),
+            self.settingsRequested.emit,
         )
 
     def toolbar_actions(self) -> list[QAction | None]:
@@ -212,7 +214,7 @@ class LogReaderPage(QWidget):
         session.liveChanged.connect(lambda n=name: self._refresh_title(n))
         tab.connectionStateChanged.connect(lambda n=name: self._refresh_title(n))
         session.archivesFinished.connect(lambda *_args: self._update_state())
-        session.opened.connect(lambda s=session: self.controllerOpened.emit(s.ipc.host, s.display_name))
+        session.opened.connect(lambda s=session: self.controllerOpened.emit(s.key, s.display_name))
         self._docks[name] = (dock, tab)
         area = None
         if self._current in self._docks and self._current != name:
@@ -249,8 +251,9 @@ class LogReaderPage(QWidget):
         return dialog.selected
 
     def _open_settings_from(self, dialog: ConnectDialog) -> None:
-        if self.open_settings():
-            dialog.start_scan()
+        # La boîte Paramètres n'est pas modale : la boîte de connexion (modale) se ferme d'abord.
+        dialog.reject()
+        QTimer.singleShot(0, self, self.settingsRequested.emit)
 
     def change_controller(self) -> None:
         tab = self.current_tab()
@@ -383,18 +386,12 @@ class LogReaderPage(QWidget):
         self.tabsChanged.emit()
 
     # ------------------------------------------------------------------ réglages
-    def open_settings(self) -> bool:
-        """Paramètres du lecteur ; vrai si des réglages ont été enregistrés."""
-        dialog = SettingsDialog(self.settings, self)
-        if dialog.exec() != SettingsDialog.DialogCode.Accepted:
-            return False
-        new = dialog.result_settings().copy_binding_from(self.settings)
-        new.save()
+    def apply_settings(self, new: Settings) -> None:
+        """Réglages enregistrés depuis la boîte Paramètres : appliqués aux onglets ouverts."""
         self.settings = new
         for tab in self.tabs:
             tab.session.apply_settings(new)
         self.action_autoscroll.setChecked(new.autoscroll)
-        return True
 
     # ------------------------------------------------------------------ session précédente
     def _restore_previous_session(self) -> None:
@@ -415,9 +412,8 @@ class LogReaderPage(QWidget):
         hosts = []
         for dock, tab in self._docks.values():
             session = tab.session
-            host = session.ipc.host if session.ipc is not None else session.probing_host
-            if host:
-                hosts.append(host)
+            if session.key:
+                hosts.append(session.key)
         self.settings.open_hosts = hosts
         self.settings.dock_state = bytes(self.dock_manager.saveState().toBase64().data()).decode("ascii") if hosts else ""
         self.settings.save()

@@ -42,9 +42,19 @@ class ModuleSpec:
     # libellé source anglais de l'entrée du tray qui le fait, et outil proposé pour les
     # automates récents de l'accueil. Vide : l'outil n'ouvre pas d'automate.
     controller_action: str = ""
+    # Catégorie de l'outil dans la boîte Paramètres : classe ``"paquet.module:Classe"``
+    # construite avec le contexte (``Classe(context)``), qui existe même si l'outil n'a
+    # pas encore été ouvert. La page n'applique rien à la saisie ; elle offre ``apply()``
+    # (« OK », « Appliquer »), ``has_unsaved_changes()``, ``snapshot()`` / ``restore()``
+    # (changement de langue) et, facultatif, ``validate()`` (message si la saisie est
+    # incomplète : rien n'est alors appliqué).
+    settings_path: str = ""
 
     def load(self) -> type[ToolModule]:
         return _import(self.import_path)
+
+    def load_settings_page(self) -> type[QWidget] | None:
+        return _import(self.settings_path) if self.settings_path else None
 
     def load_service(self) -> type[BackgroundService] | None:
         return _import(self.service_path) if self.service_path else None
@@ -163,13 +173,4 @@ class BackgroundService(QObject):
 
     def summary_widget(self, parent: QWidget) -> QWidget | None:
         """Carte affichée sur la page d'accueil (facultatif)."""
-        return None
-
-    def settings_page(self, parent: QWidget) -> QWidget | None:
-        """Catégorie de l'outil dans la boîte Paramètres (facultatif).
-
-        La page n'applique rien à la saisie ; elle offre ``apply()`` (« OK », « Appliquer »),
-        ``has_unsaved_changes()``, et ``snapshot()`` / ``restore()`` pour être rouverte en
-        l'état au changement de langue.
-        """
         return None

@@ -26,6 +26,7 @@ from ..common.i18n import tr
 from ..common.settings import LANGUAGES
 from ..common.theme import THEMES, theme_label
 from ..update.github import FREQUENCIES, FREQUENCY_DAILY, FREQUENCY_STARTUP, FREQUENCY_WEEKLY
+from ..modules import MODULES
 from .context import AppContext
 
 log = logging.getLogger("optixplus.settings")
@@ -151,15 +152,15 @@ GENERAL = "general"
 class SettingsDialog(QDialog):
     """Paramètres de l'application : « Général », puis une catégorie par outil qui en propose.
 
-    La page d'un outil vient de son service (``BackgroundService.settings_page``) : elle
-    existe même si l'outil n'a pas encore été ouvert dans la fenêtre.
+    La page d'un outil est déclarée par son ``ModuleSpec.settings_path`` : elle existe même
+    si l'outil n'a pas encore été ouvert dans la fenêtre.
     """
 
     def __init__(self, context: AppContext, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._context = context
         self.setWindowTitle(tr("Settings"))
-        self.resize(720, 560)
+        self.resize(860, 580)
 
         self._categories = QListWidget()
         self._categories.setFixedWidth(170)
@@ -170,11 +171,12 @@ class SettingsDialog(QDialog):
         self._general = GeneralPage(context)
         self._add_page(GENERAL, tr("General"), self._general)
         self._tool_pages: dict[str, QWidget] = {}
-        for service in context.services.values():
-            page = service.settings_page(None)
-            if page is not None:
-                self._tool_pages[service.spec.id] = page
-                self._add_page(service.spec.id, tr(service.spec.title), page)
+        for spec in MODULES:
+            page_class = spec.load_settings_page()
+            if page_class is not None:
+                page = page_class(context)
+                self._tool_pages[spec.id] = page
+                self._add_page(spec.id, tr(spec.title), page)
 
         body = QHBoxLayout()
         body.setSpacing(14)
@@ -223,7 +225,15 @@ class SettingsDialog(QDialog):
         self._categories.addItem(title)
         self._pages.addWidget(page)
 
-    def _apply(self) -> None:
+    def _apply(self) -> bool:
+        """Applique toutes les catégories ; faux (rien d'appliqué) si une saisie est incomplète."""
+        for module_id, page in self._tool_pages.items():
+            validate = getattr(page, "validate", None)
+            message = validate() if validate is not None else ""
+            if message:
+                self.select(module_id)
+                QMessageBox.warning(self, tr("Settings"), message)
+                return False
         for page in self._tool_pages.values():
             page.apply()
         language_changed = self._general.apply()
@@ -236,8 +246,8 @@ class SettingsDialog(QDialog):
             self.accept()
             dialog_state = self.snapshot()
             QTimer.singleShot(0, lambda: controller.change_language(settings_state=dialog_state))
+        return True
 
     def _accept(self) -> None:
-        self._apply()
-        if self.isVisible():
+        if self._apply() and self.isVisible():
             self.accept()

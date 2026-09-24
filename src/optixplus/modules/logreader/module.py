@@ -23,7 +23,11 @@ class LogReaderModule(ToolModule):
         self.page.controllerOpened.connect(
             lambda host, name: add_recent_controller(self.context.settings, host, name)
         )
+        self.page.settingsRequested.connect(self._open_settings)
         return self.page
+
+    def _open_settings(self) -> None:
+        self.context.controller.open_settings(self.spec.id)
 
     def toolbar_actions(self) -> list[QAction | None]:
         return self.page.toolbar_actions() if self.page is not None else []

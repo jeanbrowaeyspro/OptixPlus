@@ -74,8 +74,6 @@ def main():
     from optixplus.modules.logreader.core import netshare
     real_unc = netshare.unc_path
     netshare.unc_path = lambda host, share: os.path.join(root, share)
-    import optixplus.modules.logreader.session as mw
-    mw.netshare.unc_path = netshare.unc_path
 
     window.connect_to(ipc)
     pump(1200)

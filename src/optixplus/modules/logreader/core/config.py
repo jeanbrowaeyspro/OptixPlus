@@ -4,6 +4,10 @@ Dans OptixPlus, ils sont rangés dans la section ``logreader`` du fichier de ré
 commun (``%APPDATA%\OptixPlus\settings.json``). Les mots de passe y restent chiffrés
 par la DPAPI (``common.dpapi``) ; le reste est en clair pour rester lisible.
 
+Chaque automate est décrit par l'utilisateur (``Controller``) : nom, adresse, identifiant,
+mot de passe et dossier des journaux. Les réglages d'avant (liste d'adresses et liste
+d'identifiants communes, partage et sous-dossier communs) sont convertis à la lecture.
+
 Corrections par rapport à pyFTOLogReader : chaque valeur lue est validée contre le type
 de sa valeur par défaut (une valeur invalide est ignorée et signalée, au lieu d'être
 injectée telle quelle).
@@ -12,9 +16,10 @@ injectée telle quelle).
 from __future__ import annotations
 
 import logging
+import ntpath
+import uuid
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field, fields
-from pathlib import Path
+from dataclasses import asdict, dataclass, field, fields, replace
 
 from ....common import dpapi
 from ....common.i18n import tr
@@ -25,12 +30,97 @@ log = logging.getLogger("optixplus.logreader")
 
 @dataclass
 class Credential:
-    """Un jeu d'identifiants essayé lors de la connexion à un IPC."""
+    """Identifiants essayés lors de la connexion au partage d'un automate."""
 
     label: str = ""
     username: str = ""
     password: str = ""
     enabled: bool = True
+
+
+#: Dossier des journaux d'un nouvel automate : partage « Optix », sous-dossier « Log ».
+DEFAULT_LOG_DIR = "Optix\\Log"
+
+
+def _new_id() -> str:
+    return uuid.uuid4().hex
+
+
+@dataclass
+class Controller:
+    r"""Un automate décrit par l'utilisateur.
+
+    ``log_dir`` est le dossier des journaux :
+
+    * relatif (``Optix\Log``) : sur l'automate, à l'adresse ``host`` ; le premier
+      élément est le partage Windows (``\\<host>\Optix\Log``) ;
+    * absolu : un dossier local (``C:\...``) ou un chemin réseau complet (``\\...``),
+      utilisé tel quel.
+
+    Seul le dossier est obligatoire. L'adresse est facultative, sauf pour un dossier
+    relatif, qui se trouve sur l'automate. Sans identifiant, la session Windows courante
+    est utilisée.
+    """
+
+    id: str = field(default_factory=_new_id)
+    name: str = ""
+    host: str = ""
+    username: str = ""
+    password: str = ""
+    log_dir: str = DEFAULT_LOG_DIR
+
+    @property
+    def display_name(self) -> str:
+        return self.name.strip() or self.host.strip() or self.log_dir.strip()
+
+    def is_absolute(self) -> bool:
+        return ntpath.isabs(self.log_dir.strip()) or self.log_dir.strip().startswith("\\\\")
+
+    def is_local(self) -> bool:
+        """Dossier local (lecteur du poste) : aucune connexion réseau."""
+        return self.is_absolute() and not self.log_dir.strip().startswith("\\\\")
+
+    def network_share(self) -> tuple[str, str] | None:
+        """``(serveur, partage)`` auquel se connecter, ou ``None`` pour un dossier local."""
+        path = self.log_dir.strip().replace("/", "\\")
+        if self.is_local():
+            return None
+        if path.startswith("\\\\"):
+            parts = [p for p in path[2:].split("\\") if p]
+            return (parts[0], parts[1]) if len(parts) >= 2 else None
+        parts = [p for p in path.split("\\") if p]
+        return (self.host.strip(), parts[0]) if parts and self.host.strip() else None
+
+    def log_folder(self) -> str:
+        """Chemin complet du dossier des journaux."""
+        from . import netshare
+
+        path = self.log_dir.strip().replace("/", "\\")
+        if self.is_absolute():
+            return path
+        parts = [p for p in path.split("\\") if p]
+        if not parts:
+            return ""
+        return ntpath.join(netshare.unc_path(self.host.strip(), parts[0]), *parts[1:])
+
+    def credentials(self) -> list[Credential]:
+        """Identifiants à essayer après la session Windows (aucun si l'identifiant est vide)."""
+        if not self.username.strip():
+            return []
+        return [Credential(label=self.display_name, username=self.username.strip(), password=self.password)]
+
+    def validation_error(self) -> str:
+        """Message si l'automate est incomplet, chaîne vide sinon."""
+        if not self.log_dir.strip():
+            return tr("The log folder is required.")
+        if not self.is_absolute() and not self.host.strip():
+            return tr("A relative log folder is on the controller: enter its IP address, or choose a full folder.")
+        return ""
+
+    def duplicate(self) -> Controller:
+        """Copie à modifier (nouvel identifiant interne, nom marqué « copie »)."""
+        name = tr("{name} (copy)").format(name=self.name) if self.name.strip() else ""
+        return replace(self, id=_new_id(), name=name)
 
 
 @dataclass
@@ -87,19 +177,35 @@ def default_credentials() -> list[Credential]:
     return []
 
 
+def controllers_from_legacy(data: dict) -> list[Controller]:
+    """Automates déduits des anciens réglages : une adresse = un automate.
+
+    Le dossier reprend l'ancien partage et l'ancien sous-dossier ; les identifiants sont
+    ceux du premier jeu actif de l'ancienne liste commune.
+    """
+    hosts = [h for h in data.get("hosts") or [] if isinstance(h, str) and h.strip()]
+    share = data.get("share_name") if isinstance(data.get("share_name"), str) else "Optix"
+    subdir = data.get("log_subdir") if isinstance(data.get("log_subdir"), str) else "Log"
+    log_dir = "\\".join(p for p in (share.strip("\\/ "), subdir.strip("\\/ ")) if p) or DEFAULT_LOG_DIR
+    username = password = ""
+    for item in data.get("credentials") or []:
+        if isinstance(item, dict) and item.get("enabled", True) and item.get("username"):
+            username = str(item.get("username", ""))
+            password = dpapi.unprotect(item.get("password", ""))
+            break
+    return [Controller(host=h.strip(), username=username, password=password, log_dir=log_dir) for h in hosts]
+
+
 @dataclass
 class Settings:
     """Réglages complets de l'application."""
 
     #: ``system``, ``light`` ou ``dark``.
     theme: str = "system"
-    hosts: list[str] = field(default_factory=default_hosts)
-    credentials: list[Credential] = field(default_factory=default_credentials)
+    controllers: list[Controller] = field(default_factory=list)
     highlight_rules: list[HighlightRule] = field(default_factory=default_rules)
 
-    #: Nom du partage Windows et chemin du log à l'intérieur de celui-ci.
-    share_name: str = "Optix"
-    log_subdir: str = "Log"
+    #: Nom du fichier journal, dans le dossier des journaux de chaque automate.
     log_filename: str = "FTOptixRuntime.0.log"
 
     #: Période d'interrogation du fichier pour le suivi en direct, en ms.
@@ -112,12 +218,14 @@ class Settings:
     autoscroll: bool = True
     show_details_panel: bool = True
     remember_last_host: bool = True
+    #: Dernier automate ouvert : son identifiant (ou une adresse, réglages d'avant).
     last_host: str = ""
     #: Colonnes masquées, par identifiant de colonne.
     hidden_columns: list[str] = field(default_factory=list)
     #: Rouvrir à l'ouverture du Lecteur les journaux ouverts lors de la session précédente.
     reopen_logs: bool = True
-    #: Automates des onglets ouverts, et disposition des onglets (base64 de QtAds).
+    #: Automates des onglets ouverts (identifiant, ou adresse s'il n'est pas décrit),
+    #: et disposition des onglets (base64 de QtAds).
     open_hosts: list[str] = field(default_factory=list)
     dock_state: str = ""
 
@@ -145,21 +253,27 @@ class Settings:
     def from_dict(cls, data: dict) -> Settings:
         settings = cls()
         defaults = {f.name: _default_of(f) for f in fields(cls)}
+        if "controllers" not in data and data.get("hosts"):
+            settings.controllers = controllers_from_legacy(data)
+            log.info("Lecteur de logs : %d automate(s) repris des anciens réglages", len(settings.controllers))
         for key, value in data.items():
             if key not in defaults:
                 continue
-            if key in ("credentials", "highlight_rules") and not isinstance(value, list):
+            if key in ("controllers", "highlight_rules") and not isinstance(value, list):
                 log.warning("Réglage logreader.%s invalide, valeur par défaut utilisée", key)
                 continue
-            if key == "credentials":
-                settings.credentials = [
-                    Credential(
-                        label=item.get("label", ""),
-                        username=item.get("username", ""),
+            if key == "controllers":
+                settings.controllers = [
+                    Controller(
+                        id=str(item.get("id") or _new_id()),
+                        name=str(item.get("name", "")),
+                        host=str(item.get("host", "")),
+                        username=str(item.get("username", "")),
                         password=dpapi.unprotect(item.get("password", "")),
-                        enabled=item.get("enabled", True),
+                        log_dir=str(item.get("log_dir", DEFAULT_LOG_DIR)),
                     )
                     for item in value
+                    if isinstance(item, dict)
                 ]
             elif key == "highlight_rules":
                 settings.highlight_rules = [
@@ -182,7 +296,7 @@ class Settings:
 
     def to_dict(self) -> dict:
         data = asdict(self)
-        for item in data["credentials"]:
+        for item in data["controllers"]:
             item["password"] = dpapi.protect(item["password"])
         return data
 
@@ -199,9 +313,16 @@ class Settings:
 
     # ------------------------------------------------------------------ utile
 
-    def enabled_credentials(self) -> list[Credential]:
-        return [c for c in self.credentials if c.enabled]
+    def find_controller(self, key: str) -> Controller | None:
+        """Automate par identifiant, sinon par adresse (casse ignorée)."""
+        key = (key or "").strip()
+        if not key:
+            return None
+        for controller in self.controllers:
+            if controller.id == key:
+                return controller
+        return next((c for c in self.controllers if c.host.strip().casefold() == key.casefold()), None)
 
-    def log_relative_path(self) -> str:
-        r"""Chemin du log relatif à la racine du partage, ex. ``Log\FTOptixRuntime.0.log``."""
-        return str(Path(self.log_subdir) / self.log_filename)
+    def controller_for(self, key: str) -> Controller:
+        """Automate décrit, ou automate de passage à cette adresse (dossier par défaut)."""
+        return self.find_controller(key) or Controller(host=key)

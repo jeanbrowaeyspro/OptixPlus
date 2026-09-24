@@ -12,7 +12,7 @@ from optixplus.common import i18n, logging_setup
 from optixplus.common.recent import recent_controllers
 from optixplus.common.settings import Settings
 from optixplus.common.theme import install_manager
-from optixplus.modules.logreader import session as session_module
+from optixplus.modules.logreader.core import netshare
 from optixplus.modules.logreader.core.discovery import Ipc
 from optixplus.modules.logreader.session import LogSession
 from optixplus.shell.context import LaunchMode
@@ -40,7 +40,7 @@ def share(tmp_path, monkeypatch):
     log_dir.mkdir(parents=True)
     lines = [_line(i) for i in range(1, 11)] + [_line(11, "ERROR")]
     (log_dir / "FTOptixRuntime.0.log").write_text("".join(lines), encoding="utf-8")
-    monkeypatch.setattr(session_module.netshare, "unc_path", lambda host, share: str(tmp_path / "share" / share))
+    monkeypatch.setattr(netshare, "unc_path", lambda host, share: str(tmp_path / "share" / share))
     return log_dir
 
 

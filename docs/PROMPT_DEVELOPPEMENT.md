@@ -195,6 +195,7 @@ Le mode est détecté au démarrage, dans cet ordre : argument `--decouverte` ou
   - la configuration est validée au chargement ;
   - un échec de DPAPI est signalé au lieu d'être silencieux ;
   - aucune adresse ni aucun identifiant par défaut : l'utilisateur saisit les siens (mots de passe chiffrés par la DPAPI).
+- Automates : chacun est décrit par l'utilisateur, avec un nom, une adresse IP, un identifiant, un mot de passe et un dossier des journaux. Seuls l'adresse IP et le dossier sont obligatoires ; l'adresse devient facultative quand le dossier est local. Le dossier est relatif au partage de l'automate (`Optix\Log`, par défaut) ou absolu : un dossier local ou un chemin réseau complet. Un bouton « Dupliquer » crée un automate à partir d'un autre. Ces réglages sont dans la catégorie « Lecteur de logs » de la fenêtre Paramètres d'OptixPlus. Les anciennes listes communes d'adresses et d'identifiants sont converties en automates à la lecture.
 
 ## 8. Traduction
 

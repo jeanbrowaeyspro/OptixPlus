@@ -28,13 +28,13 @@ from ....common.i18n import tr
 from ..core.config import AutoValidateSettings
 
 if TYPE_CHECKING:
-    from ..service import AutoValidateService
+    from ....shell.context import AppContext
 
 
 class AutoValidateSettingsPage(QWidget):
-    def __init__(self, service: AutoValidateService, parent: QWidget | None = None) -> None:
+    def __init__(self, context: AppContext, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._service = service
+        self._service = service = context.services["autovalidate"]
         self._dirty = False
         self._loading = False
         layout = QVBoxLayout(self)

@@ -1,9 +1,9 @@
 """Fenêtre de découverte et de sélection de l'automate.
 
-Le balayage démarre dès l'ouverture. Si une seule machine expose un journal
-lisible, la connexion se fait automatiquement sans intervention ; sinon la
-liste reste affichée avec, pour chaque adresse, le nom de l'IPC, le projet
-Optix en cours et l'état du sondage.
+Le balayage des automates décrits dans les réglages démarre dès l'ouverture. Si un
+seul expose un journal lisible, la connexion se fait automatiquement sans intervention ;
+sinon la liste reste affichée avec, pour chaque automate, son nom, le projet Optix en
+cours et l'état du sondage.
 """
 
 from __future__ import annotations
@@ -98,7 +98,7 @@ class IpcDelegate(QStyledItemDelegate):
 
 
 def _detail_line(ipc: Ipc) -> str:
-    parts = [ipc.host]
+    parts = [ipc.host] if ipc.host else []
     if ipc.reachable and ipc.ping_ms >= 0:
         parts.append(f"{ipc.ping_ms} ms")
     elif ipc.icmp_filtered:
@@ -199,22 +199,20 @@ class ConnectDialog(QDialog):
         self.rescan_button.setEnabled(False)
         self.connect_button.setEnabled(False)
 
-        hosts = self.settings.hosts
-        if not hosts:
+        controllers = self.settings.controllers
+        if not controllers:
             self.progress.hide()
             self.rescan_button.setEnabled(True)
-            self.subtitle.setText(
-                tr("No address to test. Add some in the settings.")
-            )
+            self.subtitle.setText(tr("No controller described yet. Add one in the settings."))
             return
 
-        self.subtitle.setText(tr_n("Testing {n} address…", "Testing {n} addresses…", len(hosts)).format(n=len(hosts)))
+        self.subtitle.setText(
+            tr_n("Testing {n} controller…", "Testing {n} controllers…", len(controllers)).format(n=len(controllers))
+        )
 
         self._worker = DiscoveryWorker(
-            hosts,
-            self.settings.share_name,
-            self.settings.log_relative_path(),
-            self.settings.enabled_credentials(),
+            controllers,
+            self.settings.log_filename,
             self.settings.ping_timeout_ms,
             parent=self,
         )
@@ -230,16 +228,20 @@ class ConnectDialog(QDialog):
         self._worker = None
 
     def _on_host_probed(self, ipc: Ipc) -> None:
-        self._results[ipc.host] = ipc
+        self._results[ipc.ref] = ipc
         self._rebuild_list()
 
     def _rebuild_list(self) -> None:
-        """Réaffiche la liste dans l'ordre des adresses configurées, les
-        machines exploitables en tête."""
+        """Réaffiche la liste dans l'ordre des automates configurés, ceux dont le
+        journal est lisible en tête."""
         previous = self._selected_host()
         self.list.clear()
 
-        ordered = [self._results[h] for h in self.settings.hosts if h in self._results]
+        ordered = []
+        for controller in self.settings.controllers:
+            ipc = self._results.get(controller.id) or self._results.get(controller.host)
+            if ipc is not None and ipc not in ordered:
+                ordered.append(ipc)
         ordered.sort(key=lambda i: (not i.log_available, not i.reachable))
 
         for ipc in ordered:
@@ -249,7 +251,7 @@ class ConnectDialog(QDialog):
             if not ipc.log_available:
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
             self.list.addItem(item)
-            if ipc.host == previous:
+            if ipc.ref == previous:
                 self.list.setCurrentItem(item)
 
     def _on_scan_finished(self, results: list) -> None:
@@ -263,18 +265,18 @@ class ConnectDialog(QDialog):
             if reachable:
                 self.subtitle.setText(
                     tr(
-                        "No log accessible. The machines answer but the share or the log file "
-                        "is out of reach — check the credentials in the settings."
+                        "No log accessible. The controllers answer but the log folder or file "
+                        "is out of reach — check their login and log folder in the settings."
                     )
                 )
             else:
                 self.subtitle.setText(
-                    tr("No controller answered. Check the network and the address list in the settings.")
+                    tr("No controller answered. Check the network and the controllers in the settings.")
                 )
             return
 
         if len(usable) == 1:
-            self._select_host(usable[0].host)
+            self._select_host(usable[0].ref)
             if self._auto_connect:
                 self.subtitle.setText(
                     tr("Only one controller found: {name}. Connecting…").format(name=usable[0].display_name)
@@ -287,7 +289,7 @@ class ConnectDialog(QDialog):
         self.subtitle.setText(
             tr("{n} controllers available. Select the one to read.").format(n=len(usable))
         )
-        self._select_host(usable[0].host)
+        self._select_host(usable[0].ref)
 
     # --------------------------------------------------- connexion auto
 
@@ -308,12 +310,12 @@ class ConnectDialog(QDialog):
         item = self.list.currentItem()
         if item is None:
             return ""
-        return item.data(IPC_ROLE).host
+        return item.data(IPC_ROLE).ref
 
-    def _select_host(self, host: str) -> None:
+    def _select_host(self, ref: str) -> None:
         for row in range(self.list.count()):
             item = self.list.item(row)
-            if item.data(IPC_ROLE).host == host:
+            if item.data(IPC_ROLE).ref == ref:
                 self.list.setCurrentItem(item)
                 return
 

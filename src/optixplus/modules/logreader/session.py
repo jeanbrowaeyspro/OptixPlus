@@ -22,8 +22,7 @@ from PySide6.QtCore import QObject, Signal
 
 from ...common import workers as common_workers
 from ...common.i18n import tr
-from .core import netshare
-from .core.config import Settings
+from .core.config import Controller, Settings
 from .core.discovery import Ipc
 from .core.highlight import Highlighter
 from .ui.log_filter import LogFilterProxy
@@ -74,7 +73,11 @@ class LogSession(QObject):
         self.archives_loaded = False
         self.paused = False
         self.link_detail = ""
+        #: Automate recherché (identifiant ou adresse) et son nom affiché.
         self.probing_host = ""
+        self.probing_name = ""
+        #: Dossier des journaux de l'automate ouvert (historique).
+        self.log_dir = ""
         #: Erreurs reçues pendant que l'onglet n'était pas affiché (pastille de l'onglet).
         self.unseen_errors = 0
         self.visible = True
@@ -86,22 +89,31 @@ class LogSession(QObject):
     def display_name(self) -> str:
         if self.ipc is not None:
             return self.ipc.display_name
-        return self.probing_host or tr("New log")
+        return self.probing_name or self.probing_host or tr("New log")
+
+    @property
+    def key(self) -> str:
+        """Automate de l'onglet : identifiant de l'automate décrit, ou adresse."""
+        return self.ipc.ref if self.ipc is not None else self.probing_host
+
+    def _controller(self, key: str) -> Controller:
+        return self.settings.controller_for(key)
 
     # ------------------------------------------------------------------ connexion
     def connect_to(self, ipc: Ipc) -> None:
         """Ouvre le journal de l'IPC choisi et démarre le suivi."""
         self.stop_watcher()
         self.ipc = ipc
-        self.probing_host = ""
-        self.path = os.path.join(
-            netshare.unc_path(ipc.host, self.settings.share_name), self.settings.log_relative_path()
-        )
+        self.probing_host = self.probing_name = ""
+        controller = self._controller(ipc.ref)
+        self.log_dir = controller.log_folder()
+        self.path = os.path.join(self.log_dir, self.settings.log_filename)
+        server, share = controller.network_share() or ("", "")
         self.archives_loaded = False
         self.unseen_errors = 0
         self.model.clear()
         if self.settings.remember_last_host:
-            self.settings.last_host = ipc.host
+            self.settings.last_host = ipc.ref
             self.settings.save()
         log.info("Lecteur de logs : ouverture de %s (%s)", ipc.display_name, self.path)
 
@@ -109,9 +121,9 @@ class LogSession(QObject):
             self.path,
             self.settings.poll_interval_ms,
             self,
-            host=ipc.host,
-            share=self.settings.share_name,
-            credentials=self.settings.enabled_credentials(),
+            host=server,
+            share=share,
+            credentials=controller.credentials(),
         )
         watcher.initialLoaded.connect(self._on_initial_loaded)
         watcher.entriesAdded.connect(self._on_entries_added)
@@ -126,14 +138,17 @@ class LogSession(QObject):
         self.opened.emit()
 
     def probe_host(self, host: str) -> None:
-        """Retente un automate connu sans bloquer (ping, NetBIOS, partage : plusieurs secondes éteint)."""
+        """Retente un automate connu sans bloquer (ping, NetBIOS, partage : plusieurs secondes éteint).
+
+        ``host`` : identifiant d'un automate décrit, ou adresse (automate de passage).
+        """
+        controller = self._controller(host)
         self.probing_host = host
+        self.probing_name = controller.display_name
         self.identityChanged.emit()
         worker = DiscoveryWorker(
-            [host],
-            self.settings.share_name,
-            self.settings.log_relative_path(),
-            self.settings.enabled_credentials(),
+            [controller],
+            self.settings.log_filename,
             self.settings.ping_timeout_ms,
             parent=self,
         )
@@ -205,7 +220,7 @@ class LogSession(QObject):
         """
         if self.watcher is None:
             if self.probe_worker is not None:
-                return STATE_CONNECTING, self.probing_host
+                return STATE_CONNECTING, self.probing_name or self.probing_host
             return STATE_OFFLINE, ""
         if not self.watcher.has_verdict() and not self.watcher.is_stalled():
             return STATE_CONNECTING, self.path
@@ -233,10 +248,9 @@ class LogSession(QObject):
         """Lance le chargement des fichiers de rotation ; faux s'il n'y a rien à faire."""
         if self.ipc is None or self.archives_loaded or self.archive_loader is not None:
             return False
-        log_dir = os.path.join(netshare.unc_path(self.ipc.host, self.settings.share_name), self.settings.log_subdir)
         # La recherche des fichiers est elle-même une entrée-sortie réseau : elle se
         # fait dans le fil, pas ici.
-        loader = ArchiveLoader(log_dir, self.settings.log_filename, self)
+        loader = ArchiveLoader(self.log_dir, self.settings.log_filename, self)
         loader.loaded.connect(self._on_archives_loaded)
         self.archive_loader = loader
         loader.start()
@@ -252,16 +266,23 @@ class LogSession(QObject):
 
     # ------------------------------------------------------------------ réglages
     def apply_settings(self, settings: Settings) -> None:
-        """Nouveaux réglages (boîte Paramètres du lecteur)."""
-        previous_path = self.settings.log_relative_path()
+        """Nouveaux réglages (boîte Paramètres) ; l'automate ouvert est relu si son accès a changé."""
+        previous = self._access(self.settings)
         self.settings = settings
         self.highlighter.set_rules(settings.highlight_rules)
         self.model.refresh_highlighting()
         self.model.set_max_rows(settings.max_rows)
         if self.watcher is not None:
             self.watcher.set_interval(settings.poll_interval_ms)
-        if settings.log_relative_path() != previous_path and self.ipc is not None:
-            self.connect_to(self.ipc)  # le chemin du journal a changé : relecture
+        if self.ipc is not None and self._access(settings) != previous:
+            self.connect_to(self.ipc)  # dossier, fichier ou identifiants changés : relecture
+
+    def _access(self, settings: Settings) -> tuple:
+        """Ce qui détermine la lecture du journal de l'onglet."""
+        if self.ipc is None:
+            return ()
+        controller = settings.controller_for(self.ipc.ref)
+        return (controller.log_folder(), settings.log_filename, controller.username, controller.password)
 
     # ------------------------------------------------------------------ arrêt
     @property

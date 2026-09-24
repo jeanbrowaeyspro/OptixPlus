@@ -29,7 +29,7 @@ from PySide6.QtWidgets import QApplication
 
 from optixplus.modules.logreader.core import netshare
 from optixplus.common import theme
-from optixplus.modules.logreader.core.config import Settings
+from optixplus.modules.logreader.core.config import Controller, Settings
 from optixplus.modules.logreader.core.discovery import Ipc
 from optixplus.modules.logreader.ui.connect_dialog import ConnectDialog
 from optixplus.modules.logreader.ui.filter_header import MAX_DISTINCT_VALUES, ColumnFilterPopup, FilterHeaderView
@@ -144,7 +144,7 @@ def main():
                  log_available=True, status="pret")
     install_fake_discovery([usable])
     connect_settings = Settings()
-    connect_settings.hosts = ["192.0.2.10"]
+    connect_settings.controllers = [Controller(host="192.0.2.10")]
 
     dialog = ConnectDialog(connect_settings, palette, window, auto_connect=False)
     dialog.show()

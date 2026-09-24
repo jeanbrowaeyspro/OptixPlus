@@ -19,6 +19,7 @@ racine du partage, une fois la connexion établie.
 from __future__ import annotations
 
 import ctypes
+import ntpath
 import os
 import re
 import socket
@@ -165,9 +166,10 @@ def _extract_tag(text: str, tag: str) -> str:
     return match.group(1).strip() if match else ""
 
 
-def read_runtime_info(host: str, share: str) -> tuple[str, str]:
-    """Lit ``FTOptixRuntime.xml`` : ``(nom_du_projet, version_runtime)``.
+def read_runtime_info(folder: str) -> tuple[str, str]:
+    """Lit ``FTOptixRuntime.xml`` du dossier ``folder`` : ``(nom_du_projet, version_runtime)``.
 
+    ``folder`` est le dossier parent de celui des journaux (racine du partage « Optix »).
     Nécessite que le partage soit déjà accessible. Toute erreur renvoie des
     chaînes vides : l'IPC reste utilisable même si ce fichier est absent.
 
@@ -176,7 +178,7 @@ def read_runtime_info(host: str, share: str) -> tuple[str, str]:
     donc la déclaration avant l'analyse, et on retombe sur une extraction par
     expression régulière si le document reste illisible.
     """
-    path = os.path.join(netshare.unc_path(host, share), "FTOptixRuntime.xml")
+    path = os.path.join(folder, "FTOptixRuntime.xml")
     try:
         with open(path, "rb") as handle:
             raw = handle.read(65536)
@@ -203,6 +205,9 @@ class Ipc:
     """État d'une adresse sondée."""
 
     host: str
+    #: Automate décrit dans les réglages (identifiant et nom), vides pour une adresse seule.
+    key: str = ""
+    name: str = ""
     reachable: bool = False
     ping_ms: int = -1
     #: Vrai si l'ICMP a été filtré et que seul le port 445 a répondu.
@@ -216,9 +221,14 @@ class Ipc:
     status: str = field(default_factory=lambda: tr("not tested"))
 
     @property
+    def ref(self) -> str:
+        """Référence de l'automate : son identifiant s'il est décrit, sinon l'adresse."""
+        return self.key or self.host
+
+    @property
     def display_name(self) -> str:
-        """Libellé principal dans la liste de sélection."""
-        parts = [p for p in (self.netbios_name, self.project) if p]
+        """Libellé principal : nom donné par l'utilisateur, sinon nom de la machine ; puis projet."""
+        parts = [p for p in (self.name.strip() or self.netbios_name, self.project) if p]
         return " — ".join(parts) if parts else self.host
 
     @property
@@ -226,66 +236,79 @@ class Ipc:
         return self.log_available
 
 
-def probe_host(host: str, share: str, log_relative_path: str, credentials,
-               ping_timeout_ms: int = 700) -> Ipc:
-    """Sonde une adresse de bout en bout et renvoie son état."""
-    result = Ipc(host=host)
+def probe_controller(controller, log_filename: str, ping_timeout_ms: int = 700) -> Ipc:
+    """Sonde un automate de bout en bout et renvoie son état.
 
-    responded, rtt = ping(host, ping_timeout_ms)
-    if responded:
-        result.reachable, result.ping_ms = True, rtt
-    elif tcp_probe(host, 445, ping_timeout_ms / 1000.0):
-        result.reachable, result.icmp_filtered = True, True
+    Dossier local : présence du dossier et du journal. Dossier réseau : ping (ou port
+    445), nom NetBIOS, connexion au partage (session Windows, puis l'identifiant de
+    l'automate), projet en cours et présence du journal.
+    """
+    result = Ipc(host=controller.host.strip(), key=controller.id, name=controller.name)
+    folder = controller.log_folder()
+    log_path = os.path.join(folder, log_filename)
+    target = controller.network_share()
+
+    if target is None:  # dossier local : ni réseau ni identifiants
+        if not os.path.isdir(folder):
+            result.status = tr("folder not found: {path}").format(path=folder)
+            return result
+        result.reachable = result.share_accessible = True
+        result.credential_label = tr("local folder")
     else:
-        result.status = tr("no answer")
-        return result
+        server, share = target
+        responded, rtt = ping(server, ping_timeout_ms)
+        if responded:
+            result.reachable, result.ping_ms = True, rtt
+        elif tcp_probe(server, 445, ping_timeout_ms / 1000.0):
+            result.reachable, result.icmp_filtered = True, True
+        else:
+            result.status = tr("no answer")
+            return result
 
-    # Le nom NetBIOS ne demande pas d'authentification : on l'obtient même si
-    # la connexion au partage échoue ensuite, ce qui rend le diagnostic plus
-    # parlant dans la liste.
-    result.netbios_name = netbios_name(host)
+        # Le nom NetBIOS ne demande pas d'authentification : on l'obtient même si
+        # la connexion au partage échoue ensuite, ce qui rend le diagnostic plus
+        # parlant dans la liste.
+        result.netbios_name = netbios_name(server)
+        connected, message, credential = netshare.connect_with_fallback(server, share, controller.credentials())
+        result.status = message
+        if not connected:
+            return result
+        result.share_accessible = True
+        result.credential_label = credential.username if credential else tr("Windows session")
 
-    connected, message, credential = netshare.connect_with_fallback(host, share, credentials)
-    result.status = message
-    if not connected:
-        return result
-
-    result.share_accessible = True
-    result.credential_label = credential.username if credential else tr("Windows session")
-    result.project, result.runtime_version = read_runtime_info(host, share)
-
-    log_path = os.path.join(netshare.unc_path(host, share), log_relative_path)
+    result.project, result.runtime_version = read_runtime_info(ntpath.dirname(folder.rstrip("\\")))
     result.log_available = os.path.isfile(log_path)
     if not result.log_available:
-        result.status = tr("share accessible but {path} cannot be found").format(path=log_relative_path)
+        result.status = tr("folder accessible but {path} cannot be found").format(path=log_path)
     return result
 
 
-def discover(hosts, share: str, log_relative_path: str, credentials,
-             ping_timeout_ms: int = 700, on_result=None, max_workers: int = 8) -> list[Ipc]:
-    """Sonde toutes les adresses en parallèle, dans l'ordre de la liste fournie.
+def discover(controllers, log_filename: str, ping_timeout_ms: int = 700, on_result=None,
+             max_workers: int = 8) -> list[Ipc]:
+    """Sonde tous les automates en parallèle ; résultats dans l'ordre de la liste fournie.
 
     ``on_result`` est appelé au fil de l'eau avec chaque :class:`Ipc` terminé,
     afin que l'interface se remplisse au lieu d'attendre la fin du balayage.
     """
-    hosts = list(hosts)
-    if not hosts:
+    controllers = list(controllers)
+    if not controllers:
         return []
 
     results: dict[str, Ipc] = {}
-    with ThreadPoolExecutor(max_workers=min(max_workers, len(hosts))) as pool:
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(controllers))) as pool:
         futures = {
-            pool.submit(probe_host, host, share, log_relative_path, credentials, ping_timeout_ms): host
-            for host in hosts
+            pool.submit(probe_controller, controller, log_filename, ping_timeout_ms): controller
+            for controller in controllers
         }
         for future in as_completed(futures):
-            host = futures[future]
+            controller = futures[future]
             try:
                 ipc = future.result()
             except Exception as exc:  # pragma: no cover - filet de sécurité
-                ipc = Ipc(host=host, status=tr("unexpected error: {error}").format(error=exc))
-            results[host] = ipc
+                ipc = Ipc(host=controller.host, key=controller.id, name=controller.name,
+                          status=tr("unexpected error: {error}").format(error=exc))
+            results[controller.id] = ipc
             if on_result:
                 on_result(ipc)
 
-    return [results[host] for host in hosts if host in results]
+    return [results[c.id] for c in controllers if c.id in results]

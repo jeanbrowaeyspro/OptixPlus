@@ -385,7 +385,7 @@ class LogTab(QWidget):
     def _update_identity(self) -> None:
         session = self.session
         if session.ipc is None:
-            text = tr("Searching for {host}…").format(host=session.probing_host) if session.probing_host else tr(
+            text = tr("Searching for {host}…").format(host=session.probing_name) if session.probing_host else tr(
                 "No controller connected"
             )
             self.status_connection.setText(text)
