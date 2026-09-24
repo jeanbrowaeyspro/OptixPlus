@@ -13,7 +13,7 @@ def _optix_folder(root: Path) -> Path:
     return root
 
 
-def test_detection_dossier_optix(tmp_path: Path) -> None:
+def test_optix_folder_is_detected(tmp_path: Path) -> None:
     runtime = _optix_folder(tmp_path / "Runtime" / "IHM_X")
     _optix_folder(tmp_path / "Projet" / "IHM_X")
     assert is_optix_root(runtime)

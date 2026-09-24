@@ -47,7 +47,9 @@ def test_skip_this_version_is_remembered(controller, monkeypatch):
 def test_manual_check_says_when_up_to_date_or_failed(controller, message_boxes, monkeypatch):
     _answer(monkeypatch, None)
     controller.check_for_updates()
-    assert wait_until(lambda: message_boxes.shown)
+    # Réponse montrée dès le résultat, fin du traitement signalée ensuite : une seconde
+    # demande avant cette fin rejoindrait la première (aucune nouvelle réponse).
+    assert wait_until(lambda: message_boxes.shown and not controller.updates.busy)
     kind, text = message_boxes.shown[-1]
     assert kind == "information" and "à jour" in text
     _answer(monkeypatch, UpdateError("GitHub est injoignable : test"))
