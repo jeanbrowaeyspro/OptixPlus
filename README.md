@@ -9,6 +9,10 @@ Boîte à outils FactoryTalk Optix réunie en une seule application Windows :
 
 Une fois installé, OptixPlus reste dans la zone de notification : son icône ouvre la fenêtre principale, et la surveillance de FT Optix Studio tourne en arrière-plan.
 
+## Présentation en vidéo
+
+https://github.com/user-attachments/assets/0b58164c-3580-470d-9846-f2a2080c5edc
+
 ## Installation
 
 Télécharger `OptixPlus-Setup-X.Y.Z.exe` depuis les [Releases](https://github.com/jeanbrowaeyspro/OptixPlus/releases) et le lancer. L'installation se fait dans `C:\Program Files\OptixPlus`, pour tous les utilisateurs du poste (confirmation administrateur demandée). Elle propose :
