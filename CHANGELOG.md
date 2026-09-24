@@ -5,6 +5,8 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 ## [Non publié]
 
 ### Modifié
+- Titre de la fenêtre et de la barre des tâches : « OptixPlus - Outil » (le nom de l'application en tête, séparé par un simple tiret).
+- Ascenseurs : poignées arrondies comme le reste de l'application, et plus de carré visible dans le coin entre les deux ascenseurs.
 - Lecteur de logs : le fichier journal lu est propre à chaque automate (champ « Fichier journal » de sa fiche, `FTOptixRuntime.0.log` par défaut) ; on peut ainsi lire le journal d'un FT Optix de développement sans toucher aux autres automates. Le nom commun réglé jusqu'ici est repris dans chaque fiche.
 
 ## [1.1.0] - 2026-09-24

@@ -432,12 +432,16 @@ def build_stylesheet(p: Palette, header_height: int = 0) -> str:
     QScrollBar:horizontal {{
         background: transparent; height: 11px; margin: 2px;
     }}
-    QScrollBar::handle {{ background: {p.border}; border-radius: 5px; }}
+    /* Poignée de 7 px (11 px moins 2 × 2 de marge) : un rayon supérieur à la moitié de sa
+       largeur n'est pas dessiné par Qt, et la poignée resterait carrée. */
+    QScrollBar::handle {{ background: {p.border}; border-radius: 3px; }}
     QScrollBar::handle:vertical {{ min-height: 30px; }}
     QScrollBar::handle:horizontal {{ min-width: 30px; }}
     QScrollBar::handle:hover {{ background: {p.text_muted}; }}
     QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; width: 0; }}
     QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
+    /* Coin entre les deux ascenseurs : invisible (même fond que la vue, sans cadre). */
+    QAbstractScrollArea::corner {{ background: transparent; border: none; }}
 
     QCheckBox, QRadioButton {{ spacing: 7px; }}
     QCheckBox::indicator, QRadioButton::indicator {{

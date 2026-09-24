@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtCore import QAbstractTableModel, QEvent, QModelIndex, Qt
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTableView, QWidget
 
 from ....common.i18n import tr
@@ -96,6 +96,15 @@ class LinkTable(QTableView):
     def resizeEvent(self, event) -> None:  # noqa: N802 (API Qt)
         super().resizeEvent(event)
         self._adjust()
+
+    def viewportEvent(self, event) -> bool:  # noqa: N802 (API Qt)
+        handled = super().viewportEvent(event)
+        # La zone visible change aussi quand un ascenseur apparaît ou disparaît, sans que
+        # la table change de taille : sans ce recalage, la dernière colonne déborderait
+        # sous l'ascenseur vertical et son titre serait coupé.
+        if event.type() == QEvent.Type.Resize:
+            self._adjust()
+        return handled
 
     def _adjust(self) -> None:
         model = self.model()

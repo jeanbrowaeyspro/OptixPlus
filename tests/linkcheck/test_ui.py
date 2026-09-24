@@ -79,3 +79,23 @@ def test_home_recent_project_opens_link_checker(ui):
     window.home.recent.requested.emit("linkcheck", str(project))
     assert window.current_page == "linkcheck"
     assert wait_until(lambda: not page.busy, 30)
+
+
+def test_last_column_follows_the_vertical_scrollbar(qapp):
+    """Quand l'ascenseur vertical apparaît, la dernière colonne se resserre : pas de titre coupé."""
+    from PySide6.QtGui import QStandardItemModel
+
+    from optixplus.modules.linkcheck.ui.table import LinkTable
+
+    table = LinkTable()
+    table.setModel(QStandardItemModel(3, 6, table))
+    table.resize(2000, 400)
+    table.show()
+    qapp.processEvents()
+    table.model().insertRows(0, 200)  # l'ascenseur vertical apparaît, la table ne change pas de taille
+    assert wait_until(lambda: table.verticalScrollBar().isVisible())
+    qapp.processEvents()
+    header = table.horizontalHeader()
+    assert sum(header.sectionSize(i) for i in range(header.count())) == table.viewport().width()
+    assert not table.horizontalScrollBar().isVisible()
+    table.close()
