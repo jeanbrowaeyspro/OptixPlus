@@ -319,6 +319,7 @@ class ResultsPage(QWidget):
         self.semantic.preview_requested.connect(self.open_plan_dialog)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setProperty("cards", True)  # séparation sans trait, même écart
         splitter.addWidget(left)
         splitter.addWidget(self.tabs)
         splitter.setStretchFactor(0, 2)

@@ -296,6 +296,7 @@ class SemanticView(QWidget):
         self.detail.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
 
         splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setProperty("cards", True)  # séparation sans trait, même écart
         splitter.addWidget(self.table)
         splitter.addWidget(self.detail)
         splitter.setStretchFactor(0, 3)
