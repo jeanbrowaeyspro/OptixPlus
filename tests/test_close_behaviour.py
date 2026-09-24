@@ -46,3 +46,15 @@ def test_suspended_monitoring_quits_completely(installed):
     controller.show_main_window().close()
     assert quits == [True]
     assert notices == []
+
+
+def test_suspending_monitoring_from_the_tray_does_not_quit(installed):
+    """Fenêtre déjà fermée, OptixPlus dans le tray : suspendre la surveillance ne le ferme pas."""
+    controller, service, quits, notices, monkeypatch = installed
+    state = {"suspended": False}
+    monkeypatch.setattr(type(service), "suspended", property(lambda s: state["suspended"]))
+    controller.show_main_window().close()
+    assert quits == []
+    state["suspended"] = True
+    service.state_changed.emit()  # ce que fait la bascule du menu du tray
+    assert quits == []

@@ -564,6 +564,7 @@
   "The project will become identical to the runtime. <b>{n} block(s) present on the project side only will be deleted</b>:": "Le projet deviendra identique au runtime. <b>{n} bloc(s) présents côté projet seulement seront supprimés</b> :",
   "The published checksum is unreadable.": "L'empreinte publiée est illisible.",
   "The release notes are written in French.": "The release notes are written in French.",
+  "The secure connection to GitHub could not be verified: {error}": "La connexion sécurisée à GitHub n'a pas pu être vérifiée : {error}",
   "The target {target} is not found in the project ({reason}). Apply anyway?": "La cible {target} n'est pas trouvée dans le projet ({reason}). Appliquer quand même ?",
   "The tool “{tool}” could not be loaded. See the log for details.": "L'outil « {tool} » n'a pas pu être chargé. Le détail figure dans le journal.",
   "The update could not be installed:\n{error}": "La mise à jour n'a pas pu être installée :\n{error}",

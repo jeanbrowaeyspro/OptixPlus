@@ -18,7 +18,7 @@ from pathlib import Path
 from ..common.i18n import tr
 from ..common.progress import CancelCheck, Cancelled, ProgressCallback, check_cancel, report
 from ..version import APP_NAME, __version__
-from .github import Opener, Release, UpdateError
+from .github import Opener, Release, UpdateError, urlopen
 
 log = logging.getLogger("optixplus.update")
 
@@ -50,7 +50,7 @@ def download(
     dest: Path,
     progress: ProgressCallback | None = None,
     cancel: CancelCheck | None = None,
-    opener: Opener = urllib.request.urlopen,
+    opener: Opener = urlopen,
     expected_size: int = 0,
 ) -> Path:
     """Télécharge ``url`` dans ``dest`` (fichier partiel supprimé en cas d'échec ou d'annulation)."""
@@ -104,7 +104,7 @@ def fetch_installer(
     release: Release,
     progress: ProgressCallback | None = None,
     cancel: CancelCheck | None = None,
-    opener: Opener = urllib.request.urlopen,
+    opener: Opener = urlopen,
     folder: Path | None = None,
 ) -> Path:
     """Télécharge l'installateur de ``release`` et vérifie son empreinte ; renvoie son chemin."""

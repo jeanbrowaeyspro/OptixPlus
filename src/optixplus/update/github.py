@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import ssl
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -152,6 +153,25 @@ def release_from_json(data: dict) -> Release | None:
 Opener = Callable[..., object]
 
 
+def https_context() -> ssl.SSLContext:
+    """Contexte TLS vérifié par Windows (magasin de certificats du système).
+
+    L'OpenSSL embarqué ne connaît que les racines déjà présentes dans le magasin ; Windows,
+    lui, télécharge au besoin une racine manquante et reconnaît celles d'un antivirus ou d'un
+    proxy d'entreprise. Sans ``truststore``, repli sur le contexte par défaut de Python.
+    """
+    try:
+        import truststore
+    except ImportError:
+        return ssl.create_default_context()
+    return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+
+def urlopen(request, timeout: float = TIMEOUT_S):
+    """``urllib.request.urlopen`` avec la vérification TLS de Windows."""
+    return urllib.request.urlopen(request, timeout=timeout, context=https_context())
+
+
 def _get_json(url: str, opener: Opener) -> object:
     request = urllib.request.Request(
         url,
@@ -168,12 +188,14 @@ def _get_json(url: str, opener: Opener) -> object:
         raise UpdateError(tr("GitHub answered with an error ({code}).").format(code=exc.code)) from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         reason = getattr(exc, "reason", exc)
+        if isinstance(reason, ssl.SSLCertVerificationError):
+            raise UpdateError(tr("The secure connection to GitHub could not be verified: {error}").format(error=reason)) from exc
         raise UpdateError(tr("GitHub cannot be reached: {error}").format(error=reason)) from exc
     except ValueError as exc:
         raise UpdateError(tr("Unreadable answer from GitHub.")) from exc
 
 
-def latest_release(include_prereleases: bool = False, opener: Opener = urllib.request.urlopen) -> Release | None:
+def latest_release(include_prereleases: bool = False, opener: Opener = urlopen) -> Release | None:
     """Dernière release publiée (préversions comprises si demandé), ou ``None``."""
     if not include_prereleases:
         data = _get_json(f"{API_URL}/latest", opener)
@@ -187,7 +209,7 @@ def available_update(
     current: str = __version__,
     include_prereleases: bool = False,
     skipped: str = "",
-    opener: Opener = urllib.request.urlopen,
+    opener: Opener = urlopen,
 ) -> Release | None:
     """Release plus récente que ``current`` et différente de la version ignorée, sinon ``None``."""
     release = latest_release(include_prereleases, opener)

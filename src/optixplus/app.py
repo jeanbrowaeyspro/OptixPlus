@@ -3,7 +3,9 @@
 Arguments reconnus :
 - ``--installe`` / ``--decouverte`` : force le mode de lancement ;
 - ``--demarrage`` : lancé par la clé Run de Windows, sans ouvrir la fenêtre ;
-- ``--outil <id>`` : ouvre directement un outil.
+- ``--outil <id>`` : ouvre directement un outil ;
+- ``--admin`` : garde les droits administrateur (par défaut, OptixPlus lancé en
+  administrateur se relance en utilisateur normal, voir ``drop_elevation``).
 Sans argument de mode, l'application est en mode installé si elle s'exécute depuis son
 dossier d'installation, en mode découverte sinon. L'exécutable portable est toujours en mode
 découverte : pas de tray, rien dans le registre.
@@ -41,6 +43,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--outil", metavar="ID", help="outil à ouvrir")
     parser.add_argument("--apres-maj", action="store_true", help="relance par l'installateur après une mise à jour")
     parser.add_argument("--migrer", metavar="TACHES", default="", help="reprise des anciens outils : reglages,autovalidate")
+    parser.add_argument("--admin", action="store_true", help="garder les droits administrateur")
     args, _unknown = parser.parse_known_args(argv)
     return args
 
@@ -84,6 +87,22 @@ def forwarded_message(args: argparse.Namespace) -> list[str]:
     if args.outil:
         return ["open-tool", args.outil]
     return ["show"]
+
+
+def drop_elevation(argv: list[str], args: argparse.Namespace) -> bool:
+    """Relance OptixPlus en utilisateur normal s'il a démarré avec les droits administrateur.
+
+    Une fenêtre élevée au premier plan empêche les autres logiciels (Greenshot…) de recevoir
+    leurs raccourcis clavier, et les réglages iraient dans le profil de l'administrateur.
+    ``--admin`` garde les droits (FT Optix Studio lancé lui-même en administrateur, par exemple).
+    Renvoie vrai si la relance a eu lieu : ce processus doit alors s'arrêter.
+    """
+    if args.admin or not win32.is_elevated():
+        return False
+    command = paths.executable_command(*argv)
+    if win32.run_as_desktop_user(command):
+        return True
+    return False
 
 
 def run_migration(tasks_text: str, settings: Settings) -> None:
@@ -133,7 +152,10 @@ def _install_excepthook() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parse_args(sys.argv[1:] if argv is None else argv)
+    argv = sys.argv[1:] if argv is None else argv
+    args = parse_args(argv)
+    if drop_elevation(argv, args):
+        return 0
     win32.set_app_user_model_id(APP_ID)
 
     QApplication.setApplicationName(APP_NAME)
@@ -167,6 +189,11 @@ def main(argv: list[str] | None = None) -> int:
         mode.value,
         language,
     )
+    if win32.is_elevated():
+        log.warning(
+            "OptixPlus tourne avec les droits administrateur (%s)",
+            "--admin demandé" if args.admin else "relance en utilisateur normal impossible",
+        )
     instance.listen()
     if mode is LaunchMode.INSTALLED:
         startup.refresh_command_if_enabled()
