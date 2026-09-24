@@ -69,3 +69,45 @@ def test_do_not_show_again_is_remembered(window):
     _press_print_screen(widget)
     assert _boxes() == []
     app.removeEventFilter(notice)
+
+
+def _hook_call(watcher, vk: int, message: int) -> None:
+    import ctypes
+
+    from optixplus.common import win32
+
+    info = win32._KbdLLHookStruct(vkCode=vk)
+    watcher._callback(0, message, ctypes.addressof(info))
+
+
+def test_keyboard_hook_sees_print_screen_only_on_our_window(window, monkeypatch):
+    from optixplus.common import win32
+
+    app, settings, widget = window
+    notice = CaptureNotice(app, settings, elevated=False)  # sans crochet réel : on appelle le rappel
+    seen = []
+    watcher = win32.PrintScreenWatcher(lambda pressed: seen.append(pressed))
+    monkeypatch.setattr(win32.user32, "CallNextHookEx", lambda *a: 0)
+    _hook_call(watcher, win32.VK_SNAPSHOT, 0x0100)
+    _hook_call(watcher, win32.VK_SNAPSHOT, 0x0101)
+    _hook_call(watcher, 0x41, 0x0101)  # une autre touche : ignorée
+    assert seen == [True, False]
+
+    monkeypatch.setattr(win32, "foreground_is_own_window", lambda: False)
+    notice._on_key(False)
+    QCoreApplication.processEvents()
+    assert _boxes() == []  # fenêtre d'un autre logiciel au premier plan : rien
+    monkeypatch.setattr(win32, "foreground_is_own_window", lambda: True)
+    notice._on_key(False)
+    QCoreApplication.processEvents()
+    assert len(_boxes()) == 1
+
+
+def test_keyboard_hook_can_be_installed_and_removed():
+    from optixplus.common import win32
+
+    watcher = win32.PrintScreenWatcher(lambda pressed: None)
+    try:
+        assert watcher.start()
+    finally:
+        watcher.stop()

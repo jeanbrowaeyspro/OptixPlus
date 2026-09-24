@@ -116,3 +116,80 @@ def is_elevated() -> bool:
         return bool(shell32.IsUserAnAdmin())
     except (AttributeError, OSError):
         return False
+
+
+# --------------------------------------------------------------------------- touche Impr. écran
+VK_SNAPSHOT = 0x2C
+_WH_KEYBOARD_LL = 13
+_KEY_MESSAGES = (0x0100, 0x0101, 0x0104, 0x0105)  # WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP
+
+
+class _KbdLLHookStruct(ctypes.Structure):
+    _fields_ = [
+        ("vkCode", wintypes.DWORD), ("scanCode", wintypes.DWORD), ("flags", wintypes.DWORD),
+        ("time", wintypes.DWORD), ("dwExtraInfo", ctypes.c_void_p),
+    ]
+
+
+if IS_WINDOWS:
+    _LRESULT = ctypes.c_ssize_t
+    _HOOKPROC = ctypes.WINFUNCTYPE(_LRESULT, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+    user32.SetWindowsHookExW.argtypes = [ctypes.c_int, _HOOKPROC, wintypes.HINSTANCE, wintypes.DWORD]
+    user32.SetWindowsHookExW.restype = wintypes.HHOOK
+    user32.CallNextHookEx.argtypes = [wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM]
+    user32.CallNextHookEx.restype = _LRESULT
+    user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
+    user32.UnhookWindowsHookEx.restype = wintypes.BOOL
+    user32.GetForegroundWindow.restype = wintypes.HWND
+    user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+    kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
+    kernel32.GetModuleHandleW.restype = wintypes.HMODULE
+
+
+def foreground_is_own_window() -> bool:
+    """Vrai si la fenêtre au premier plan appartient à ce processus."""
+    if not IS_WINDOWS:
+        return False
+    hwnd = user32.GetForegroundWindow()
+    if not hwnd:
+        return False
+    pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    return pid.value == kernel32.GetCurrentProcessId()
+
+
+class PrintScreenWatcher:
+    """Crochet clavier de bas niveau limité à la touche Impr. écran (la touche n'est pas consommée).
+
+    Windows traite Impr. écran à part (raccourci système) : une fenêtre ne la reçoit pas comme
+    une touche ordinaire. Le crochet la voit avant ce traitement. Le rappel doit rester bref
+    (Windows retire un crochet trop lent) : ``on_press`` ne fait que programmer une action.
+    Le crochet vit dans le fil qui l'installe, dont la boucle de messages doit tourner (Qt).
+    """
+
+    def __init__(self, on_press) -> None:
+        self._on_press = on_press
+        self._handle = None
+        self._proc = _HOOKPROC(self._callback) if IS_WINDOWS else None  # garder la référence
+
+    def start(self) -> bool:
+        if not IS_WINDOWS or self._handle:
+            return bool(self._handle)
+        self._handle = user32.SetWindowsHookExW(_WH_KEYBOARD_LL, self._proc, kernel32.GetModuleHandleW(None), 0)
+        return bool(self._handle)
+
+    def stop(self) -> None:
+        if self._handle:
+            user32.UnhookWindowsHookEx(self._handle)
+            self._handle = None
+
+    def _callback(self, code: int, wparam: int, lparam: int) -> int:
+        if code == 0 and wparam in _KEY_MESSAGES:
+            info = ctypes.cast(lparam, ctypes.POINTER(_KbdLLHookStruct)).contents
+            if info.vkCode == VK_SNAPSHOT:
+                try:
+                    self._on_press(wparam in (0x0100, 0x0104))
+                except Exception:  # jamais d'exception à travers le crochet
+                    pass
+        return user32.CallNextHookEx(self._handle, code, wparam, lparam)

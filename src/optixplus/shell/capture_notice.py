@@ -2,15 +2,20 @@
 
 Quand une fenêtre élevée est au premier plan, Windows (UIPI) empêche les logiciels lancés
 normalement (Greenshot…) de recevoir la touche Impr. écran : la capture n'a pas lieu et rien
-ne l'indique. OptixPlus, lui, reçoit la touche : il prévient l'utilisateur, une fois par appui,
-sans empiler les messages ; « Ne plus afficher » est mémorisé dans les réglages.
+ne l'indique. OptixPlus prévient l'utilisateur, sans empiler les messages ; « Ne plus
+afficher » est mémorisé dans les réglages.
+
+Windows traite Impr. écran comme un raccourci système : une fenêtre ne la reçoit pas comme une
+touche ordinaire. Un crochet clavier de bas niveau, installé seulement en administrateur et
+limité à cette touche, la voit avant ce traitement ; on ne réagit que si la fenêtre au premier
+plan est à OptixPlus. Le filtre d'événements Qt reste en secours.
 """
 
 from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QEvent, QObject, Qt
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtWidgets import QApplication, QCheckBox, QMessageBox
 
 from ..common import win32
@@ -27,8 +32,20 @@ class CaptureNotice(QObject):
         self._settings = settings
         self._box: QMessageBox | None = None
         self.active = win32.is_elevated() if elevated is None else elevated
+        self._watcher: win32.PrintScreenWatcher | None = None
         if self.active:
             app.installEventFilter(self)
+            self._watcher = win32.PrintScreenWatcher(self._on_key)
+            if self._watcher.start():
+                log.info("OptixPlus en administrateur : touche Impr. écran surveillée pour prévenir l'utilisateur")
+            else:
+                log.warning("Surveillance de la touche Impr. écran impossible (crochet clavier refusé)")
+            app.aboutToQuit.connect(self._watcher.stop)
+
+    def _on_key(self, pressed: bool) -> None:
+        """Rappel du crochet : bref, l'affichage est programmé pour la boucle Qt."""
+        if not pressed and win32.foreground_is_own_window() and self._settings.general.warn_elevated_capture:
+            QTimer.singleShot(0, self.show_notice)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802 (API Qt)
         if (
