@@ -2,46 +2,19 @@
 
 from __future__ import annotations
 
-import time
-
 import pytest
-from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QMessageBox, QToolButton
 
 from optixplus.common import i18n, logging_setup
 from optixplus.common.recent import recent_controllers
 from optixplus.common.settings import Settings
 from optixplus.common.theme import install_manager
-from optixplus.modules.logreader.core import netshare
 from optixplus.modules.logreader.core.discovery import Ipc
 from optixplus.modules.logreader.session import LogSession
 from optixplus.shell.context import LaunchMode
 from optixplus.shell.controller import AppController
 
-
-def _wait(condition, timeout: float = 15.0) -> bool:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        QCoreApplication.processEvents()
-        if condition():
-            return True
-        time.sleep(0.01)
-    return condition()
-
-
-def _line(n: int, level: str = "INFO") -> str:
-    return f"07-09-2026 09:00:{n:02d}.000;{level};FTOptixRuntime;;Evenement {n};;Root/X\r\n"
-
-
-@pytest.fixture
-def share(tmp_path, monkeypatch):
-    """Partage simulé : <racine>\\Optix\\Log\\FTOptixRuntime.0.log, lu en local."""
-    log_dir = tmp_path / "share" / "Optix" / "Log"
-    log_dir.mkdir(parents=True)
-    lines = [_line(i) for i in range(1, 11)] + [_line(11, "ERROR")]
-    (log_dir / "FTOptixRuntime.0.log").write_text("".join(lines), encoding="utf-8")
-    monkeypatch.setattr(netshare, "unc_path", lambda host, share: str(tmp_path / "share" / share))
-    return log_dir
+from .conftest import LOG_NAME, line, wait_for, write_log
 
 
 @pytest.fixture
@@ -72,11 +45,11 @@ def test_empty_state_then_tabs(ui):
     assert page._stack.currentIndex() == 0
     assert not page.action_export_xlsx.isEnabled()
     first = page.new_tab(_ipc("PLC-A"))
-    assert _wait(lambda: first.model.rowCount() == 11)
+    assert wait_for(lambda: first.model.rowCount() == 11)
     assert page._stack.currentIndex() == 1
     assert page.action_export_xlsx.isEnabled()
     second = page.new_tab(_ipc("PLC-B"))
-    assert _wait(lambda: second.model.rowCount() == 11)
+    assert wait_for(lambda: second.model.rowCount() == 11)
     assert page.current_tab() is second
     assert len(page.tabs) == 2
 
@@ -84,7 +57,7 @@ def test_empty_state_then_tabs(ui):
 def test_close_tab_stops_its_session(ui):
     _controller, page, _probes = ui
     tab = page.new_tab(_ipc("PLC-A"))
-    assert _wait(lambda: tab.model.rowCount() == 11)
+    assert wait_for(lambda: tab.model.rowCount() == 11)
     name = next(iter(page._docks))
     assert page.close_tab(name)
     assert page.tabs == []
@@ -96,9 +69,9 @@ def test_language_change_keeps_sessions_and_filters(ui):
     controller, page, _probes = ui
     first = page.new_tab(_ipc("PLC-A"))
     second = page.new_tab(_ipc("PLC-B"))
-    assert _wait(lambda: first.model.rowCount() == 11 and second.model.rowCount() == 11)
+    assert wait_for(lambda: first.model.rowCount() == 11 and second.model.rowCount() == 11)
     first.search_edit.setText("Evenement 1")
-    assert _wait(lambda: first.proxy.rowCount() == 3)  # 1, 10 et 11
+    assert wait_for(lambda: first.proxy.rowCount() == 3)  # 1, 10 et 11
     sessions = [tab.session for tab in page.tabs]
     controller.context.settings.general.language = "en"
     controller.change_language()
@@ -116,7 +89,7 @@ def test_open_tabs_are_reopened_next_time(ui, qapp):
     controller, page, probes = ui
     page.new_tab(_ipc("PLC-A"))
     page.new_tab(_ipc("PLC-B"))
-    assert _wait(lambda: all(tab.model.rowCount() == 11 for tab in page.tabs))
+    assert wait_for(lambda: all(tab.model.rowCount() == 11 for tab in page.tabs))
     controller.window.close()
     store = controller.context.settings.store("logreader")
     assert store["open_hosts"] == ["plc-a", "plc-b"]
@@ -137,19 +110,18 @@ def test_open_log_command_opens_a_new_tab(ui):
 def test_unseen_errors_are_counted_on_hidden_tabs(ui, share):
     _controller, page, _probes = ui
     tab = page.new_tab(_ipc("PLC-A"))
-    assert _wait(lambda: tab.model.rowCount() == 11)
+    assert wait_for(lambda: tab.model.rowCount() == 11)
     tab.session.visible = False
-    with open(share / "FTOptixRuntime.0.log", "a", encoding="utf-8") as handle:
-        handle.write(_line(12, "ERROR") + _line(13, "ERROR"))
-    assert _wait(lambda: tab.session.unseen_errors == 2)
+    write_log(share / LOG_NAME, [line(12, "ERROR"), line(13, "ERROR")])
+    assert wait_for(lambda: tab.session.unseen_errors == 2)
     dock = next(iter(page._docks.values()))[0]
-    assert _wait(lambda: dock.windowTitle().endswith("(2)"))
+    assert wait_for(lambda: dock.windowTitle().endswith("(2)"))
 
 
 def test_opened_controllers_appear_on_home_and_reopen(ui):
     controller, page, probes = ui
     tab = page.new_tab(_ipc("PLC-A"))
-    assert _wait(lambda: tab.model.rowCount() == 11)
+    assert wait_for(lambda: tab.model.rowCount() == 11)
     assert recent_controllers(controller.context.settings) == [("plc-a", "PLC-A — Demo")]
     window = controller.window
     window.show_page("home")
@@ -163,7 +135,7 @@ def test_opened_controllers_appear_on_home_and_reopen(ui):
 def test_two_tabs_fit_side_by_side(ui):
     _controller, page, _probes = ui
     tab = page.new_tab(_ipc("PLC-A"))
-    assert _wait(lambda: tab.model.rowCount() == 11)
+    assert wait_for(lambda: tab.model.rowCount() == 11)
     # Deux onglets côte à côte doivent tenir dans une fenêtre de 1366 px de large.
     assert tab.minimumSizeHint().width() <= 620
     tab.period_button.setChecked(True)  # barre de période affichée : toujours dans la limite
@@ -180,7 +152,7 @@ def test_live_theme_change_keeps_application_style_on_tabs(ui):
     controller.context.theme.set_theme("dark")
     # Le style par défaut de QtAds, remis après le changement de palette, est retiré
     # (délai variable selon le nombre de widgets à repolir).
-    assert _wait(lambda: page.dock_manager.styleSheet() == "", 5)
+    assert wait_for(lambda: page.dock_manager.styleSheet() == "", 5)
     controller.context.theme.set_theme("light")
 
 
@@ -197,22 +169,22 @@ def test_tab_dot_follows_the_connection_state(ui, share):
         image = dock.icon().pixmap(16, 16).toImage()
         return image.pixelColor(image.width() // 2, image.height() // 2).name()
 
-    assert _wait(lambda: tab.connection_state == "online")
-    assert _wait(lambda: dot() == p.success.lower())
+    assert wait_for(lambda: tab.connection_state == "online")
+    assert wait_for(lambda: dot() == p.success.lower())
     assert "Connexion établie" in dock.tabWidget().toolTip()
     (share / "FTOptixRuntime.0.log").rename(share / "ecarte.log")
-    assert _wait(lambda: tab.connection_state == "lost")
-    assert _wait(lambda: dot() == p.error.lower())
+    assert wait_for(lambda: tab.connection_state == "lost")
+    assert wait_for(lambda: dot() == p.error.lower())
     assert "Connexion perdue" in dock.tabWidget().toolTip()
     (share / "ecarte.log").rename(share / "FTOptixRuntime.0.log")
-    assert _wait(lambda: dot() == p.success.lower())
+    assert wait_for(lambda: dot() == p.success.lower())
 
 
 def test_detail_shows_node_path_in_header_and_copies_it(ui, qapp):
     """Chemin du nœud dans l'en-tête du détail, à droite du numéro de ligne ; clic droit : copier."""
     _controller, page, _probes = ui
     tab = page.new_tab(_ipc("PLC-A"))
-    assert _wait(lambda: tab.model.rowCount() == 11)
+    assert wait_for(lambda: tab.model.rowCount() == 11)
     tab.table.selectRow(0)
     label = tab.detail.node_label
     assert label.text() == "Nœud : Root/X" and label.toolTip() == "Root/X"
