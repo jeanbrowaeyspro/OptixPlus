@@ -4,6 +4,19 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 
 ## [Non publié]
 
+## [1.2.0] - 2026-10-07
+
+### Ajouté
+- Nouvel outil **Statistiques** (Ctrl+5) : analyse d'un dossier de projet **ou de runtime** FT Optix et affichage des chiffres clés, avec export CSV.
+  - Version de FT Optix Studio, nombre de nœuds (celui de Studio et celui compté par OptixPlus).
+  - Automates : pilotes et stations (adresse, port), tags synchronisés dont structures, **tags utilisés** et inutilisés (projet entier ; les accès depuis du code NetLogic ne sont pas détectés, un avertissement le signale).
+  - Pages : une ligne par page principale et par onglet (« Page/Onglet/Onglet »), avec liaisons et tags distincts ; seul l'onglet final compte, puisque c'est lui qui charge et rafraîchit ses tags ; page ou onglet le plus chargé et moyenne.
+  - Pages à mettre en évidence : Paramètres › Statistiques, liste vide au départ, à laquelle on ajoute les mots-clés (par exemple « Travail, Work ») des pages dont on veut connaître le nombre de tags.
+  - Autres objets : alarmes, NetLogic, enregistreurs, images et polices ; pour un runtime, taille des bases de données.
+
+### Modifié
+- Le chargement de l'arbre d'un projet (`OptixProject`) est partagé par les outils (`common/optix/model`) ; le Contrôle des liens s'en sert sans changement de comportement.
+
 ## [1.1.1] - 2026-09-24
 
 ### Ajouté

@@ -5,7 +5,8 @@ Boîte à outils FactoryTalk Optix réunie en une seule application Windows :
 - **Log Reader** : suivi en direct du journal runtime des automates, filtres, export ;
 - **Link Checker** : détection et réparation des DynamicLink cassés d'un projet ;
 - **Compare** : comparaison runtime ↔ projet et application sécurisée des correctifs ;
-- **Auto Validate** : validation automatique de la boîte « Le projet existe déjà » de FT Optix Studio.
+- **Auto Validate** : validation automatique de la boîte « Le projet existe déjà » de FT Optix Studio ;
+- **Statistiques** : chiffres clés d'un projet ou d'un runtime (version, automates, tags synchronisés et utilisés, pages et onglets).
 
 Une fois installé, OptixPlus reste dans la zone de notification : son icône ouvre la fenêtre principale, et la surveillance de FT Optix Studio tourne en arrière-plan.
 

@@ -250,12 +250,12 @@ def test_pages_card_tab_variants(ui):
     _controller, page, _calls = ui
     result = make_statistics()
     result.highlights = [
-        HighlightResult(("alpha",), PageRow("Alpha", "UI/Alpha", ["Sawing"], 9, 7, True)),
+        HighlightResult(("alpha",), PageRow("Alpha", "UI/Alpha", ["Gamma"], 9, 7, True)),
         HighlightResult(("beta",), PageRow("Beta", "UI/Beta", [], 30, 25, False, tab_unknown=True)),
     ]
     page.show_result(result)
     labels = _labels(page)
-    assert "Alpha/Sawing (≈ 7 tags)" in labels
+    assert "Alpha/Gamma (≈ 7 tags)" in labels
     assert "Beta (25 tags), onglet inconnu" in labels
 
 

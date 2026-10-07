@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "optixplus"
 dynamic = ["version"]
-description = "Boîte à outils FactoryTalk Optix : Log Reader, Link Checker, Compare, Auto Validate"
+description = "Boîte à outils FactoryTalk Optix : Log Reader, Link Checker, Compare, Auto Validate, Statistiques"
 requires-python = ">=3.11"
 authors = [{ name = "Jean Browaeys" }]
 

@@ -4,14 +4,14 @@ Le cahier des charges complet est dans [docs/PROMPT_DEVELOPPEMENT.md](docs/PROMP
 
 ## Projet
 
-OptixPlus réunit quatre utilitaires FactoryTalk Optix (Log Reader, Link Checker, Compare, Auto Validate) en une seule application PySide6. Les dépôts sources voisins (`..\pyFTOLogReader`, `..\optix_linkcheck`, `..\FTOCompare`, `..\pyFTOAutoDeploy`) sont **en lecture seule**.
+OptixPlus réunit cinq utilitaires FactoryTalk Optix (Log Reader, Link Checker, Compare, Auto Validate, Statistiques) en une seule application PySide6. Les dépôts sources voisins (`..\pyFTOLogReader`, `..\optix_linkcheck`, `..\FTOCompare`, `..\pyFTOAutoDeploy`) sont **en lecture seule**.
 
 ## Environnement
 
 - Environnement virtuel `.venv` (Python 3.14), dépendances épinglées dans `requirements*.txt`. PySide6 est imposé en 6.11.1 par PySide6-QtAds.
 - Installer : `.venv\Scripts\python -m pip install -r requirements-dev.txt -e .`
 - Tests : `.venv\Scripts\python -m pytest -n auto` (répartis sur tous les cœurs ; sans `-n auto` pour un seul fichier ou un seul test)
-- Tests rangés par fonctionnalité : `tests/common`, `tests/shell`, `tests/update` et un dossier par outil (`autovalidate`, `compare`, `linkcheck`, `logreader`). Fixtures communes dans `tests/conftest.py` (`make_controller`, `controller`, `message_boxes`), aides dans `tests/helpers` (`wait_until` : attendre une condition, jamais un délai fixe). `-m "not slow"` écarte les tests lents ; les tests `couple_reel` de la Comparaison ne tournent qu'avec `OPTIXPLUS_COMPARE_DATA` (données hors dépôt).
+- Tests rangés par fonctionnalité : `tests/common`, `tests/shell`, `tests/update` et un dossier par outil (`autovalidate`, `compare`, `linkcheck`, `logreader`, `statistics`). Fixtures communes dans `tests/conftest.py` (`make_controller`, `controller`, `message_boxes`), aides dans `tests/helpers` (`wait_until` : attendre une condition, jamais un délai fixe). `-m "not slow"` écarte les tests lents ; les tests `couple_reel` de la Comparaison ne tournent qu'avec `OPTIXPLUS_COMPARE_DATA` (données hors dépôt).
 - Traductions : `.venv\Scripts\python tools\i18n_check.py`
 - Icônes : `.venv\Scripts\python tools\make_icon.py`
 
