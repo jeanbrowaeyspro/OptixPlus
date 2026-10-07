@@ -83,10 +83,11 @@ def test_dynamic_path_and_converter(result):
     assert any("approximate" in w for w in result.warnings)
 
 
-def test_average_and_busiest_page(result):
-    assert result.average_tags_per_main_page == pytest.approx((2 + 5 + 5) / 3)
-    assert result.busiest_page is not None
-    assert result.busiest_page.name == "IType_01_Work"
+def test_average_and_busiest_are_per_row_not_per_page_total(result):
+    # lignes : Home 2, Work machine 5, Supervision/Axes 3, Alarms/Active 1, Alarms/History 2
+    assert result.average_tags_per_view == pytest.approx((2 + 5 + 3 + 1 + 2) / 5)
+    assert result.busiest_row is not None and result.busiest_row.label == "Work machine"
+    assert result.busiest_row in result.rows
 
 
 def test_work_and_supervision_pages(result):

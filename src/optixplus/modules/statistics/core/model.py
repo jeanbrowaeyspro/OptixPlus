@@ -102,8 +102,10 @@ class ProjectStatistics:
     # --- pages
     pages: list[PageStats] = field(default_factory=list)  # toutes les vues, principales d'abord
     main_pages: int = 0
-    average_tags_per_main_page: float = 0.0
-    busiest_page: PageStats | None = None  # page principale avec le plus de tags liés
+    #: Sur les lignes du tableau (page ou feuille d'onglet) : seul l'onglet ouvert charge ses tags, on ne
+    #: somme donc jamais les onglets d'une page.
+    average_tags_per_view: float = 0.0
+    busiest_row: PageRow | None = None  # ligne avec le plus de tags distincts
     work_page: PageStats | None = None
     supervision_page: PageStats | None = None
     #: Lignes du tableau : pages principales et feuilles d'onglet (ni sous-vues, ni dialogues, ni popups).

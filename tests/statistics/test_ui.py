@@ -245,3 +245,12 @@ def test_pages_card_tab_variants(ui):
     labels = _labels(page)
     assert "Work/Sawing (≈ 7 tags)" in labels
     assert "Supervision (25 tags), onglet inconnu" in labels
+
+
+def test_busiest_and_average_are_per_page_or_tab(ui):
+    _controller, page, _calls = ui
+    _analysed(page)
+    labels = _labels(page)
+    assert "Page/onglet le plus chargé" in labels and "Moyenne de tags par page/onglet" in labels
+    assert labels.count("Work (≈ 40 tags)") == 2  # page la plus chargée et page Travail
+    assert "18,0" in labels

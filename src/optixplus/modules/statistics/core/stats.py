@@ -574,9 +574,6 @@ def _pages(result: ProjectStatistics, an: _Analyzer, options: StatisticsOptions,
     result.pages = pages
     mains = [p for p in pages if p.is_main]
     result.main_pages = len(mains)
-    if mains:
-        result.average_tags_per_main_page = sum(p.tags for p in mains) / len(mains)
-        result.busiest_page = max(mains, key=lambda p: p.tags)
     result.work_page = _find(pages, options.work_names)
     result.supervision_page = _find(pages, options.supervision_names)
     cache: dict[str, tuple[list[PageRow], PageRow]] = {}
@@ -596,6 +593,9 @@ def _pages(result: ProjectStatistics, an: _Analyzer, options: StatisticsOptions,
         found = rows_of(page)
         if found is not None:
             result.rows.extend(found[0])
+    if result.rows:
+        result.average_tags_per_view = sum(r.tags for r in result.rows) / len(result.rows)
+        result.busiest_row = max(result.rows, key=lambda r: r.tags)
     for page, attr in ((result.work_page, "work_row"), (result.supervision_page, "supervision_row")):
         found = rows_of(page)
         if found is not None:

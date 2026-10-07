@@ -374,15 +374,11 @@ class StatisticsPage(QWidget):
     def _pages_card(self, r: ProjectStatistics) -> QWidget:
         card = _Card(tr("Pages"))
         not_found = tr("not found")
-        busiest = (
-            tr("{title} ({tags} tags)").format(title=r.busiest_page.title, tags=r.busiest_page.tags)
-            if r.busiest_page
-            else not_found
-        )
+        busiest = self._page_fact(r.busiest_row, not_found)
         facts = [
             (tr("Main pages"), str(r.main_pages), ""),
-            (tr("Average tags per main page"), _num(r.average_tags_per_main_page), ""),
-            (tr("Busiest page"), busiest, ""),
+            (tr("Average tags per page/tab"), _num(r.average_tags_per_view), ""),
+            (tr("Busiest page/tab"), busiest, ""),
             (tr("Work page"), self._page_fact(r.work_row, not_found), ""),
             (tr("Supervision page"), self._page_fact(r.supervision_row, not_found), ""),
         ]
