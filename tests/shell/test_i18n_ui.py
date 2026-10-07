@@ -108,6 +108,16 @@ def _interface_texts(tmp_path: Path, monkeypatch, language: str) -> set[str]:
         assert wait_until(lambda: not linkcheck.busy and linkcheck.project is not None, 60)
         texts |= _texts_of(linkcheck)
 
+        # Statistiques : un résultat affiché (cartes, tableaux, infobulles).
+        from optixplus.modules.statistics.ui import page as statistics_page
+        from statistics_fixture import make_statistics
+
+        monkeypatch.setattr(statistics_page, "_load_compute", lambda: lambda f, p, c, o: make_statistics(f))
+        statistics = window.module("statistics").page
+        statistics.open_project("C:/demo/Demo")
+        assert wait_until(lambda: not statistics.busy and statistics.result is not None, 60)
+        texts |= _texts_of(statistics)
+
         # Comparaison : résultats, plan et application.
         compare = window.module("compare").page
         compare.setup_page.runtime.set_path(COMPARE / "runtime" / "IHM_Demo")

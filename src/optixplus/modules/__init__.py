@@ -43,6 +43,15 @@ MODULES: tuple[ModuleSpec, ...] = (
         service_path="optixplus.modules.autovalidate.service:AutoValidateService",
         settings_path="optixplus.modules.autovalidate.ui.settings_page:AutoValidateSettingsPage",
     ),
+    ModuleSpec(
+        id="statistics",
+        title="Statistics",
+        description="Count the tags, pages and nodes of an FT Optix project or runtime and estimate its memory.",
+        icon="statistics",
+        shortcut="Ctrl+5",
+        import_path="optixplus.modules.statistics.module:StatisticsModule",
+        opens_projects=True,
+    ),
 )
 
 
