@@ -28,6 +28,7 @@
   "A comparison is in progress. Stop it and close?": "Une comparaison est en cours. L'arrêter et fermer ?",
   "A line containing one of the keywords of a rule takes its colour. Rules are evaluated from top to bottom: the first one that matches wins. The chosen tint is automatically lightened or darkened according to the theme.": "Une ligne contenant l'un des mots-clés d'une règle prend sa couleur. Les règles sont évaluées de haut en bas : la première qui correspond l'emporte. La teinte choisie est automatiquement éclaircie ou assombrie selon le thème.",
   "A relative log folder is on the controller: enter its IP address, or choose a full folder.": "Un dossier des journaux relatif se trouve sur l'automate : indiquez son adresse IP, ou choisissez un dossier complet.",
+  "A structure that is used counts as used with all its tags; a tag used on its own does not make its structure count as used.": "Une structure utilisée compte comme utilisée avec tous ses tags ; un tag utilisé seul ne fait pas compter sa structure comme utilisée.",
   "About OptixPlus": "À propos d'OptixPlus",
   "About {app}": "À propos de {app}",
   "Active": "Actif",

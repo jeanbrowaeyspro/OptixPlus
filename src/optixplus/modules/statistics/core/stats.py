@@ -467,7 +467,11 @@ def compute(
     _mark_used(result, an.used_refs, tag_index)
     if result.netlogic:
         result.warnings.append(tr("Tags used only from NetLogic code are not counted as used."))
-    alarms = root.children.get("Alarms") if root is not None else None
+    if result.structures_total:
+        result.warnings.append(
+            tr("A structure that is used counts as used with all its tags; a tag used on its own does not make its structure count as used.")
+        )
+    alarms =root.children.get("Alarms") if root is not None else None
     if alarms is not None:
         stack = list(alarms.children.values())
         while stack:
