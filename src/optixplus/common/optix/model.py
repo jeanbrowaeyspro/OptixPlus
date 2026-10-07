@@ -1,0 +1,346 @@
+"""Modèle commun d'un projet FT Optix : arbre des nœuds chargé depuis les YAML.
+
+Un projet Optix est un dossier contenant ``<Nom>.optix`` et un sous-dossier ``Nodes/`` dont
+les YAML décrivent l'arbre des nœuds. Chaque nœud a un ``Name``, un ``Type`` (ou
+``Supertype`` pour un type du projet), des ``Children`` et parfois une ``Value``. Les
+liens dynamiques sont des enfants de type ``DynamicLink`` dont la ``Value`` est un chemin
+absolu (``/Objects/<Projet>/…``) ou relatif (``../..``).
+
+Ce module ne dépend d'aucun outil : il sert au Contrôle de liens, aux statistiques, etc.
+
+Particularités du chargement (repris de Link Checker) :
+- construction de l'arbre **itérative** (pas de dépassement de la pile de récursion sur
+  les projets très profonds) ;
+- progression calculée sur les fichiers **réellement inclus** (``File:``), découverts au
+  fil du chargement, et non sur tous les ``.yaml`` du dossier ;
+- chargement annulable ;
+- nom du projet lu dans le bloc ``Project:`` du ``.optix`` ;
+- lecture directe par ``common.optix.tree`` ; repli sur PyYAML pour un fichier hors du
+  format généré par FT Optix.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+from collections import deque
+
+import yaml
+
+from ..i18n import tr
+from ..progress import CancelCheck, ProgressCallback, check_cancel, report
+from .project import ProjectError, project_folder, read_project_meta  # noqa: F401
+from .tree import RawNode, Unsupported, read_nodes
+
+Loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+log = logging.getLogger("optixplus.optix.model")
+
+POINTER_DATATYPES = ("NodeId", "NodePointer", "VariablePointer")
+POINTER_TYPES = ("NodePointer", "Alias")
+
+# Codes de résolution d'un chemin (``OptixProject.resolve``).
+REASON_MISSING = "missing"  # segment introuvable
+REASON_ABOVE_ROOT = "above_root"  # remonte au-dessus de la racine
+# Chemins non vérifiables, comptés à part.
+SKIP_ALIAS = "alias"
+SKIP_BUILTIN = "builtin"
+SKIP_POINTER = "pointer"
+
+_NS_PREFIX = re.compile(r"^ns=\d+;")
+_INDEX_PREFIX = re.compile(r"^\d+:")
+_ARRAY = re.compile(r"^(.*?)\[(\d+)\]$")
+
+
+class Node:
+    __slots__ = (
+        "name", "type", "supertype", "datatype", "value", "children", "parent",
+        "file", "line", "end_line", "value_line", "_path",
+    )
+
+    def __init__(self, name: str, parent: Node | None, file: str | None) -> None:
+        self.name = name
+        self.type: str | None = None
+        self.supertype: str | None = None
+        self.datatype: str | None = None
+        self.value = None
+        self.children: dict[str, Node] = {}
+        self.parent = parent
+        self.file = file  # YAML qui déclare ce nœud
+        self.line = 0  # ligne (1-based) du « - Name: »
+        self.end_line = 0  # ligne exclusive de fin du bloc
+        self.value_line = 0  # ligne (1-based) de la clé Value
+        self._path: str | None = None
+
+    def path(self) -> str:
+        """Chemin absolu, calculé une fois (utilisé intensivement par les suggestions)."""
+        if self._path is None:
+            parts = []
+            node: Node | None = self
+            while node is not None:
+                parts.append(node.name)
+                node = node.parent
+            self._path = "/" + "/".join(reversed(parts))
+        return self._path
+
+    def studio_path(self, project_name: str) -> str:
+        """Chemin tel qu'on le parcourt dans l'arborescence de Studio (sans /Objects/<Projet>)."""
+        p = self.path()
+        prefix = "/Objects/" + project_name + "/"
+        return p[len(prefix):] if p.startswith(prefix) else p
+
+
+class OptixProject:
+    """Arbre des nœuds d'un projet ; construit par ``load()``."""
+
+    def __init__(self, folder: str) -> None:
+        self.folder = project_folder(folder)
+        self.name, root = read_project_meta(self.folder)
+        self.nodes_dir = os.path.join(self.folder, "Nodes")
+        self._root_hint = root
+        self.objects = Node("Objects", None, None)
+        self.all_nodes: list[Node] = []
+        self.types_by_name: dict[str, Node] = {}
+        self.by_name: dict[str, list[Node]] = {}
+        self.files_loaded = 0
+        self.pyyaml_files = 0  # fichiers relus par PyYAML (format inhabituel)
+
+    # ---- chargement ------------------------------------------------------------
+    def _root_file(self) -> str:
+        if self._root_hint:
+            candidate = os.path.normpath(os.path.join(self.folder, self._root_hint))
+            if os.path.isfile(candidate):
+                return candidate
+        candidate = os.path.join(self.nodes_dir, self.name + ".yaml")
+        if os.path.isfile(candidate):
+            return candidate
+        yamls = sorted(f for f in os.listdir(self.nodes_dir) if f.lower().endswith(".yaml"))
+        if not yamls:
+            raise ProjectError(tr("No root YAML file in {folder}").format(folder=self.nodes_dir))
+        return os.path.join(self.nodes_dir, yamls[0])
+
+    def load(self, progress: ProgressCallback | None = None, cancel: CancelCheck | None = None) -> Self:
+        """Charge tous les fichiers inclus. Les inclusions (``File:``) sont mises en file et
+        chargées ensuite : le total affiché est « chargés + en attente », donc exact."""
+        pending: deque[tuple[str, Node]] = deque([(self._root_file(), self.objects)])
+        phase = tr("Loading project files")
+        while pending:
+            check_cancel(cancel)
+            path, parent = pending.popleft()
+            self.files_loaded += 1
+            rel = os.path.relpath(path, self.nodes_dir)
+            report(progress, phase, rel, self.files_loaded, self.files_loaded + len(pending))
+            node = self._load_file(path, parent, pending)
+            if node is not None:
+                parent.children[node.name] = node
+        return self
+
+    def _load_file(self, path: str, parent: Node, pending: deque) -> Node | None:
+        try:
+            with open(path, encoding="utf-8-sig") as fh:
+                text = fh.read()
+        except OSError as exc:
+            raise ProjectError(tr("Cannot read {file}: {error}").format(file=path, error=exc)) from exc
+        try:
+            raw = read_nodes(text)
+        except Unsupported as exc:
+            # Construction YAML hors du format généré par FT Optix : lecture complète par PyYAML.
+            log.info("Lecture de %s par PyYAML (%s)", path, exc)
+            self.pyyaml_files += 1
+            return self._load_with_pyyaml(text, parent, path, pending)
+        return self._build_from_raw(raw, parent, path, pending)
+
+    def _build_from_raw(self, raw: list[RawNode], parent: Node, file: str, pending: deque) -> Node | None:
+        """Même arbre que ``_build``, à partir de la lecture directe (``common.optix.tree``)."""
+        result: Node | None = None
+        created: list[Node | None] = []
+        for record in raw:
+            if record.parent == -1:
+                owner, is_root = parent, True
+            else:
+                owner, is_root = created[record.parent], False
+                if owner is None:  # parent inclus d'un autre fichier ou ignoré (Class)
+                    created.append(None)
+                    continue
+            if record.file is not None and record.name is None:
+                sub = os.path.normpath(os.path.join(os.path.dirname(file), record.file))
+                pending.append((sub, owner))
+                created.append(None)
+                continue
+            if record.klass is not None and record.klass != "Method":
+                created.append(None)
+                continue
+            name = _NS_PREFIX.sub("", record.name if record.name is not None else "?")
+            node = Node(name, owner, file)
+            node.line = record.line
+            node.end_line = record.end_line
+            node.type = record.type
+            node.supertype = record.supertype
+            node.datatype = record.datatype
+            if record.has_value:
+                node.value_line = record.value_line
+                node.value = record.value
+            self.all_nodes.append(node)
+            self.by_name.setdefault(name, []).append(node)
+            if node.supertype is not None:
+                self.types_by_name.setdefault(name, node)
+            if is_root:
+                result = node
+            else:
+                owner.children[name] = node
+            created.append(node)
+        return result
+
+    def _load_with_pyyaml(self, text: str, parent: Node, path: str, pending: deque) -> Node | None:
+        loader = Loader(text)
+        try:
+            ynode = loader.get_single_node()
+            return self._build(ynode, loader, parent, path, pending)
+        finally:
+            loader.dispose()
+
+    @staticmethod
+    def _items(mapping: yaml.MappingNode) -> dict:
+        return {k.value: v for k, v in mapping.value}
+
+    @staticmethod
+    def _scalar(loader, ynode):
+        try:
+            return loader.construct_object(ynode, deep=True)
+        except Exception:
+            return ynode.value
+
+    def _build(self, root_ynode, loader, parent: Node, file: str, pending: deque) -> Node | None:
+        """Construit l'arbre d'un fichier sans récursion (pile explicite)."""
+        result: Node | None = None
+        stack: list[tuple[object, Node, bool]] = [(root_ynode, parent, True)]
+        while stack:
+            ynode, owner, is_root = stack.pop()
+            if not isinstance(ynode, yaml.MappingNode):
+                continue
+            items = self._items(ynode)
+            if "File" in items and "Name" not in items:
+                sub = os.path.normpath(os.path.join(os.path.dirname(file), str(items["File"].value)))
+                pending.append((sub, owner))
+                continue
+            if "Class" in items and items["Class"].value != "Method":
+                continue
+            raw_name = str(items["Name"].value) if "Name" in items else "?"
+            name = _NS_PREFIX.sub("", raw_name)
+            node = Node(name, owner, file)
+            node.line = ynode.start_mark.line + 1
+            node.end_line = ynode.end_mark.line + 1
+            node.type = items["Type"].value if "Type" in items else None
+            node.supertype = items["Supertype"].value if "Supertype" in items else None
+            node.datatype = items["DataType"].value if "DataType" in items else None
+            if "Value" in items:
+                vnode = items["Value"]
+                node.value_line = vnode.start_mark.line + 1
+                node.value = self._scalar(loader, vnode) if isinstance(vnode, yaml.ScalarNode) else None
+            self.all_nodes.append(node)
+            self.by_name.setdefault(name, []).append(node)
+            if node.supertype is not None:
+                self.types_by_name.setdefault(name, node)
+            if is_root:
+                result = node
+            else:
+                owner.children[name] = node
+            children = items.get("Children")
+            if isinstance(children, yaml.SequenceNode):
+                # Ordre inverse sur la pile : les enfants sont insérés dans l'ordre du fichier.
+                for child in reversed(children.value):
+                    stack.append((child, node, False))
+        return result
+
+    # ---- résolution --------------------------------------------------------------
+    def type_chain(self, node: Node) -> list[Node]:
+        chain = []
+        type_name = node.type if node.supertype is None else node.supertype
+        seen: set[str] = set()
+        while type_name in self.types_by_name and type_name not in seen:
+            seen.add(type_name)
+            type_node = self.types_by_name[type_name]
+            chain.append(type_node)
+            type_name = type_node.supertype
+        return chain
+
+    def child(self, node: Node, segment: str) -> Node | None:
+        if segment in node.children:
+            return node.children[segment]
+        for type_node in self.type_chain(node):
+            if segment in type_node.children:
+                return type_node.children[segment]
+        return None
+
+    def _is_builtin(self, path: str) -> bool:
+        if "/Commands/" in path or path.startswith(("/Objects/RetainedAlarms", "/Types/", "/Objects/Server")):
+            return True
+        # /Objects/Users est interne, sauf si le chemin passe par le projet lui-même. La
+        # comparaison porte sur des segments entiers (l'outil d'origine cherchait le nom
+        # comme sous-chaîne : un projet « IHM » était trouvé dans « IHM_Ligne2 »).
+        return path.startswith("/Objects/Users") and self.name not in path.split("/")
+
+    def resolve(self, path: str, origin: Node) -> tuple[Node | None, str, str]:
+        """(nœud ou None, code, détail). Codes : ``ok``, SKIP_*, REASON_MISSING, REASON_ABOVE_ROOT."""
+        p = path.strip()
+        if "{" in p:
+            return None, SKIP_ALIAS, ""
+        if self._is_builtin(p):
+            return None, SKIP_BUILTIN, ""
+        if p.startswith("/"):
+            current = self.objects
+            segments = p.strip("/").split("/")
+            if segments and segments[0] == "Objects":
+                segments = segments[1:]
+        else:
+            current = origin
+            segments = p.split("/")
+        for raw in segments:
+            segment = raw.split("@")[0]
+            if segment in ("", "."):
+                continue
+            if current is not origin and (current.datatype in POINTER_DATATYPES or current.type in POINTER_TYPES):
+                if segment != "..":
+                    return None, SKIP_POINTER, ""
+            if segment == "..":
+                if current.parent is None:
+                    return None, REASON_ABOVE_ROOT, ""
+                current = current.parent
+                continue
+            segment = _INDEX_PREFIX.sub("", segment)
+            index = None
+            match = _ARRAY.match(segment)
+            if match:
+                segment, index = match.group(1), match.group(2)
+            nxt = self.child(current, segment)
+            if nxt is None:
+                return None, REASON_MISSING, segment
+            current = nxt
+            if index is not None:
+                element = self.child(current, index)
+                if element is not None:
+                    current = element
+        return current, "ok", ""
+
+    # ---- chemins -------------------------------------------------------------------
+    @staticmethod
+    def relative_path(origin: Node, target: Node) -> str:
+        """Chemin relatif Optix de ``origin`` vers ``target`` (``..`` = parent de origin)."""
+        o = origin.path().strip("/").split("/")
+        t = target.path().strip("/").split("/")
+        k = 0
+        while k < min(len(o), len(t)) and o[k] == t[k]:
+            k += 1
+        ups = len(o) - k
+        rest = t[k:]
+        if ups == 0:
+            return "/".join(["."] + rest) if rest else "."
+        return "/".join([".."] * ups + rest)
+
+    def screen_of(self, node: Node) -> str:
+        segments = node.studio_path(self.name).split("/")
+        if len(segments) >= 3 and segments[0] == "UI" and segments[1] in (
+            "Screens", "Parents", "Dialogs", "BaseControls", "Menus",
+        ):
+            return "/".join(segments[:3])
+        return "/".join(segments[:2]) if len(segments) >= 2 else node.studio_path(self.name)

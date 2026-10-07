@@ -13,7 +13,7 @@ import pytest
 
 from linkcheck_fixture import make_project
 from optix_reference import pyyaml_nodes
-from optixplus.common.optix import tree
+from optixplus.common.optix import model, tree
 from optixplus.common.optix.tree import Unsupported, read_nodes
 from optixplus.modules.linkcheck.core import project as lc_project
 
@@ -156,9 +156,9 @@ def _analyse(folder: str, force_pyyaml: bool, monkeypatch):
         def refuse(_text):
             raise Unsupported("test")
 
-        monkeypatch.setattr(lc_project, "read_nodes", refuse)
+        monkeypatch.setattr(model, "read_nodes", refuse)
     else:
-        monkeypatch.setattr(lc_project, "read_nodes", tree.read_nodes)
+        monkeypatch.setattr(model, "read_nodes", tree.read_nodes)
     return lc_project.analyse(folder)
 
 
