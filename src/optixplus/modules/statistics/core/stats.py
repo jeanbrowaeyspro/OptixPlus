@@ -35,6 +35,36 @@ sous un tag (propriété, ``@Value``) utilise ce tag.
   projet contient des NetLogic.
 - Inutilisés = synchronisés − utilisés.
 
+Pages et onglets : deux conventions
+-----------------------------------
+**Pages principales.** Un ``Screen`` ouvert depuis un menu ou au démarrage (FT Optix 1.6), ou, dans un projet de
+style 1.3, un ``Panel`` qui est : enfant direct du dossier ``UI/Screens`` ; ciblé par la variable ``BtPanel`` d'un
+bouton de menu ou d'accueil ; ou ``Panel`` initial d'un ``PanelLoader`` de la fenêtre de démarrage (``Window``).
+La page d'attente (splash) est exclue : c'est le ``Panel`` initial du ``PanelLoader`` de la fenêtre et aucun bouton
+ne la vise (ni ``BtPanel``, ni ``NewPanel`` d'un ``ChangePanel``, ni ``PanelToLoad``). Les dossiers de ``Screens`` (sous-vues)
+et les panneaux de ``PanelToLoad`` ne sont jamais des pages principales.
+
+**Onglets par ``NavigationPanel``** (1.6) : ``Panels/<item>/Panel`` (pointeur) et ``Title`` ; onglet par défaut =
+``CurrentTabIndex`` scalaire, sinon le premier.
+
+**Onglets par ``PanelLoader``** (style 1.3, pas de ``NavigationPanel``). Le ``PanelLoader`` a un enfant ``Panel``
+(``NodePointer`` : le panneau chargé par défaut). Les boutons de navigation d'une page (instances d'un type
+``…PanelNavigationButton``) désignent leur loader et leur panneau par deux variables **sœurs** :
+``PanelToLoad`` (valeur : chemin absolu du type de panneau à charger) et ``PanelLoader`` (enfant ``DynamicLink``
+dont la valeur est le chemin **relatif** du ``PanelLoader`` cible, suffixe ``@NodeId`` retiré, résolu depuis le
+``DynamicLink``). Le titre de l'onglet est ``ButtonText`` du bouton (texte localisé écrit en JSON sur une
+ligne ; ``Text`` sinon ``TextId``), sinon ``DisplayName`` du panneau, sinon son nom. Les boutons de menu et
+d'accueil, eux, portent ``BtPanel`` (cible) et ``BtText`` (titre) et appellent ``ChangePanel`` sur le loader de la
+fenêtre (``ObjectPointer`` = alias ``{DynamicContent}``, argument ``NewPanel``) : ce ne sont pas des onglets.
+Les onglets d'un loader sont les panneaux visés par ses boutons, dans l'ordre de lecture du YAML (sans doublon) ;
+le panneau initial de ``Panel`` est l'onglet par défaut (ajouté en tête s'il n'est visé par aucun bouton). Un
+panneau d'onglet peut contenir son propre ``PanelLoader`` : onglets imbriqués ``Page/Onglet/Onglet``. Aucun
+bouton ne désigne le loader : une seule ligne ``Page/<panneau par défaut>``. Un ``NavigationPanel``, s'il y en a un,
+prime sur les ``PanelLoader``.
+
+**Lignes** (les deux conventions) : une ligne par page sans onglet ou par feuille d'onglet, comptée « sous-vues
+comprises, tags distincts » ; jamais de ligne de total pour une page à onglets (seul l'onglet affiché charge ses
+tags), sauf une ligne « Page » si le contenu hors onglets a ses propres liaisons.
 """
 
 from __future__ import annotations
@@ -210,6 +240,8 @@ class _Analyzer:
         self.units: dict[str, _Unit] = {}
         self._source_cache: dict[int, list[Node]] = {}
         self.used_refs: set[str] = set()  # chemins de tags référencés (``{0}`` possibles), projet entier
+        #: chemin d'un ``PanelLoader`` -> [(titre du bouton, nom du type de panneau)] dans l'ordre du YAML
+        self.tabs: dict[str, list[tuple[str, str]]] = {}
 
     # ---- types
     def root_type(self, name: str | None) -> str:
@@ -338,6 +370,34 @@ class _Analyzer:
             return
         self.add_edge(unit, value.rsplit("/", 1)[-1])
 
+    def add_tab_button(self, node: Node) -> None:
+        """Bouton de navigation d'un ``PanelLoader`` : ``node`` est sa variable ``PanelToLoad`` (voir en tête)."""
+        parent = node.parent
+        loader_var = parent.children.get("PanelLoader") if parent is not None else None
+        link = loader_var.children.get("DynamicLink") if loader_var is not None else None
+        if link is None:
+            return
+        value = self.link_value(link).split("@", 1)[0].strip()
+        if not value:
+            return
+        target, code, _ = self.project.resolve(value, link.parent)  # chemin relatif à la variable qui porte le lien
+        if target is None or code != "ok" or target.type != "PanelLoader":
+            return
+        text = parent.children.get("ButtonText")
+        title = localized_text(self.raw.value_text(text)) if text is not None else ""
+        self.tabs.setdefault(target.path(), []).append((title, str(node.value).rsplit("/", 1)[-1]))
+
+    def unit_of_type(self, name: str) -> _Unit | None:
+        node = self.types.get(name)
+        return self.units.get(node.path()) if node is not None else None
+
+    def panel_title(self, name: str) -> str:
+        """``DisplayName`` du type de panneau, sinon son nom."""
+        node = self.types.get(name)
+        if node is None:
+            return name
+        return localized_text(self.raw.key_text(node, "DisplayName")) or node.name
+
     def add_edge(self, unit: _Unit, type_name: str) -> None:
         target = self.types.get(type_name)
         if target is None or self.kind_of_base(target.supertype) in _MAIN_KINDS:
@@ -421,10 +481,14 @@ def compute(
     report(progress, phase, "", 0, result.nodes)
     nav_titles: dict[str, str] = {}  # nom de type de vue -> texte du bouton de menu qui l'ouvre
     main_names: set[str] = set()  # noms de types ouverts depuis un menu ou au démarrage
+    pages13 = _Pages13()
     for node in project.all_nodes:
         ticker.tick()
         ntype = node.type
         if node.supertype is not None:
+            parent = node.parent
+            if parent is not None and parent.name == "Screens" and parent.parent is not None and parent.parent.name == "UI":
+                pages13.direct.add(node.name)
             if node.supertype in an.types:
                 an.add_edge(an.unit(node), node.supertype)
             elif an.kind_of_base(node.supertype) != _OTHER:
@@ -441,13 +505,22 @@ def compute(
         elif ntype == "NodePointer" and isinstance(node.value, str):
             if node.name == "Panel" and node.parent is not None and node.parent.type == "PanelLoader":
                 main_names.add(node.value.rsplit("/", 1)[-1])
+                if owner is not None and an.kind_of_base(owner.supertype) == VIEW_WINDOW:
+                    pages13.start.add(node.value.rsplit("/", 1)[-1])
             an.add_pointer(unit, node, node.value)
         elif node.name == "BtPanel" and isinstance(node.value, str):
             target = node.value.rsplit("/", 1)[-1]
             main_names.add(target)
+            pages13.targeted.add(target)
+            pages13.bt.add(target)
             sibling = node.parent.children.get("BtText") if node.parent is not None else None
             if sibling is not None and target not in nav_titles:
                 nav_titles[target] = localized_text(an.raw.value_text(sibling))
+        elif node.name == "PanelToLoad" and isinstance(node.value, str):
+            pages13.targeted.add(node.value.rsplit("/", 1)[-1])
+            an.add_tab_button(node)
+        elif node.name == "NewPanel" and isinstance(node.value, str):
+            pages13.targeted.add(node.value.rsplit("/", 1)[-1])
         if unit is not None and ntype in an.types:
             an.add_edge(unit, ntype)
 
@@ -485,7 +558,7 @@ def compute(
 
     # --- pages
     check_cancel(cancel)
-    _pages(result, an, options, nav_titles, main_names)
+    _pages(result, an, options, nav_titles, main_names, pages13)
 
     # --- fichiers
     check_cancel(cancel)
@@ -638,13 +711,33 @@ def _closure(an: _Analyzer, start: _Unit, skip: frozenset[str] = frozenset()) ->
     return links, keys, approx, panels
 
 
-def _pages(result: ProjectStatistics, an: _Analyzer, options: StatisticsOptions, nav_titles: dict[str, str],
-           main_names: set[str]) -> None:
-    views = [u for u in an.units.values() if u.kind in _MAIN_KINDS]
+@dataclass
+class _Pages13:
+    """Indices des pages principales de style 1.3 (``Panel``) relevés pendant la passe unique."""
 
-    main = {u.node.path() for u in views if u.kind == VIEW_SCREEN and u.node.name in main_names}
+    direct: set[str] = field(default_factory=set)  # enfants directs de ``UI/Screens``
+    start: set[str] = field(default_factory=set)  # ``Panel`` initial d'un PanelLoader d'une fenêtre
+    bt: set[str] = field(default_factory=set)  # visés par ``BtPanel`` (boutons de menu et d'accueil)
+    targeted: set[str] = field(default_factory=set)  # visés par ``BtPanel``, ``NewPanel`` ou ``PanelToLoad``
+
+    def names(self) -> set[str]:
+        """Noms des panneaux qui sont des pages principales (splash exclue)."""
+        splash = self.start - self.targeted
+        return (self.direct | self.bt | self.start) - splash
+
+
+def _pages(result: ProjectStatistics, an: _Analyzer, options: StatisticsOptions, nav_titles: dict[str, str],
+           main_names: set[str], pages13: _Pages13) -> None:
+    # Un ``Panel`` page principale (style 1.3) compte comme un écran ; les panneaux d'onglet (PanelToLoad) non.
+    panel_pages = pages13.names()
+    views = [u for u in an.units.values() if u.kind in _MAIN_KINDS or (u.kind == _PANEL and u.node.name in panel_pages)]
+
+    def kind_of(u: _Unit) -> str:
+        return VIEW_SCREEN if u.kind == _PANEL else u.kind
+
+    main = {u.node.path() for u in views if kind_of(u) == VIEW_SCREEN and (u.node.name in main_names or u.kind == _PANEL)}
     if not main:
-        main = {u.node.path() for u in views if u.kind == VIEW_SCREEN}
+        main = {u.node.path() for u in views if kind_of(u) == VIEW_SCREEN}
         if main:
             result.warnings.append(tr("No menu or start-up link found: every screen is counted as a main page."))
     pages: list[PageStats] = []
@@ -653,7 +746,7 @@ def _pages(result: ProjectStatistics, an: _Analyzer, options: StatisticsOptions,
         links, keys, approx, panels = _closure(an, unit)
         title = localized_text(an.raw.key_text(node, "DisplayName")) or nav_titles.get(node.name, "") or node.name
         pages.append(PageStats(
-            name=node.name, title=title, kind=unit.kind, path=node.path(),
+            name=node.name, title=title, kind=kind_of(unit), path=node.path(),
             is_main=node.path() in main, links=len(links), tags=len(keys), approximate=approx, subviews=panels,
         ))
         if approx and node.path() in main:
@@ -709,6 +802,11 @@ def _find(pages: list[PageStats], names: tuple[str, ...]) -> PageStats | None:
 
 def _find_nav(an: _Analyzer, start: _Unit) -> Node | None:
     """Premier ``NavigationPanel`` de l'unité, sinon de ses sous-vues."""
+    return _find_node(an, start, lambda node: node.type == "NavigationPanel")
+
+
+def _find_node(an: _Analyzer, start: _Unit, wanted) -> Node | None:
+    """Premier nœud accepté par ``wanted`` dans l'unité (largeur d'abord), sinon dans ses sous-vues."""
     seen = {start.node.path()}
     queue = deque([start])
     while queue:
@@ -716,7 +814,7 @@ def _find_nav(an: _Analyzer, start: _Unit) -> Node | None:
         nodes = deque(unit.node.children.values())
         while nodes:
             node = nodes.popleft()
-            if node.type == "NavigationPanel":
+            if wanted(node):
                 return node
             nodes.extend(node.children.values())
         for path in unit.edges:
@@ -726,14 +824,74 @@ def _find_nav(an: _Analyzer, start: _Unit) -> Node | None:
     return None
 
 
+def _find_loader(an: _Analyzer, unit: _Unit) -> Node | None:
+    """``PanelLoader`` de la page désigné par des boutons de navigation, sinon le premier ``PanelLoader``."""
+    first: list[Node] = []
+
+    def wanted(node: Node) -> bool:
+        if node.type != "PanelLoader":
+            return False
+        if node.path() in an.tabs:
+            return True
+        first.append(node)
+        return False
+
+    found = _find_node(an, unit, wanted)
+    return found if found is not None else (first[0] if first else None)
+
+
+def _tab_entries(an: _Analyzer, unit: _Unit) -> tuple[list[tuple[str, _Unit | None]], int | None, bool]:
+    """Onglets de l'unité (titre, unité du panneau), indice de l'onglet par défaut (``None`` : inconnu) et ``fixed``.
+
+    ``NavigationPanel`` d'abord, sinon ``PanelLoader`` (voir « Pages et onglets » en tête de module), mais seulement
+    dans un projet qui utilise des boutons ``PanelToLoad`` (style 1.3) : ailleurs un ``PanelLoader`` n'est pas un onglet.
+    ``fixed`` : le loader n'est désigné par aucun bouton, la page n'a qu'un panneau (par défaut).
+    """
+    nav = _find_nav(an, unit)
+    panels_node = nav.children.get("Panels") if nav is not None else None
+    items = [c for c in panels_node.children.values() if c.type == "NavigationPanelItem"] if panels_node is not None else []
+    if items:
+        index: int | None = 0
+        current = nav.children.get("CurrentTabIndex")
+        if current is not None and isinstance(current.value, int) and not isinstance(current.value, bool):
+            index = current.value
+        if not 0 <= index < len(items):
+            index = None
+        entries: list[tuple[str, _Unit | None]] = []
+        for item in items:
+            label = item.children.get("Title")
+            text = localized_text(an.raw.value_text(label)) if label is not None else ""
+            pointer = item.children.get("Panel")
+            name = pointer.value.rsplit("/", 1)[-1] if pointer is not None and isinstance(pointer.value, str) else ""
+            entries.append((text or item.name, an.unit_of_type(name)))
+        return entries, index, False
+    loader = _find_loader(an, unit) if an.tabs else None
+    if loader is None:
+        return [], None, False
+    pointer = loader.children.get("Panel")
+    default = pointer.value.rsplit("/", 1)[-1] if pointer is not None and isinstance(pointer.value, str) else ""
+    names: list[str] = []
+    titles: dict[str, str] = {}
+    for title, name in an.tabs.get(loader.path(), []):
+        if name not in titles:
+            names.append(name)
+            titles[name] = title or an.panel_title(name)
+    index = None
+    if default:
+        if default not in names:
+            names.insert(0, default)
+            titles[default] = an.panel_title(default)
+        index = names.index(default)
+    return [(titles[n], an.unit_of_type(n)) for n in names], index, not an.tabs.get(loader.path())
+
+
 def _tab_rows(an: _Analyzer, unit: _Unit, title: str, tabs: list[str], visited: frozenset[str]
               ) -> tuple[list[PageRow], PageRow | None, bool]:
     """Lignes (page ou feuilles d'onglet) d'une unité, ligne de l'onglet par défaut, onglet inconnu ?
 
-    Sans ``NavigationPanel`` : une seule ligne. Avec : une ligne par feuille d'onglet (onglets imbriqués
-    suivis), plus une ligne pour le contenu hors onglets seulement s'il a ses propres liaisons.
-    L'onglet par défaut est ``CurrentTabIndex`` s'il a une valeur scalaire, sinon le premier ; hors limites,
-    il est inconnu (``None``).
+    Sans onglet : une seule ligne. Avec : une ligne par feuille d'onglet (onglets imbriqués suivis), plus une
+    ligne pour le contenu hors onglets seulement s'il a ses propres liaisons. L'onglet par défaut vient de
+    ``_tab_entries`` ; inconnu, il vaut ``None``.
     """
     path = unit.node.path()
 
@@ -741,36 +899,22 @@ def _tab_rows(an: _Analyzer, unit: _Unit, title: str, tabs: list[str], visited: 
         links, keys, approx, panels = _closure(an, source, skip)
         return PageRow(title, path, list(labels), len(links), len(keys), approx, panels)
 
-    nav = _find_nav(an, unit)
-    panels_node = nav.children.get("Panels") if nav is not None else None
-    items = [c for c in panels_node.children.values() if c.type == "NavigationPanelItem"] if panels_node is not None else []
-    if not items:
+    entries, index, fixed = _tab_entries(an, unit)
+    if not entries:
         single = row(unit, tabs)
         return [single], single, False
-    index: int | None = 0
-    current = nav.children.get("CurrentTabIndex")
-    if current is not None and isinstance(current.value, int) and not isinstance(current.value, bool):
-        index = current.value
-    if not 0 <= index < len(items):
-        index = None
-    targets: list[_Unit | None] = []
-    for item in items:
-        pointer = item.children.get("Panel")
-        name = pointer.value.rsplit("/", 1)[-1] if pointer is not None and isinstance(pointer.value, str) else ""
-        node = an.types.get(name)
-        targets.append(an.units.get(node.path()) if node is not None else None)
-    skip = frozenset(u.node.path() for u in targets if u is not None)
+    if fixed:  # aucun bouton ne désigne le loader : une seule ligne « Page/<panneau par défaut> »
+        single = row(unit, [*tabs, entries[0][0]])
+        return [single], single, False
+    skip = frozenset(target.node.path() for _text, target in entries if target is not None)
     rows: list[PageRow] = []
     own = row(unit, tabs, skip)
     if own.links:
         rows.append(own)
     default: PageRow | None = None
     unknown = index is None
-    for i, item in enumerate(items):
-        label = item.children.get("Title")
-        text = localized_text(an.raw.value_text(label)) if label is not None else ""
-        sub_tabs = [*tabs, text or item.name]
-        target = targets[i]
+    for i, (text, target) in enumerate(entries):
+        sub_tabs = [*tabs, text]
         if target is None or target.node.path() in visited:
             leaf = PageRow(title, path, sub_tabs)
             sub_rows, sub_default, sub_unknown = [leaf], leaf, False
