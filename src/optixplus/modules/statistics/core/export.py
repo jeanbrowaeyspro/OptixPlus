@@ -27,7 +27,7 @@ def write_csv(
     """Écrit les stations puis les pages (deux sections séparées par une ligne vide), en UTF-8 avec BOM.
 
     ``station_titles`` : 5 colonnes (station, pilote, adresse:port, tags, structures) ;
-    ``page_titles`` : 8 colonnes (titre, nom, type, principale, tags, liaisons, sous-vues, approximatif).
+    ``page_titles`` : 8 colonnes (titre, nom, type, principale, tags distincts, liaisons, sous-vues, approximatif).
     """
     with open(path, "w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, delimiter=SEPARATOR)

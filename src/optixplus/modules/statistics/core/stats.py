@@ -17,13 +17,6 @@ Règles retenues
   tag (le motif), jamais comme une liste d'indices inventés : la page est alors ``approximate``.
 - Les pilotes connus sont décrits dans ``DRIVERS`` (seul CODESYS est vérifié sur de vrais projets).
 
-Mémoire (estimation indicative, à calibrer)
-------------------------------------------
-``bas / haut = base du runtime + nœuds × octets/nœud + tags × octets/tag + images décodées
-× part résidente + polices × facteur + bases ApplicationFiles × part en mémoire``. Les images
-raster sont comptées largeur × hauteur × 4 (en-tête lu sans bibliothèque) ; les autres formats par
-leur taille de fichier × un facteur. Chaque poste de ``Memory.detail`` est la moyenne de sa
-fourchette. Ces constantes sont des hypothèses, **à calibrer** sur des mesures réelles.
 """
 
 from __future__ import annotations
@@ -32,11 +25,10 @@ import json
 import logging
 import os
 import re
-import struct
 from collections import deque
 from dataclasses import dataclass, field
 
-from optixplus.common.i18n import tr, tr_noop
+from optixplus.common.i18n import tr
 from optixplus.common.optix import project as optix_project
 from optixplus.common.optix.model import Node, OptixProject
 from optixplus.common.progress import CancelCheck, ProgressCallback, check_cancel, report
@@ -48,7 +40,6 @@ from .model import (
     VIEW_POPUP,
     VIEW_SCREEN,
     VIEW_WINDOW,
-    Memory,
     PageStats,
     ProjectStatistics,
     StationStats,
@@ -90,27 +81,8 @@ _PREFIX_RE = re.compile(r"^IType_(?:\d+_)?", re.IGNORECASE)
 _TAG_RE = re.compile(r"^/Objects/[^/]+/CommDrivers/[^/]+/[^/]+/Tags(?:/|$)")
 _ROW_SPLIT = re.compile(r"\r\n|\r|\n")
 
-# --------------------------------------------------------------------------- mémoire (hypothèses)
-MIB = 1024 * 1024
-RUNTIME_BASE_MIB = (120.0, 220.0)  # processus runtime + moteur d'interface
-BYTES_PER_NODE = (300, 900)  # nœud du modèle chargé
-BYTES_PER_TAG = (200, 600)  # tag synchronisé (valeur, abonnement, métadonnées)
-IMAGE_RESIDENT = (0.2, 1.0)  # part des images décodées présente en mémoire
-IMAGE_FALLBACK_FACTOR = 10.0  # décodé / fichier pour un format dont l'en-tête n'est pas lu
-SVG_FACTOR = (3.0, 10.0)  # arbre SVG analysé / fichier
-FONT_FACTOR = (1.0, 2.0)  # police chargée / fichier
-DATABASE_RESIDENT = (0.1, 1.0)  # part des bases ApplicationFiles en cache mémoire
-
-MEM_BASE = tr_noop("Runtime (base)")
-MEM_NODES = tr_noop("Model nodes")
-MEM_TAGS = tr_noop("Controller tags")
-MEM_IMAGES = tr_noop("Images")
-MEM_FONTS = tr_noop("Fonts")
-MEM_DATABASES = tr_noop("Databases (ApplicationFiles)")
-
 IMAGE_EXT = frozenset({".png", ".jpg", ".jpeg", ".bmp", ".gif", ".svg"})
 FONT_EXT = frozenset({".ttf", ".otf"})
-DATABASE_EXT = frozenset({".sqlite", ".db", ".sqlite3"})
 
 
 # --------------------------------------------------------------------------- utilitaires
@@ -351,77 +323,32 @@ class _Analyzer:
 
 
 # --------------------------------------------------------------------------- lecture du .optix
-def _read_optix_header(folder: str) -> tuple[str, str, list[tuple[str, str]], dict[str, int]]:
-    """(version produit, version du noyau, dépendances, statistiques de Studio)."""
+def _read_optix_header(folder: str) -> tuple[str, str, dict[str, int]]:
+    """(version produit, version du noyau, statistiques de Studio)."""
     for name in sorted(os.listdir(folder)):
         if name.lower().endswith(optix_project.OPTIX_SUFFIX) and os.path.isfile(os.path.join(folder, name)):
             with open(os.path.join(folder, name), "rb") as fh:
                 lines = fh.read().splitlines()
             meta = optix_project.parse_optix(lines)
             core = ""
-            modules: list[tuple[str, str]] = []
-            current: dict[str, str] = {}
-            in_deps = False
             for line in lines:
                 text = line.decode("utf-8", "replace")
-                stripped = text.strip()
-                indent = len(text) - len(text.lstrip(" "))
-                if indent == 1:
-                    if stripped.startswith("CoreVersion:"):
-                        core = stripped.split(":", 1)[1].strip()
-                    in_deps = stripped.startswith("Dependencies:")
-                    continue
-                if in_deps and indent >= 3:
-                    key, _, val = stripped.partition(":")
-                    if key in ("Module", "Version"):
-                        current[key] = val.strip().strip("'\"")
-                        if "Module" in current and "Version" in current:
-                            modules.append((current.pop("Module"), current.pop("Version")))
-            return meta.product_version, core, modules, dict(meta.statistics)
-    return "", "", [], {}
+                if text.startswith(" ") and not text.startswith("  ") and text.strip().startswith("CoreVersion:"):
+                    core = text.split(":", 1)[1].strip()
+                    break
+            return meta.product_version, core, dict(meta.statistics)
+    return "", "", {}
 
 
 # --------------------------------------------------------------------------- images et fichiers
-def image_size(path: str) -> tuple[int, int] | None:
-    """Largeur et hauteur lues dans l'en-tête (PNG, JPEG, GIF, BMP), ``None`` sinon."""
-    ext = os.path.splitext(path)[1].lower()
-    try:
-        with open(path, "rb") as fh:
-            head = fh.read(32)
-            if ext == ".png" and head[:8] == b"\x89PNG\r\n\x1a\n":
-                return struct.unpack(">II", head[16:24])
-            if ext == ".gif" and head[:3] == b"GIF":
-                return struct.unpack("<HH", head[6:10])
-            if ext == ".bmp" and head[:2] == b"BM":
-                width, height = struct.unpack("<ii", head[18:26])
-                return width, abs(height)
-            if ext in (".jpg", ".jpeg") and head[:2] == b"\xff\xd8":
-                fh.seek(2)
-                while True:
-                    marker = fh.read(4)
-                    if len(marker) < 4 or marker[0] != 0xFF:
-                        return None
-                    code, length = marker[1], struct.unpack(">H", marker[2:4])[0]
-                    if 0xC0 <= code <= 0xCF and code not in (0xC4, 0xC8, 0xCC):
-                        data = fh.read(5)
-                        height, width = struct.unpack(">HH", data[1:5])
-                        return width, height
-                    fh.seek(length - 2, os.SEEK_CUR)
-    except (OSError, struct.error):
-        return None
-    return None
-
-
 def _scan_files(folder: str, ticker: _Ticker) -> dict:
-    """Taille de ProjectFiles, images et polices (nombre, octets, mémoire décodée estimée)."""
-    out = {"bytes": 0, "img_n": 0, "img_b": 0, "img_mem": (0.0, 0.0), "font_n": 0, "font_b": 0}
-    low = high = 0.0
+    """Taille de ProjectFiles, nombre et taille des images et des polices."""
+    out = {"bytes": 0, "img_n": 0, "img_b": 0, "font_n": 0, "font_b": 0}
     for root, _dirs, files in os.walk(os.path.join(folder, "ProjectFiles")):
         for name in files:
             ticker.tick()
-            path = os.path.join(root, name)
             try:
-                size = os.path.getsize(path)
+                size = os.path.getsize(os.path.join(root, name))
             except OSError:
                 continue
             out["bytes"] += size
@@ -429,18 +356,9 @@ def _scan_files(folder: str, ticker: _Ticker) -> dict:
             if ext in IMAGE_EXT:
                 out["img_n"] += 1
                 out["img_b"] += size
-                if ext == ".svg":
-                    low += size * SVG_FACTOR[0] * IMAGE_RESIDENT[0]
-                    high += size * SVG_FACTOR[1] * IMAGE_RESIDENT[1]
-                else:
-                    dims = image_size(path)
-                    decoded = dims[0] * dims[1] * 4 if dims else size * IMAGE_FALLBACK_FACTOR
-                    low += decoded * IMAGE_RESIDENT[0]
-                    high += decoded * IMAGE_RESIDENT[1]
             elif ext in FONT_EXT:
                 out["font_n"] += 1
                 out["font_b"] += size
-    out["img_mem"] = (low, high)
     return out
 
 
@@ -460,7 +378,7 @@ def compute(
         name=project.name, folder=folder, kind=KIND_RUNTIME if os.path.isdir(runtime_dir) else KIND_PROJECT
     )
     result.ide_version = optix_project.read_ide_version(folder) or ""
-    result.product_version, result.core_version, result.modules, result.studio_counts = _read_optix_header(folder)
+    result.product_version, result.core_version, result.studio_counts = _read_optix_header(folder)
     result.nodes = len(project.all_nodes)
     result.files = project.files_loaded
     if project.pyyaml_files:
@@ -543,7 +461,6 @@ def compute(
     result.project_files_bytes = files["bytes"]
     result.image_files, result.image_bytes = files["img_n"], files["img_b"]
     result.font_files, result.font_bytes = files["font_n"], files["font_b"]
-    db_bytes = 0
     if result.kind == KIND_RUNTIME:
         entries: list[tuple[str, int]] = []
         for dirpath, _dirs, names in os.walk(runtime_dir):
@@ -554,10 +471,7 @@ def compute(
                 except OSError:
                     continue
                 entries.append((os.path.relpath(full, runtime_dir), size))
-                if os.path.splitext(name)[1].lower() in DATABASE_EXT:
-                    db_bytes += size
         result.runtime_files = sorted(entries, key=lambda e: (-e[1], e[0]))
-    result.memory = _memory(result, files, db_bytes)
     report(progress, tr("Done"), "", 1, 1)
     return result
 
@@ -720,20 +634,3 @@ def _tab_title(an: _Analyzer, nav: Node) -> str:
     title = item.children.get("Title")
     text = localized_text(an.raw.value_text(title)) if title is not None else ""
     return text or item.name
-
-
-def _memory(result: ProjectStatistics, files: dict, db_bytes: int) -> Memory:
-    parts: list[tuple[str, float, float]] = [
-        (MEM_BASE, RUNTIME_BASE_MIB[0], RUNTIME_BASE_MIB[1]),
-        (MEM_NODES, result.nodes * BYTES_PER_NODE[0] / MIB, result.nodes * BYTES_PER_NODE[1] / MIB),
-        (MEM_TAGS, result.tags_total * BYTES_PER_TAG[0] / MIB, result.tags_total * BYTES_PER_TAG[1] / MIB),
-        (MEM_IMAGES, files["img_mem"][0] / MIB, files["img_mem"][1] / MIB),
-        (MEM_FONTS, result.font_bytes * FONT_FACTOR[0] / MIB, result.font_bytes * FONT_FACTOR[1] / MIB),
-    ]
-    if db_bytes:
-        parts.append((MEM_DATABASES, db_bytes * DATABASE_RESIDENT[0] / MIB, db_bytes * DATABASE_RESIDENT[1] / MIB))
-    return Memory(
-        low_mib=sum(p[1] for p in parts),
-        high_mib=sum(p[2] for p in parts),
-        detail=[(label, (low + high) / 2) for label, low, high in parts],
-    )

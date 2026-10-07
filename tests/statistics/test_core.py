@@ -32,8 +32,6 @@ def test_versions_and_studio_counts(result):
     assert result.ide_version == "1.6.4.11-Stable"
     assert result.product_version == "1.6"
     assert result.core_version == "4.2"
-    assert ("FTOptix.UI", "18.1") in result.modules
-    assert ("FTOptix.Core.Net", "2.2") in result.modules
     assert result.studio_counts["TotalNodeCount"] == 123
     assert result.nodes > 50
     assert result.files >= 8
@@ -68,7 +66,7 @@ def test_titles(result):
 
 def test_tags_per_page_with_shared_subview(result):
     home = page(result, "IType_00_Home")
-    assert (home.links, home.tags, home.subviews, home.approximate) == (2, 2, 0, False)  # le lien vers le modèle est ignoré
+    assert (home.links, home.tags, home.subviews, home.approximate) == (3, 2, 0, False)  # Pressure lié à deux objets : 2 liaisons, 1 tag ; le lien vers le modèle est ignoré
     work = page(result, "IType_01_Work")
     # Pressure, Counters/Count1 (relatif), Motor (pointeur d'équipement) + Level, Motor/Speed (sous-vue)
     assert (work.links, work.tags, work.subviews, work.approximate) == (5, 5, 1, False)
@@ -105,6 +103,23 @@ def test_custom_names(tmp_path):
     assert unknown.work_page is None
 
 
+def test_supervision_is_also_named_overwatch(tmp_path):
+    assert StatisticsOptions().supervision_names == ("Supervision", "Overwatch")
+    assert StatisticsOptions().work_names == ("Work", "Travail")
+    folder = str(make_project(tmp_path))
+    only = stats.compute(folder, options=StatisticsOptions(supervision_names=("OVERWATCH",)))
+    assert only.supervision_page is None  # aucune page de ce nom
+    both = stats.compute(folder, options=StatisticsOptions(supervision_names=("OverWatch", "supervision")))
+    assert both.supervision_page is not None and both.supervision_page.name == "IType_02_Supervision"
+
+
+def test_bindings_count_objects_and_tags_count_distinct_paths(result):
+    home = page(result, "IType_00_Home")
+    assert home.links > home.tags  # un tag lié à deux objets : deux liaisons, un tag
+    for p in result.pages:
+        assert p.tags <= p.links
+
+
 def test_default_tab_first_without_explicit_index(result):
     assert result.supervision_default_tab == "Axes"
 
@@ -130,21 +145,6 @@ def test_project_files(result):
     assert result.kind == KIND_PROJECT
 
 
-def test_memory_estimate(result):
-    mem = result.memory
-    assert 0 < mem.low_mib < mem.high_mib
-    labels = [label for label, _ in mem.detail]
-    assert stats.MEM_BASE in labels and stats.MEM_NODES in labels and stats.MEM_IMAGES in labels
-    assert stats.MEM_DATABASES not in labels
-    assert sum(v for _, v in mem.detail) == pytest.approx((mem.low_mib + mem.high_mib) / 2)
-
-
-def test_image_size_from_header(tmp_path):
-    folder = make_project(tmp_path)
-    assert stats.image_size(str(folder / "ProjectFiles" / "Images" / "a.png")) == (100, 50)
-    assert stats.image_size(str(folder / "ProjectFiles" / "notes.txt")) is None
-
-
 def test_runtime_variant(tmp_path):
     result = stats.compute(str(make_project(tmp_path, runtime=True)))
     assert result.kind == KIND_RUNTIME
@@ -152,7 +152,6 @@ def test_runtime_variant(tmp_path):
     assert names == ["Data.sqlite", "RetentivityStorage.db", "log.txt"]  # par taille décroissante
     assert result.runtime_files[0][1] == 20000
     assert not any(n.endswith(".source") for n in names)
-    assert stats.MEM_DATABASES in [label for label, _ in result.memory.detail]
     # même contenu que le projet
     assert result.tags_total == 8 and result.main_pages == 3
 

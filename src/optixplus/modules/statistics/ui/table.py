@@ -16,9 +16,10 @@ def cell(text: str, key: object = None, tooltip: str = "") -> Cell:
 
 
 class RowsModel(QAbstractTableModel):
-    def __init__(self, titles: list[str], rows: list[list[Cell]], parent=None) -> None:
+    def __init__(self, titles: list[str], rows: list[list[Cell]], parent=None, header_tips: list[str] | None = None) -> None:
         super().__init__(parent)
         self._titles = titles
+        self._header_tips = header_tips or []
         self.rows = rows
 
     def rowCount(self, parent=QModelIndex()) -> int:  # noqa: N802 (API Qt)
@@ -30,6 +31,8 @@ class RowsModel(QAbstractTableModel):
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):  # noqa: N802 (API Qt)
         if role == Qt.ItemDataRole.DisplayRole and orientation == Qt.Orientation.Horizontal:
             return self._titles[section]
+        if role == Qt.ItemDataRole.ToolTipRole and orientation == Qt.Orientation.Horizontal:
+            return (self._header_tips[section] if section < len(self._header_tips) else "") or None
         return None
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
@@ -61,10 +64,18 @@ class _SortProxy(QSortFilterProxyModel):
 class StatsTable(QTableView):
     """Tableau triable par colonne, à la hauteur de son contenu (au plus ``max_rows`` lignes visibles)."""
 
-    def __init__(self, titles: list[str], rows: list[list[Cell]], *, max_rows: int = 12, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        titles: list[str],
+        rows: list[list[Cell]],
+        *,
+        max_rows: int = 12,
+        header_tips: list[str] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         scrollbar_below_header(self)
-        self.rows_model = RowsModel(titles, rows, self)
+        self.rows_model = RowsModel(titles, rows, self, header_tips)
         self.proxy = _SortProxy(self)
         self.proxy.setSourceModel(self.rows_model)
         self.proxy.setSortRole(Qt.ItemDataRole.UserRole)

@@ -24,7 +24,7 @@ class StatisticsOptions:
     #: Noms (affichés ou techniques, insensibles à la casse) qui désignent la page « Travail ».
     work_names: tuple[str, ...] = ("Work", "Travail")
     #: Idem pour la page « Supervision ».
-    supervision_names: tuple[str, ...] = ("Supervision",)
+    supervision_names: tuple[str, ...] = ("Supervision", "Overwatch")
 
 
 @dataclass
@@ -50,20 +50,13 @@ class PageStats:
     kind: str  # VIEW_*
     path: str
     is_main: bool = False  # page principale : écran ouvert depuis le menu ou le démarrage
-    links: int = 0  # liaisons (DynamicLink) vers des tags d'automate, sous-vues comprises
-    tags: int = 0  # tags d'automate distincts liés, sous-vues comprises
+    #: Liaisons : propriétés d'objets de la page et de ses sous-vues liées à un tag d'automate
+    #: (nœuds ``DynamicLink`` ou pointeurs distincts) ; un tag lié à trois objets compte pour 3.
+    links: int = 0
+    #: Tags d'automate distincts liés (chemins distincts) ; un tag lié à trois objets compte pour 1.
+    tags: int = 0
     approximate: bool = False  # vrai si des chemins dynamiques n'ont pas pu être résolus
     subviews: int = 0  # sous-vues (panneaux) utilisées par la page
-
-
-@dataclass
-class Memory:
-    """Estimation indicative de la mémoire du runtime (fourchette en Mio)."""
-
-    low_mib: float = 0.0
-    high_mib: float = 0.0
-    #: Détail ``(libellé, Mio)`` : nœuds, tags, images, polices, journaux…
-    detail: list[tuple[str, float]] = field(default_factory=list)
 
 
 @dataclass
@@ -75,7 +68,6 @@ class ProjectStatistics:
     ide_version: str = ""  # IDEVersion.txt, ex. 1.6.4.11-Stable
     product_version: str = ""  # champ ProductVersion du .optix
     core_version: str = ""
-    modules: list[tuple[str, str]] = field(default_factory=list)  # (module, version) de Dependencies
     # --- nœuds
     studio_counts: dict[str, int] = field(default_factory=dict)  # chiffres écrits par Studio dans le .optix
     nodes: int = 0  # nœuds comptés par OptixPlus
@@ -104,6 +96,5 @@ class ProjectStatistics:
     project_files_bytes: int = 0
     # --- runtime seulement : ``(nom, octets)`` des bases (SQLite, rétentivité) de ApplicationFiles
     runtime_files: list[tuple[str, int]] = field(default_factory=list)
-    memory: Memory = field(default_factory=Memory)
     #: Remarques à afficher (analyse approximative, fichier relu avec PyYAML, type de pilote inconnu…)
     warnings: list[str] = field(default_factory=list)

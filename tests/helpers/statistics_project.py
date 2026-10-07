@@ -197,6 +197,7 @@ Children:
 """
         + _label("LabelPressure", f"{TAGS_A}/Pressure")
         + _label("LabelLevel", f"{TAGS_A}/Level")
+        + _label("LabelPressureCopy", f"{TAGS_A}/Pressure")  # même tag, autre objet : 1 tag, 2 liaisons
         + _label("LabelLocal", "/Objects/Demo/Model/Local")
         + """- Name: IType_01_Work
   Supertype: Screen

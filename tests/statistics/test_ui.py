@@ -7,8 +7,9 @@ import os
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QLabel, QMessageBox
 
+from optixplus.common.i18n import tr
 from optixplus.common.progress import Cancelled, Progress
 from optixplus.common.recent import recent_projects
 from optixplus.modules.statistics.core.config import StatisticsSettings
@@ -161,7 +162,7 @@ def test_language_change_keeps_result_and_sort(ui):
     assert new_page.result is not None
     table = new_page.tables["pages"]
     assert table.displayed(0)[0] == "Work"
-    assert table.model().headerData(3, Qt.Orientation.Horizontal) == "Linked tags"
+    assert table.model().headerData(3, Qt.Orientation.Horizontal) == "Distinct tags"
     assert new_page.summary.text().startswith("Demo: 150 synchronised tags")
 
 
@@ -188,3 +189,45 @@ def test_f5_works_without_clicking_in_the_page(ui, qapp):
     page.act_analyse.triggered.connect(lambda: triggered.append(True))
     QTest.keyClick(qapp.focusWidget(), Qt.Key.Key_F5)
     assert triggered
+
+
+def _labels(page) -> list[str]:
+    return [label.text() for label in page.cards.findChildren(QLabel)]
+
+
+def test_pages_card_gives_name_and_tag_count_of_work_and_supervision(ui):
+    _controller, page, _calls = ui
+    _analysed(page)
+    labels = _labels(page)
+    assert "Work (≈ 40 tags)" in labels  # page approximative
+    assert "Supervision (25 tags)" in labels
+    assert "Overview" in labels  # onglet par défaut de la supervision
+
+
+def test_pages_card_says_not_found(ui):
+    _controller, page, _calls = ui
+    result = make_statistics()
+    result.work_page = result.supervision_page = None
+    page.show_result(result)
+    assert _labels(page).count(tr("not found")) >= 2  # travail et supervision (et la page la plus chargée n'est pas touchée)
+
+
+def test_bindings_and_distinct_tags_columns_explain_themselves(ui):
+    _controller, page, _calls = ui
+    _analysed(page)
+    model = page.tables["pages"].model()
+    horizontal = Qt.Orientation.Horizontal
+    assert model.headerData(3, horizontal) == "Tags distincts"
+    assert model.headerData(4, horizontal) == "Liaisons"
+    assert "trois objets compte pour 3 liaisons et 1 tag" in model.headerData(4, horizontal, Qt.ItemDataRole.ToolTipRole)
+    assert "qu'une fois" in model.headerData(3, horizontal, Qt.ItemDataRole.ToolTipRole)
+    assert model.headerData(0, horizontal, Qt.ItemDataRole.ToolTipRole) is None
+
+
+def test_no_memory_nor_module_list_in_the_result(ui):
+    _controller, page, _calls = ui
+    _analysed(page)
+    texts = " ".join(_labels(page)).lower()
+    assert "mémoire" not in texts and "mio (estimation)" not in texts
+    assert "modules" not in texts
+    assert "memory" not in page.tables

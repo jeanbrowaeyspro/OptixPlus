@@ -77,6 +77,20 @@ def _yes_no(value: bool) -> str:
     return tr("Yes") if value else tr("No")
 
 
+def _bindings_tip() -> str:
+    return tr(
+        "Number of object properties on the page (and its subviews) that are bound to a controller tag. "
+        "A tag bound to three objects counts for 3 bindings and 1 tag."
+    )
+
+
+def _distinct_tags_tip() -> str:
+    return tr(
+        "Number of different controller tags bound from the page (and its subviews). "
+        "A tag bound to three objects counts only once."
+    )
+
+
 def _station_titles() -> list[str]:
     return [tr("Station"), tr("Driver"), tr("Address:port"), tr("Tags"), tr("Of which structures")]
 
@@ -325,7 +339,6 @@ class StatisticsPage(QWidget):
         self.cards_layout.addWidget(self._project_card(result))
         if result.kind == KIND_RUNTIME:
             self.cards_layout.addWidget(self._runtime_files_card(result))
-        self.cards_layout.addWidget(self._memory_card(result))
         if result.warnings:
             self.cards_layout.addWidget(self._warnings_card(result))
         self.cards_layout.addStretch(1)
@@ -336,13 +349,11 @@ class StatisticsPage(QWidget):
         version = r.ide_version or tr("unknown")
         if r.product_version:
             version += f" ({r.product_version})"
-        modules = ", ".join(f"{name} {ver}".strip() for name, ver in r.modules) or "—"
         card.add_facts(
             [
                 (tr("Type"), tr("Runtime") if r.kind == KIND_RUNTIME else tr("Project"), ""),
                 (tr("FT Optix version"), version, ""),
                 (tr("Folder"), r.folder, ""),
-                (tr("Modules"), modules, ""),
             ]
         )
         return card
@@ -384,8 +395,8 @@ class StatisticsPage(QWidget):
             (tr("Main pages"), str(r.main_pages), ""),
             (tr("Average tags per main page"), _num(r.average_tags_per_main_page), ""),
             (tr("Busiest page"), busiest, ""),
-            (tr("Work page"), r.work_page.title if r.work_page else not_found, ""),
-            (tr("Supervision page"), r.supervision_page.title if r.supervision_page else not_found, ""),
+            (tr("Work page"), self._page_fact(r.work_page, not_found), ""),
+            (tr("Supervision page"), self._page_fact(r.supervision_page, not_found), ""),
         ]
         if r.supervision_page is not None:
             facts.append((tr("Supervision default tab"), r.supervision_default_tab or tr("unknown"), ""))
@@ -407,11 +418,20 @@ class StatisticsPage(QWidget):
                     cell(str(p.subviews), p.subviews),
                 ]
             )
-        titles = [tr("Page"), tr("Type"), tr("Main"), tr("Linked tags"), tr("Links"), tr("Subviews")]
-        table = StatsTable(titles, rows, max_rows=MAX_TABLE_ROWS)
+        titles = [tr("Page"), tr("Type"), tr("Main"), tr("Distinct tags"), tr("Bindings"), tr("Subviews")]
+        tips = ["", "", "", _distinct_tags_tip(), _bindings_tip(), ""]
+        table = StatsTable(titles, rows, max_rows=MAX_TABLE_ROWS, header_tips=tips)
         self.tables["pages"] = table
         card.add(table)
         return card
+
+    @staticmethod
+    def _page_fact(page, not_found: str) -> str:
+        """Nom de la page et nombre de tags liés (« ≈ » si approximatif)."""
+        if page is None:
+            return not_found
+        tags = f"≈ {page.tags}" if page.approximate else page.tags
+        return tr("{title} ({tags} tags)").format(title=page.title, tags=tags)
 
     def _project_card(self, r: ProjectStatistics) -> QWidget:
         card = _Card(tr("Content"))
@@ -447,22 +467,6 @@ class StatisticsPage(QWidget):
         card.add(table)
         return card
 
-    def _memory_card(self, r: ProjectStatistics) -> QWidget:
-        card = _Card(tr("Estimated memory"))
-        m = r.memory
-        label = card.add_text(tr("{low}–{high} MiB (estimate)").format(low=_num(m.low_mib, 0), high=_num(m.high_mib, 0)))
-        font = label.font()
-        font.setBold(True)
-        label.setFont(font)
-        if m.detail:
-            label.setToolTip("\n".join(f"{tr(name)}: {_num(mib)} {tr('MiB')}" for name, mib in m.detail))
-            rows = [[cell(tr(name)), cell(_num(mib), mib)] for name, mib in m.detail]
-            table = StatsTable([tr("Item"), tr("MiB")], rows, max_rows=8)
-            self.tables["memory"] = table
-            card.add(table)
-        card.add_text(tr("Rough estimate, to be read as an order of magnitude."), muted=True)
-        return card
-
     def _warnings_card(self, r: ProjectStatistics) -> QWidget:
         card = _Card(tr("Warnings"))
         for warning in r.warnings:
@@ -478,7 +482,7 @@ class StatisticsPage(QWidget):
         if not path:
             return
         page_titles = [
-            tr("Page"), tr("Name"), tr("Type"), tr("Main"), tr("Linked tags"), tr("Links"), tr("Subviews"), tr("Approximate"),
+            tr("Page"), tr("Name"), tr("Type"), tr("Main"), tr("Distinct tags"), tr("Bindings"), tr("Subviews"), tr("Approximate"),
         ]
         try:
             export.write_csv(

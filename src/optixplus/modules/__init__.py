@@ -46,11 +46,12 @@ MODULES: tuple[ModuleSpec, ...] = (
     ModuleSpec(
         id="statistics",
         title="Statistics",
-        description="Count the tags, pages and nodes of an FT Optix project or runtime and estimate its memory.",
+        description="Count the tags, pages and nodes of an FT Optix project or runtime.",
         icon="statistics",
         shortcut="Ctrl+5",
         import_path="optixplus.modules.statistics.module:StatisticsModule",
         opens_projects=True,
+        settings_path="optixplus.modules.statistics.ui.settings_page:StatisticsSettingsPage",
     ),
 )
 

@@ -6,7 +6,6 @@ from optixplus.modules.statistics.core.model import (
     KIND_RUNTIME,
     VIEW_DIALOG,
     VIEW_SCREEN,
-    Memory,
     PageStats,
     ProjectStatistics,
     StationStats,
@@ -24,7 +23,6 @@ def make_statistics(folder: str = "C:/demo/Demo", *, runtime: bool = False) -> P
         kind=KIND_RUNTIME if runtime else "project",
         ide_version="1.6.4.11-Stable",
         product_version="1.6.4.11",
-        modules=[("Core", "1.6.4"), ("CODESYS", "1.6.2")],
         studio_counts={"Nodes": 900},
         nodes=910,
         files=14,
@@ -50,6 +48,5 @@ def make_statistics(folder: str = "C:/demo/Demo", *, runtime: bool = False) -> P
         font_bytes=300 * 1024,
         project_files_bytes=5 * 1024 * 1024,
         runtime_files=[("Retentive.db", 2048), ("Data.sqlite", 4 * 1024 * 1024)] if runtime else [],
-        memory=Memory(110.0, 160.0, [("Nodes", 40.0), ("Tags", 20.5)]),
         warnings=["Some dynamic paths could not be resolved."],
     )

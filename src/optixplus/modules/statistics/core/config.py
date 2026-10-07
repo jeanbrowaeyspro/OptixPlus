@@ -14,7 +14,7 @@ def _defaults() -> StatisticsOptions:
 
 @dataclass
 class StatisticsSettings:
-    """Point d'extension : pas encore de page dans la fenêtre Paramètres, valeurs par défaut du calcul."""
+    """Noms des pages « Travail » et « Supervision » (page de la fenêtre Paramètres : catégorie Statistics)."""
 
     SECTION: ClassVar[str] = "statistics"
 
