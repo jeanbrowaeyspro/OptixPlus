@@ -4,6 +4,12 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 
 ## [Non publié]
 
+## [1.2.1] - 2026-10-07
+
+### Corrigé
+- Statistiques : les projets FT Optix 1.3 donnent maintenant leurs pages. Leurs pages principales sont des panneaux rangés sous `UI/Screens` (et non des écrans) et leurs onglets sont des `PanelLoader` pilotés par des boutons de navigation : OptixPlus les reconnaît, avec les onglets imbriqués (« Page/Onglet/Onglet ») et sans compter la page d'attente du démarrage.
+- Statistiques : les liens relatifs vers des tags étaient résolus depuis le mauvais nœud, ce qui sous-estimait un peu le nombre de tags utilisés.
+
 ## [1.2.0] - 2026-10-07
 
 ### Ajouté
