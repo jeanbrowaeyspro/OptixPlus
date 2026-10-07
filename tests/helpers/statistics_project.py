@@ -205,7 +205,7 @@ Children:
   Children:
 """
         + _label("LabelPressure", f"{TAGS_A}/Pressure")
-        + _label("LabelRelative", "../../../../../CommDrivers/CODESYSDriver/PlcA/Tags/Counters/Count1")
+        + _label("LabelRelative", "../../../../CommDrivers/CODESYSDriver/PlcA/Tags/Counters/Count1")
         + """  - Name: Gauge1
     Type: IType_Gauge
   - Name: Gauge2

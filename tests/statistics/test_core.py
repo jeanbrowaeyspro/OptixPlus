@@ -264,3 +264,17 @@ def test_exact_when_no_dynamic_path(tmp_path):
     path.write_text(path.read_text(encoding="utf-8").replace("Slot{0}", "Pressure"), encoding="utf-8")
     result = stats.compute(str(folder))
     assert not result.tags_used_approximate and result.tags_used == 7
+
+
+def test_relative_link_is_resolved_from_the_variable_that_carries_it(tmp_path):
+    """``..`` part de la variable liée (parent du ``DynamicLink``), comme dans Studio et le Link Checker."""
+    from statistics_project import _label
+
+    base = stats.compute(str(make_project(tmp_path))).tags_used
+    folder = make_project(tmp_path, name="Demo6")
+    path = folder / "Nodes" / "UI" / "UI.yaml"
+    text = path.read_text(encoding="utf-8")
+    # dernier type du fichier (boîte de dialogue) : un lien relatif vers Spare, inutilisé sinon
+    path.write_text(text + _label("LabelSpare", "../../../../CommDrivers/CODESYSDriver/PlcA/Tags/Spare"), encoding="utf-8")
+    result = stats.compute(str(folder))
+    assert result.tags_used == base + 1  # sans la correction, le chemin ne résout pas : Spare resterait inutilisé

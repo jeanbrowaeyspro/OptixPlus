@@ -214,6 +214,12 @@ def short_name(name: str) -> str:
     return _PREFIX_RE.sub("", name)
 
 
+def _origin(node: Node) -> Node:
+    """Origine d'un chemin relatif : pour un ``DynamicLink``, la variable qui porte le lien (son parent), comme
+    le Link Checker ; ``..`` en part."""
+    return node.parent if node.type == "DynamicLink" and node.parent is not None else node
+
+
 def _tag_key(path: str) -> str:
     return path.split("@", 1)[0].strip()
 
@@ -305,7 +311,7 @@ class _Analyzer:
             return None
         if "{" in value:
             return None
-        target, code, _ = self.project.resolve(value, origin)
+        target, code, _ = self.project.resolve(value, _origin(origin))
         if target is not None and code == "ok":
             path = target.path()
             if _TAG_RE.match(path):
@@ -351,7 +357,7 @@ class _Analyzer:
             return
         if not follow or unit is None or "{" in value or "/CommDrivers/" in value:
             return
-        target, code, _ = self.project.resolve(value, node)
+        target, code, _ = self.project.resolve(value, _origin(node))
         if target is None or code != "ok":
             return
         for source in self.sources_of(target):
