@@ -39,6 +39,8 @@ class StationStats:
     port: str = ""
     tags: int = 0  # variables synchronisées avec l'automate (tags simples + structures)
     structures: int = 0  # dont structures (TagStructure)
+    tags_used: int = 0  # tags (structures comprises) référencés quelque part dans le projet
+    tags_used_approximate: bool = False  # vrai si un chemin dynamique (``{0}``) en a marqué
 
 
 @dataclass
@@ -99,6 +101,8 @@ class ProjectStatistics:
     stations: list[StationStats] = field(default_factory=list)
     tags_total: int = 0
     structures_total: int = 0
+    tags_used: int = 0  # voir ``stats`` : tags référencés par un lien, un pointeur…, projet entier
+    tags_used_approximate: bool = False
     # --- pages
     pages: list[PageStats] = field(default_factory=list)  # toutes les vues, principales d'abord
     main_pages: int = 0

@@ -49,6 +49,7 @@ def test_analysis_runs_in_background_and_shows_cards(ui):
     assert calls[0][1] == StatisticsOptions()
     assert "150 tags synchronisés" in page.summary.text()
     assert page.tables["stations"].displayed(2) == ["192.0.2.10:11740", ""]
+    assert page.tables["stations"].displayed(5) == ["≈ 100", "20"]
     assert page.tables["pages"].displayed(0) == ["Home", "Work", "Supervision/Axes", "Supervision/Overview/Detail"]  # ordre du calcul, sans dialogue
     assert page.tables["pages"].displayed(1)[1] == "≈ 40"  # page approximative
     assert recent_projects(controller.context.settings) == [os.path.normpath("C:/demo/Demo")]
@@ -84,7 +85,7 @@ def test_export_csv_writes_stations_and_pages(ui, monkeypatch, tmp_path):
     page.act_export.trigger()
     lines = target.read_text(encoding="utf-8-sig").splitlines()
     assert lines[0] == "Automates"
-    assert lines[2] == "Station1;CODESYSDriver;192.0.2.10:11740;120;6"
+    assert lines[2] == "Station1;CODESYSDriver;192.0.2.10:11740;120;6;100"
     assert "Pages" in lines
     assert "Work;40;60;3;1" in lines
     assert "Supervision/Overview/Detail;12;14;0;0" in lines
@@ -254,3 +255,11 @@ def test_busiest_and_average_are_per_page_or_tab(ui):
     assert "Page/onglet le plus chargé" in labels and "Moyenne de tags par page/onglet" in labels
     assert labels.count("Work (≈ 40 tags)") == 2  # page la plus chargée et page Travail
     assert "18,0" in labels
+
+
+def test_used_and_unused_tags_are_shown(ui):
+    _controller, page, _calls = ui
+    _analysed(page)
+    assert "Tags utilisés : ≈ 120 · Tags inutilisés : ≈ 30" in _labels(page)
+    header = page.tables["stations"].model().headerData(5, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole)
+    assert "NetLogic" in header

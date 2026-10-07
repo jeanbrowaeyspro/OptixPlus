@@ -79,8 +79,17 @@ def _distinct_tags_tip() -> str:
     )
 
 
+def _used_tags_tip() -> str:
+    return tr(
+        "Tags referenced anywhere in the project (links, pointers, converters, alarms, loggers…). "
+        "A referenced structure uses all its tags; a tag does not use its parent structure. "
+        "A dynamic path ({0}) marks every tag it can reach, so the figure is approximate (≈). "
+        "Access from NetLogic code is not detected."
+    )
+
+
 def _station_titles() -> list[str]:
-    return [tr("Station"), tr("Driver"), tr("Address:port"), tr("Tags"), tr("Of which structures")]
+    return [tr("Station"), tr("Driver"), tr("Address:port"), tr("Tags"), tr("Of which structures"), tr("Used tags")]
 
 
 class _Card(QFrame):
@@ -358,10 +367,11 @@ class StatisticsPage(QWidget):
                 cell(export.station_address(s.address, s.port)),
                 cell(str(s.tags), s.tags),
                 cell(str(s.structures), s.structures),
+                cell(f"≈ {s.tags_used}" if s.tags_used_approximate else str(s.tags_used), s.tags_used),
             ]
             for s in r.stations
         ]
-        table = StatsTable(_station_titles(), rows, max_rows=8)
+        table = StatsTable(_station_titles(), rows, max_rows=8, header_tips=["", "", "", "", "", _used_tags_tip()])
         self.tables["stations"] = table
         card.add(table)
         card.add_text(
@@ -369,6 +379,12 @@ class StatisticsPage(QWidget):
                 tags=r.tags_total, structures=r.structures_total
             )
         )
+        approx = "≈ " if r.tags_used_approximate else ""
+        card.add_text(
+            tr("Used tags: {used} · Unused tags: {unused}").format(
+                used=f"{approx}{r.tags_used}", unused=f"{approx}{r.tags_total - r.tags_used}"
+            )
+        ).setToolTip(_used_tags_tip())
         return card
 
     def _pages_card(self, r: ProjectStatistics) -> QWidget:

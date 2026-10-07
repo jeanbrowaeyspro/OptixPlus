@@ -247,7 +247,7 @@ Children:
         - Name: Format
           Type: BaseDataVariableType
           DataType: LocalizedText
-          Value: {{"LocaleId":"fr-FR","Text":"{TAGS_A}/Motor/{{0}}@NodeId"}}
+          Value: {{"LocaleId":"fr-FR","Text":"{TAGS_A}/Slot{{0}}@NodeId"}}
         - Name: ns=7;Source0
           Type: BaseDataVariableType
           DataType: BaseDataType
@@ -312,6 +312,9 @@ def make_project(base: Path, runtime: bool = False, current_tab: int | None = No
         + _tag("Level", "")
         + _structure("Motor", ["Speed", "Run"], "")
         + _structure("Counters", ["Count1"], "")
+        + _tag("Slot1", "")
+        + _tag("Slot2", "")
+        + _tag("Spare", "")
     )
     (nodes / "CommDrivers" / "CODESYSDriver" / "PlcA" / "Tags.yaml").write_text(_tags_file(tags_a), encoding="utf-8")
     (nodes / "CommDrivers" / "CODESYSDriver" / "PlcB" / "Tags.yaml").write_text(_tags_file(_tag("Temp", "")), encoding="utf-8")

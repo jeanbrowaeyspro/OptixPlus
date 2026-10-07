@@ -17,6 +17,24 @@ Règles retenues
   tag (le motif), jamais comme une liste d'indices inventés : la page est alors ``approximate``.
 - Les pilotes connus sont décrits dans ``DRIVERS`` (seul CODESYS est vérifié sur de vrais projets).
 
+Tags utilisés
+-------------
+Un tag d'automate (structure comprise) est « utilisé » s'il est référencé **n'importe où dans le projet**
+(vues, types, alarmes, enregistreurs, convertisseurs…, pas seulement les pages principales) : par un
+``DynamicLink`` (direct, ou porté par un convertisseur / une variable intermédiaire : leurs liaisons sources
+sont des nœuds du projet, donc comptées aussi lorsque personne n'utilise le convertisseur), par un
+``NodePointer`` ou par toute autre valeur de nœud qui est un chemin absolu de tag. Un chemin qui descend
+sous un tag (propriété, ``@Value``) utilise ce tag.
+
+- Une **structure** ciblée est utilisée, ainsi que tous ses tags descendants. Un tag ciblé n'utilise **pas** sa
+  structure parente : elle n'est utilisée que si elle est elle-même référencée.
+- Un chemin dynamique (``{0}`` d'un ``StringFormatter``) devient une expression régulière (``{0}`` → chiffres)
+  ; tous les tags qu'elle peut viser sont marqués utilisés et le total est signalé approximatif (« ≈ »).
+  Choix : mieux vaut un peu trop de tags utilisés qu'un tag réellement lu déclaré inutile.
+- Un accès par NetLogic C# (chemin écrit dans le code) n'est pas détecté : un avertissement l'indique si le
+  projet contient des NetLogic.
+- Inutilisés = synchronisés − utilisés.
+
 """
 
 from __future__ import annotations
@@ -25,6 +43,7 @@ import json
 import logging
 import os
 import re
+from bisect import bisect_left
 from collections import deque
 from dataclasses import dataclass, field
 
@@ -189,6 +208,7 @@ class _Analyzer:
         self._owner: dict[int, Node | None] = {}
         self.units: dict[str, _Unit] = {}
         self._source_cache: dict[int, list[Node]] = {}
+        self.used_refs: set[str] = set()  # chemins de tags référencés (``{0}`` possibles), projet entier
 
     # ---- types
     def root_type(self, name: str | None) -> str:
@@ -290,6 +310,7 @@ class _Analyzer:
             return
         hit = self._tag_path_of(value, node)
         if hit is not None:
+            self.used_refs.add(hit[0])
             if unit is not None:
                 unit.links.add(id(node))
                 unit.keys.add(hit[0])
@@ -305,9 +326,11 @@ class _Analyzer:
 
     def add_pointer(self, unit: _Unit | None, node: Node, value: str) -> None:
         """Pointeur vers un tag (équipement), ou vers un panneau du projet (sous-vue)."""
+        hit = self._tag_path_of(value, node) if value.startswith("/Objects/") else None
+        if hit is not None:
+            self.used_refs.add(hit[0])
         if unit is None:
             return
-        hit = self._tag_path_of(value, node) if value.startswith("/Objects/") else None
         if hit is not None:
             unit.links.add(id(node))
             unit.keys.add(hit[0])
@@ -406,6 +429,8 @@ def compute(
             elif an.kind_of_base(node.supertype) != _OTHER:
                 an.unit(node)
             continue
+        if isinstance(node.value, str) and node.value.startswith("/Objects/") and _TAG_RE.match(node.value):
+            an.used_refs.add(_tag_key(node.value))  # tout autre lien vers un tag
         if ntype is None:
             continue
         owner = an.unit_node(node)
@@ -427,7 +452,7 @@ def compute(
 
     # --- automates
     check_cancel(cancel)
-    _stations(result, root, ticker)
+    tag_index = _stations(result, root, ticker)
 
     # --- alarmes, NetLogic, loggers
     for node in project.all_nodes:
@@ -439,6 +464,9 @@ def compute(
             result.netlogic += 1
         elif base in ("DataLogger", "EventLogger"):
             result.loggers += 1
+    _mark_used(result, an.used_refs, tag_index)
+    if result.netlogic:
+        result.warnings.append(tr("Tags used only from NetLogic code are not counted as used."))
     alarms = root.children.get("Alarms") if root is not None else None
     if alarms is not None:
         stack = list(alarms.children.values())
@@ -477,10 +505,12 @@ def compute(
     return result
 
 
-def _stations(result: ProjectStatistics, root: Node | None, ticker: _Ticker) -> None:
+def _stations(result: ProjectStatistics, root: Node | None, ticker: _Ticker) -> dict[str, tuple[StationStats, bool]]:
+    """Remplit les stations ; renvoie l'index ``chemin du tag -> (station, est une structure)``."""
+    index: dict[str, tuple[StationStats, bool]] = {}
     drivers = root.children.get("CommDrivers") if root is not None else None
     if drivers is None:
-        return
+        return index
     seen: set[str] = set()
     for driver in drivers.children.values():
         spec = DRIVERS.get(driver.type or "")
@@ -506,22 +536,77 @@ def _stations(result: ProjectStatistics, root: Node | None, ticker: _Ticker) -> 
             port = station.children.get("Port")
             if port is not None and port.value is not None:
                 info.port = str(port.value)
-            stack = list(tags_root.children.values()) if tags_root is not None else []
+            base = path + "/Tags"
+            stack = [(c, f"{base}/{c.name}") for c in tags_root.children.values()] if tags_root is not None else []
             while stack:
-                node = stack.pop()
+                node, node_path = stack.pop()
                 ticker.tick()
                 ntype = node.type or ""
                 if spec is not None:
                     if ntype in spec.tag_types:
                         info.tags += 1
+                        index[node_path] = (info, ntype in spec.structure_types)
                     if ntype in spec.structure_types:
                         info.structures += 1
                 elif ntype and ntype not in GENERIC_TYPES and node.supertype is None:
                     info.tags += 1
-                stack.extend(node.children.values())
+                    index[node_path] = (info, False)
+                stack.extend((c, f"{node_path}/{c.name}") for c in node.children.values())
             result.stations.append(info)
     result.tags_total = sum(s.tags for s in result.stations)
     result.structures_total = sum(s.structures for s in result.stations)
+    return index
+
+
+_DYNAMIC_INDEX = re.compile(r"\{\d+\}")
+
+
+def _mark_used(result: ProjectStatistics, refs: set[str], index: dict[str, tuple[StationStats, bool]]) -> None:
+    """Calcule les tags utilisés (voir « Tags utilisés » en tête de module) ; une passe sur les références."""
+    if not index:
+        return
+    ordered = sorted(index)
+    used: set[str] = set()
+    approximate: set[str] = set()  # tags marqués par un chemin dynamique seulement
+
+    def mark(path: str, target: set[str]) -> None:
+        target.add(path)
+        if index[path][1]:  # structure : tous ses descendants
+            prefix = path + "/"
+            i = bisect_left(ordered, prefix)
+            while i < len(ordered) and ordered[i].startswith(prefix):
+                target.add(ordered[i])
+                i += 1
+
+    patterns: set[str] = set()
+    for ref in refs:
+        if "{" in ref:
+            patterns.add(ref)
+            continue
+        path = ref
+        while path and _TAG_RE.match(path):  # un chemin sous un tag (propriété) utilise ce tag
+            if path in index:
+                mark(path, used)
+                break
+            path = path.rpartition("/")[0]
+    for ref in patterns:
+        literal = ref.split("{", 1)[0]
+        regex = re.compile("".join(
+            r"\d+" if _DYNAMIC_INDEX.fullmatch(part) else re.escape(part)
+            for part in re.split(r"(\{\d+\})", ref)
+        ))
+        i = bisect_left(ordered, literal)
+        while i < len(ordered) and ordered[i].startswith(literal):
+            if regex.fullmatch(ordered[i]):
+                mark(ordered[i], approximate)
+            i += 1
+    for path in used | approximate:
+        station = index[path][0]
+        station.tags_used += 1
+        if path not in used:
+            station.tags_used_approximate = True
+    result.tags_used = len(used | approximate)
+    result.tags_used_approximate = bool(approximate - used)
 
 
 def _closure(an: _Analyzer, start: _Unit, skip: frozenset[str] = frozenset()) -> tuple[set[int], set[str], bool, int]:

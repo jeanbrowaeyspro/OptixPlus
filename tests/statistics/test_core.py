@@ -41,10 +41,10 @@ def test_stations_and_tags(result):
     by_name = {s.name: s for s in result.stations}
     assert set(by_name) == {"PlcA", "PlcB"}
     a = by_name["PlcA"]
-    assert (a.tags, a.structures) == (7, 2)  # 5 tags simples + 2 structures
+    assert (a.tags, a.structures) == (10, 2)  # 8 tags simples + 2 structures
     assert (a.address, a.port, a.driver_type, a.station_type) == ("10.0.0.1", "1217", "CODESYSDriver", "CODESYSStation")
     assert by_name["PlcB"].tags == 1
-    assert result.tags_total == 8
+    assert result.tags_total == 11
     assert result.structures_total == 2
 
 
@@ -74,7 +74,7 @@ def test_tags_per_page_with_shared_subview(result):
 
 def test_dynamic_path_and_converter(result):
     sup = page(result, "IType_02_Supervision")
-    # Level, Motor/Speed (sous-vue partagée), Motor/{0} (chemin dynamique), Temp via le convertisseur, Pressure
+    # Level, Motor/Speed (sous-vue partagée), Slot{0} (chemin dynamique), Temp via le convertisseur, Pressure
     assert sup.tags == 5
     assert sup.links == 6  # Level lié deux fois (sous-vue de l'onglet 1 et sous-onglet History)
     assert sup.subviews == 5  # deux onglets, deux sous-onglets et la sous-vue partagée
@@ -144,7 +144,7 @@ def test_runtime_variant(tmp_path):
     assert result.runtime_files[0][1] == 20000
     assert not any(n.endswith(".source") for n in names)
     # même contenu que le projet
-    assert result.tags_total == 8 and result.main_pages == 3
+    assert result.tags_total == 11 and result.main_pages == 3
 
 
 def test_unknown_driver_is_a_warning_and_still_counted(tmp_path):
@@ -211,7 +211,7 @@ def test_rows_are_main_pages_and_tab_leaves_only(result):
     ]  # ni dialogue, ni fenêtre, ni sous-vue (IType_Gauge, IType_TabA…), ni total de page à onglets
     rows = _rows(result)
     assert rows["Home"] == (2, 3, False)
-    assert rows["Supervision/Axes"] == (3, 3, True)  # Level, Motor/Speed, Motor/{0}
+    assert rows["Supervision/Axes"] == (3, 3, True)  # Level, Motor/Speed, Slot{0}
     assert rows["Supervision/Alarms/Active"] == (1, 1, False)  # Temp via le convertisseur
     assert rows["Supervision/Alarms/History"] == (2, 2, False)
     assert [r.tabs for r in result.rows][2:] == [["Axes"], ["Alarms", "Active"], ["Alarms", "History"]]
@@ -234,3 +234,27 @@ def test_unknown_default_tab_keeps_page_total(tmp_path):
     assert row.tab_unknown and row.label == "Supervision" and row.tags == 5
     assert row not in unknown.rows
     assert len([r for r in unknown.rows if r.page == "Supervision"]) == 3  # les feuilles restent listées
+
+
+def test_used_tags(result):
+    """Direct, relatif, pointeur sur structure (descendants compris), convertisseur, motif ``{0}`` ; un tag ciblé
+    n'utilise pas sa structure parente ; le reste est inutilisé."""
+    a = next(s for s in result.stations if s.name == "PlcA")
+    b = next(s for s in result.stations if s.name == "PlcB")
+    # Pressure, Level, Count1 (relatif), Motor + Speed + Run (pointeur de structure), Slot1, Slot2 (motif)
+    assert a.tags_used == 8 and a.tags_used_approximate
+    assert b.tags_used == 1 and not b.tags_used_approximate  # Temp, via le convertisseur
+    assert result.tags_used == 9 and result.tags_used_approximate
+    assert result.tags_total - result.tags_used == 2  # Counters (seulement son membre est lié) et Spare
+
+
+def test_warns_that_netlogic_access_is_not_detected(result):
+    assert any("NetLogic" in w for w in result.warnings)  # le projet contient un NetLogic
+
+
+def test_exact_when_no_dynamic_path(tmp_path):
+    folder = make_project(tmp_path, name="Demo5")
+    path = folder / "Nodes" / "UI" / "UI.yaml"
+    path.write_text(path.read_text(encoding="utf-8").replace("Slot{0}", "Pressure"), encoding="utf-8")
+    result = stats.compute(str(folder))
+    assert not result.tags_used_approximate and result.tags_used == 7

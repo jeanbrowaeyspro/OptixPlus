@@ -25,7 +25,7 @@ def write_csv(
 ) -> None:
     """Écrit les stations puis les pages (deux sections séparées par une ligne vide), en UTF-8 avec BOM.
 
-    ``station_titles`` : 5 colonnes (station, pilote, adresse:port, tags, structures) ;
+    ``station_titles`` : 6 colonnes (station, pilote, adresse:port, tags, structures, tags utilisés) ;
     ``page_titles`` : 5 colonnes (page ou page/onglet, tags distincts, liaisons, sous-vues, approximatif), mêmes lignes
     que le tableau de la page.
     """
@@ -34,7 +34,7 @@ def write_csv(
         writer.writerow([section_titles[0]])
         writer.writerow(station_titles)
         for s in stats.stations:
-            writer.writerow([s.name, s.driver_type, station_address(s.address, s.port), s.tags, s.structures])
+            writer.writerow([s.name, s.driver_type, station_address(s.address, s.port), s.tags, s.structures, s.tags_used])
         writer.writerow([])
         writer.writerow([section_titles[1]])
         writer.writerow(page_titles)
