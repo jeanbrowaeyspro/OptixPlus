@@ -7,7 +7,6 @@ import pytest
 from optixplus.common.progress import Cancelled
 from optixplus.modules.statistics.core import stats
 from optixplus.modules.statistics.core.model import (
-    TabStats,
     KIND_PROJECT,
     KIND_RUNTIME,
     VIEW_DIALOG,
@@ -75,17 +74,17 @@ def test_tags_per_page_with_shared_subview(result):
 
 def test_dynamic_path_and_converter(result):
     sup = page(result, "IType_02_Supervision")
-    # Level, Motor/Speed (sous-vue partagée), Motor/{0} (chemin dynamique), Temp via le convertisseur
-    assert sup.tags == 4
-    assert sup.links == 4
-    assert sup.subviews == 3  # deux onglets et la sous-vue partagée
+    # Level, Motor/Speed (sous-vue partagée), Motor/{0} (chemin dynamique), Temp via le convertisseur, Pressure
+    assert sup.tags == 5
+    assert sup.links == 6  # Level lié deux fois (sous-vue de l'onglet 1 et sous-onglet History)
+    assert sup.subviews == 5  # deux onglets, deux sous-onglets et la sous-vue partagée
     assert sup.approximate is True
     assert not page(result, "IType_01_Work").approximate
     assert any("approximate" in w for w in result.warnings)
 
 
 def test_average_and_busiest_page(result):
-    assert result.average_tags_per_main_page == pytest.approx((2 + 5 + 4) / 3)
+    assert result.average_tags_per_main_page == pytest.approx((2 + 5 + 5) / 3)
     assert result.busiest_page is not None
     assert result.busiest_page.name == "IType_01_Work"
 
@@ -119,16 +118,6 @@ def test_bindings_count_objects_and_tags_count_distinct_paths(result):
     assert home.links > home.tags  # un tag lié à deux objets : deux liaisons, un tag
     for p in result.pages:
         assert p.tags <= p.links
-
-
-def test_default_tab_first_without_explicit_index(result):
-    assert result.supervision_default_tab == "Axes"
-
-
-def test_default_tab_from_scalar_index(tmp_path):
-    assert stats.compute(str(make_project(tmp_path, current_tab=1))).supervision_default_tab == "Alarms"
-    other = make_project(tmp_path, current_tab=7, name="Demo3")
-    assert stats.compute(str(other)).supervision_default_tab == ""  # indice hors limites : inconnu
 
 
 def test_alarms_netlogic_loggers(result):
@@ -207,17 +196,40 @@ def test_core_does_not_import_qt():
     assert "PySide6" not in source
 
 
-def test_default_tab_counts_only_that_tab(tmp_path):
+def _rows(result):
+    return {r.label: (r.tags, r.links, r.approximate) for r in result.rows}
+
+
+def test_rows_are_main_pages_and_tab_leaves_only(result):
+    assert [r.label for r in result.rows] == [
+        "Home",
+        "Work machine",
+        "Supervision/Axes",
+        "Supervision/Alarms/Active",
+        "Supervision/Alarms/History",
+    ]  # ni dialogue, ni fenêtre, ni sous-vue (IType_Gauge, IType_TabA…), ni total de page à onglets
+    rows = _rows(result)
+    assert rows["Home"] == (2, 3, False)
+    assert rows["Supervision/Axes"] == (3, 3, True)  # Level, Motor/Speed, Motor/{0}
+    assert rows["Supervision/Alarms/Active"] == (1, 1, False)  # Temp via le convertisseur
+    assert rows["Supervision/Alarms/History"] == (2, 2, False)
+    assert [r.tabs for r in result.rows][2:] == [["Axes"], ["Alarms", "Active"], ["Alarms", "History"]]
+
+
+def test_summary_rows_use_the_default_tab_of_the_rows(tmp_path):
     first = stats.compute(str(make_project(tmp_path)))  # pas d'indice : premier onglet
-    assert first.supervision_tab == TabStats("Axes", tags=3, links=3, approximate=True)
-    assert first.supervision_page.tags == 4  # la page entière compte aussi l'autre onglet
+    assert first.supervision_row in first.rows  # même structure que le tableau
+    assert first.supervision_row.label == "Supervision/Axes" and first.supervision_row.tags == 3
+    assert first.supervision_page.tags == 5  # la page entière compte aussi les autres onglets
+    assert first.work_row.label == "Work machine"  # pas de NavigationPanel : page entière
     second = stats.compute(str(make_project(tmp_path, current_tab=1, name="Demo4")))
-    assert second.supervision_tab == TabStats("Alarms", tags=1, links=1, approximate=False)
-    assert second.supervision_default_tab == "Alarms"
+    assert second.supervision_row.label == "Supervision/Alarms/Active"  # onglets par défaut suivis jusqu'à la feuille
+    assert second.supervision_row.tags == 1
 
 
-def test_unknown_default_tab_and_page_without_tabs(tmp_path):
+def test_unknown_default_tab_keeps_page_total(tmp_path):
     unknown = stats.compute(str(make_project(tmp_path, current_tab=7)))
-    assert unknown.supervision_tab == TabStats("")  # onglet inconnu : titre vide
-    assert unknown.work_tab is None  # pas de NavigationPanel : tags de la page entière
-    assert unknown.supervision_page is not None
+    row = unknown.supervision_row
+    assert row.tab_unknown and row.label == "Supervision" and row.tags == 5
+    assert row not in unknown.rows
+    assert len([r for r in unknown.rows if r.page == "Supervision"]) == 3  # les feuilles restent listées

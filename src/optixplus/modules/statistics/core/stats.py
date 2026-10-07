@@ -44,7 +44,7 @@ from .model import (
     ProjectStatistics,
     StationStats,
     StatisticsOptions,
-    TabStats,
+    PageRow,
 )
 
 log = logging.getLogger("optixplus.statistics")
@@ -524,8 +524,9 @@ def _stations(result: ProjectStatistics, root: Node | None, ticker: _Ticker) -> 
     result.structures_total = sum(s.structures for s in result.stations)
 
 
-def _closure(an: _Analyzer, start: _Unit) -> tuple[set[int], set[str], bool, int]:
-    """Liaisons, tags distincts, approximation et nombre de panneaux d'une unité et de ses sous-vues."""
+def _closure(an: _Analyzer, start: _Unit, skip: frozenset[str] = frozenset()) -> tuple[set[int], set[str], bool, int]:
+    """Liaisons, tags distincts, approximation et nombre de panneaux d'une unité et de ses sous-vues
+    (sans entrer dans les unités de ``skip``)."""
     seen = {start.node.path()}
     queue = deque([start])
     links: set[int] = set()
@@ -538,7 +539,7 @@ def _closure(an: _Analyzer, start: _Unit) -> tuple[set[int], set[str], bool, int
         keys |= unit.keys
         approx = approx or unit.approximate
         for path in unit.edges:
-            if path not in seen:
+            if path not in seen and path not in skip:
                 seen.add(path)
                 target = an.units.get(path)
                 if target is not None:
@@ -578,10 +579,27 @@ def _pages(result: ProjectStatistics, an: _Analyzer, options: StatisticsOptions,
         result.busiest_page = max(mains, key=lambda p: p.tags)
     result.work_page = _find(pages, options.work_names)
     result.supervision_page = _find(pages, options.supervision_names)
-    result.work_tab = _page_tab(an, result.work_page)
-    result.supervision_tab = _page_tab(an, result.supervision_page)
-    if result.supervision_tab is not None:
-        result.supervision_default_tab = result.supervision_tab.title
+    cache: dict[str, tuple[list[PageRow], PageRow]] = {}
+
+    def rows_of(page: PageStats | None) -> tuple[list[PageRow], PageRow] | None:
+        unit = an.units.get(page.path) if page is not None else None
+        if unit is None:
+            return None
+        if page.path not in cache:
+            rows, default, _unknown = _tab_rows(an, unit, page.title, [], frozenset({page.path}))
+            cache[page.path] = (rows, default or PageRow(
+                page.title, page.path, [], page.links, page.tags, page.approximate, page.subviews, tab_unknown=True
+            ))
+        return cache[page.path]
+
+    for page in mains:
+        found = rows_of(page)
+        if found is not None:
+            result.rows.extend(found[0])
+    for page, attr in ((result.work_page, "work_row"), (result.supervision_page, "supervision_row")):
+        found = rows_of(page)
+        if found is not None:
+            setattr(result, attr, found[1])
 
 
 def _find(pages: list[PageStats], names: tuple[str, ...]) -> PageStats | None:
@@ -602,16 +620,8 @@ def _find(pages: list[PageStats], names: tuple[str, ...]) -> PageStats | None:
     return None
 
 
-def _page_tab(an: _Analyzer, page: PageStats | None) -> TabStats | None:
-    """Onglet affiché au départ par le premier ``NavigationPanel`` de la page.
-
-    ``None`` si la page n'a pas de ``NavigationPanel`` (ou n'existe pas) ; un ``TabStats`` de titre vide si
-    l'onglet par défaut est inconnu. Les chiffres ne portent que sur la sous-vue de cet onglet et ses propres
-    sous-vues, pas sur la page entière ni sur les autres onglets.
-    """
-    start = an.units.get(page.path) if page is not None else None
-    if start is None:
-        return None
+def _find_nav(an: _Analyzer, start: _Unit) -> Node | None:
+    """Premier ``NavigationPanel`` de l'unité, sinon de ses sous-vues."""
     seen = {start.node.path()}
     queue = deque([start])
     while queue:
@@ -620,7 +630,7 @@ def _page_tab(an: _Analyzer, page: PageStats | None) -> TabStats | None:
         while nodes:
             node = nodes.popleft()
             if node.type == "NavigationPanel":
-                return _tab_stats(an, node)
+                return node
             nodes.extend(node.children.values())
         for path in unit.edges:
             if path not in seen and path in an.units:
@@ -629,23 +639,57 @@ def _page_tab(an: _Analyzer, page: PageStats | None) -> TabStats | None:
     return None
 
 
-def _tab_stats(an: _Analyzer, nav: Node) -> TabStats:
-    """Onglet ``CurrentTabIndex`` s'il a une valeur scalaire, sinon le premier ; chiffres de sa sous-vue."""
-    panels = nav.children.get("Panels")
-    items = [c for c in panels.children.values() if c.type == "NavigationPanelItem"] if panels is not None else []
-    index = 0
+def _tab_rows(an: _Analyzer, unit: _Unit, title: str, tabs: list[str], visited: frozenset[str]
+              ) -> tuple[list[PageRow], PageRow | None, bool]:
+    """Lignes (page ou feuilles d'onglet) d'une unité, ligne de l'onglet par défaut, onglet inconnu ?
+
+    Sans ``NavigationPanel`` : une seule ligne. Avec : une ligne par feuille d'onglet (onglets imbriqués
+    suivis), plus une ligne pour le contenu hors onglets seulement s'il a ses propres liaisons.
+    L'onglet par défaut est ``CurrentTabIndex`` s'il a une valeur scalaire, sinon le premier ; hors limites,
+    il est inconnu (``None``).
+    """
+    path = unit.node.path()
+
+    def row(source: _Unit, labels: list[str], skip: frozenset[str] = frozenset()) -> PageRow:
+        links, keys, approx, panels = _closure(an, source, skip)
+        return PageRow(title, path, list(labels), len(links), len(keys), approx, panels)
+
+    nav = _find_nav(an, unit)
+    panels_node = nav.children.get("Panels") if nav is not None else None
+    items = [c for c in panels_node.children.values() if c.type == "NavigationPanelItem"] if panels_node is not None else []
+    if not items:
+        single = row(unit, tabs)
+        return [single], single, False
+    index: int | None = 0
     current = nav.children.get("CurrentTabIndex")
     if current is not None and isinstance(current.value, int) and not isinstance(current.value, bool):
         index = current.value
     if not 0 <= index < len(items):
-        return TabStats("")
-    item = items[index]
-    title = item.children.get("Title")
-    text = localized_text(an.raw.value_text(title)) if title is not None else ""
-    pointer = item.children.get("Panel")
-    target = an.types.get(pointer.value.rsplit("/", 1)[-1]) if pointer is not None and isinstance(pointer.value, str) else None
-    unit = an.units.get(target.path()) if target is not None else None
-    if unit is None:
-        return TabStats(text or item.name)
-    links, keys, approx, _panels = _closure(an, unit)
-    return TabStats(text or item.name, len(keys), len(links), approx)
+        index = None
+    targets: list[_Unit | None] = []
+    for item in items:
+        pointer = item.children.get("Panel")
+        name = pointer.value.rsplit("/", 1)[-1] if pointer is not None and isinstance(pointer.value, str) else ""
+        node = an.types.get(name)
+        targets.append(an.units.get(node.path()) if node is not None else None)
+    skip = frozenset(u.node.path() for u in targets if u is not None)
+    rows: list[PageRow] = []
+    own = row(unit, tabs, skip)
+    if own.links:
+        rows.append(own)
+    default: PageRow | None = None
+    unknown = index is None
+    for i, item in enumerate(items):
+        label = item.children.get("Title")
+        text = localized_text(an.raw.value_text(label)) if label is not None else ""
+        sub_tabs = [*tabs, text or item.name]
+        target = targets[i]
+        if target is None or target.node.path() in visited:
+            leaf = PageRow(title, path, sub_tabs)
+            sub_rows, sub_default, sub_unknown = [leaf], leaf, False
+        else:
+            sub_rows, sub_default, sub_unknown = _tab_rows(an, target, title, sub_tabs, visited | {target.node.path()})
+        rows.extend(sub_rows)
+        if i == index:
+            default, unknown = sub_default, sub_unknown
+    return rows, default, unknown

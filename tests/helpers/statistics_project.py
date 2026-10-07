@@ -6,8 +6,8 @@ Contenu (projet ``Demo``) :
 - une fenêtre principale avec un menu (boutons ``BtPanel``) et un ``PanelLoader`` ;
 - trois écrans principaux : ``IType_00_Home`` (2 tags), ``IType_01_Work`` (nom affiché « Work
   machine »; liaison absolue, relative, pointeur d'équipement et sous-panneau partagé),
-  ``IType_02_Supervision`` (``NavigationPanel`` à deux onglets, chemin dynamique ``{0}`` et
-  convertisseur partagé) ; une boîte de dialogue non principale ;
+  ``IType_02_Supervision`` (``NavigationPanel`` à deux onglets dont le second contient un
+  ``NavigationPanel`` imbriqué à deux sous-onglets ; chemin dynamique ``{0}`` et convertisseur partagé) ; une boîte de dialogue non principale ;
 - 2 alarmes, 1 NetLogic, 2 loggers ; quelques fichiers de ``ProjectFiles``.
 
 ``runtime=True`` ajoute ``ApplicationFiles`` (bases SQLite) et un fichier ``.source`` ignoré.
@@ -259,12 +259,30 @@ Children:
 - Name: IType_TabB
   Supertype: Panel
   Children:
+  - Name: NavigationPanel
+    Type: NavigationPanel
+    Children:
+    - Name: Panels
+      Type: BaseObjectType
+      Children:
+"""
+        + _tab("Active", "Active", "IType_SubB1")
+        + _tab("History", "History", "IType_SubB2")
+        + """- Name: IType_SubB1
+  Supertype: Panel
+  Children:
   - Name: Value
     Type: BaseDataVariableType
     DataType: Float
     Children:
 """
         + _link("/Objects/Demo/Converters/Conv1", "    ")
+        + """- Name: IType_SubB2
+  Supertype: Panel
+  Children:
+"""
+        + _label("LabelPressure", f"{TAGS_A}/Pressure")
+        + _label("LabelLevel", f"{TAGS_A}/Level")
         + """- Name: IType_Dlg
   Supertype: Dialog
   Children:

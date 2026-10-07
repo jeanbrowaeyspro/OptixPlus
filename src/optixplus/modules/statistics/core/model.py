@@ -60,13 +60,26 @@ class PageStats:
 
 
 @dataclass
-class TabStats:
-    """Onglet d'un ``NavigationPanel`` : sa sous-vue et les sous-vues de celle-ci, sans le reste de la page."""
+class PageRow:
+    """Une ligne du tableau des pages : une page principale sans onglet, ou une feuille d'onglet.
 
-    title: str  # titre de l'onglet par défaut ; vide si inconnu (indice hors limites, aucun onglet)
-    tags: int = 0  # tags d'automate distincts liés dans cet onglet
-    links: int = 0  # liaisons dans cet onglet
+    ``tabs`` donne les titres affichés des onglets traversés (vide pour une page sans onglet) ; une page à
+    onglets n'a pas de ligne de total. Les chiffres comptent la sous-vue de la ligne et ses propres sous-vues.
+    """
+
+    page: str  # titre affiché de la page
+    path: str  # chemin du nœud de la page
+    tabs: list[str] = field(default_factory=list)
+    links: int = 0  # liaisons (propriétés d'objets liées à un tag d'automate)
+    tags: int = 0  # tags d'automate distincts liés
     approximate: bool = False
+    subviews: int = 0
+    tab_unknown: bool = False  # ligne de résumé d'une page à onglets dont l'onglet par défaut est inconnu
+
+    @property
+    def label(self) -> str:
+        """``Page``, ``Page/Onglet`` ou ``Page/Onglet/Onglet``."""
+        return "/".join([self.page, *self.tabs])
 
 
 @dataclass
@@ -93,11 +106,13 @@ class ProjectStatistics:
     busiest_page: PageStats | None = None  # page principale avec le plus de tags liés
     work_page: PageStats | None = None
     supervision_page: PageStats | None = None
-    #: Onglet par défaut de la page « Travail » / « Supervision » ; ``None`` si la page n'a pas de
-    #: ``NavigationPanel`` (le nombre de tags est alors celui de la page entière).
-    work_tab: TabStats | None = None
-    supervision_tab: TabStats | None = None
-    supervision_default_tab: str = ""  # titre de l'onglet sélectionné par défaut, vide si inconnu
+    #: Lignes du tableau : pages principales et feuilles d'onglet (ni sous-vues, ni dialogues, ni popups).
+    rows: list[PageRow] = field(default_factory=list)
+    #: Ligne de la page « Travail » / « Supervision » à son onglet par défaut (la feuille atteinte en suivant
+    #: les onglets par défaut), ou la page entière si elle n'a pas d'onglet ; ``tab_unknown`` si l'onglet
+    #: par défaut est inconnu (total de la page). ``None`` si la page est introuvable.
+    work_row: PageRow | None = None
+    supervision_row: PageRow | None = None
     # --- autres objets
     alarms: int = 0
     netlogic: int = 0

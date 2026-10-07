@@ -36,10 +36,6 @@ from ..core import export
 from ..core.config import StatisticsSettings
 from ..core.model import (
     KIND_RUNTIME,
-    VIEW_DIALOG,
-    VIEW_POPUP,
-    VIEW_SCREEN,
-    VIEW_WINDOW,
     ProjectStatistics,
 )
 from .table import StatsTable, cell
@@ -67,14 +63,6 @@ def format_size(size: int) -> str:
     if size >= 1024:
         return tr("{value} KiB").format(value=_num(size / 1024))
     return tr("{value} B").format(value=size)
-
-
-def kind_labels() -> dict[str, str]:
-    return {VIEW_SCREEN: tr("Screen"), VIEW_DIALOG: tr("Dialog"), VIEW_POPUP: tr("Popup"), VIEW_WINDOW: tr("Window")}
-
-
-def _yes_no(value: bool) -> str:
-    return tr("Yes") if value else tr("No")
 
 
 def _bindings_tip() -> str:
@@ -395,46 +383,40 @@ class StatisticsPage(QWidget):
             (tr("Main pages"), str(r.main_pages), ""),
             (tr("Average tags per main page"), _num(r.average_tags_per_main_page), ""),
             (tr("Busiest page"), busiest, ""),
-            (tr("Work page"), self._page_fact(r.work_page, r.work_tab, not_found), ""),
-            (tr("Supervision page"), self._page_fact(r.supervision_page, r.supervision_tab, not_found), ""),
+            (tr("Work page"), self._page_fact(r.work_row, not_found), ""),
+            (tr("Supervision page"), self._page_fact(r.supervision_row, not_found), ""),
         ]
         card.add_facts(facts)
-        if not r.pages:
+        if not r.rows:
             card.add_text(tr("No page found."), muted=True)
             return card
-        kinds = kind_labels()
         rows = []
-        for p in r.pages:
+        for p in r.rows:
             approx = tr("Approximate: some dynamic paths could not be resolved.") if p.approximate else ""
             rows.append(
                 [
-                    cell(p.title, tooltip=p.path),
-                    cell(kinds.get(p.kind, p.kind)),
-                    cell(_yes_no(p.is_main), int(p.is_main)),
+                    cell(p.label, tooltip=p.path),
                     cell(f"≈ {p.tags}" if p.approximate else str(p.tags), p.tags, approx),
                     cell(f"≈ {p.links}" if p.approximate else str(p.links), p.links, approx),
                     cell(str(p.subviews), p.subviews),
                 ]
             )
-        titles = [tr("Page"), tr("Type"), tr("Main"), tr("Distinct tags"), tr("Bindings"), tr("Subviews")]
-        tips = ["", "", "", _distinct_tags_tip(), _bindings_tip(), ""]
+        titles = [tr("Page"), tr("Distinct tags"), tr("Bindings"), tr("Subviews")]
+        tips = ["", _distinct_tags_tip(), _bindings_tip(), ""]
         table = StatsTable(titles, rows, max_rows=MAX_TABLE_ROWS, header_tips=tips)
         self.tables["pages"] = table
         card.add(table)
         return card
 
     @staticmethod
-    def _page_fact(page, tab, not_found: str) -> str:
-        """Page (et onglet par défaut s'il y en a un) avec son nombre de tags liés (« ≈ » si approximatif)."""
-        if page is None:
+    def _page_fact(row, not_found: str) -> str:
+        """Ligne « Page/Onglet (n tags) » de l'onglet par défaut (« ≈ » si approximatif)."""
+        if row is None:
             return not_found
-        if tab is None or not tab.title:
-            tags = f"≈ {page.tags}" if page.approximate else page.tags
-            if tab is None:
-                return tr("{title} ({tags} tags)").format(title=page.title, tags=tags)
-            return tr("{title} ({tags} tags), tab unknown").format(title=page.title, tags=tags)
-        tags = f"≈ {tab.tags}" if tab.approximate else tab.tags
-        return tr("{title} ({tags} tags)").format(title=f"{page.title}/{tab.title}", tags=tags)
+        tags = f"≈ {row.tags}" if row.approximate else row.tags
+        if row.tab_unknown:
+            return tr("{title} ({tags} tags), tab unknown").format(title=row.label, tags=tags)
+        return tr("{title} ({tags} tags)").format(title=row.label, tags=tags)
 
     def _project_card(self, r: ProjectStatistics) -> QWidget:
         card = _Card(tr("Content"))
@@ -485,7 +467,7 @@ class StatisticsPage(QWidget):
         if not path:
             return
         page_titles = [
-            tr("Page"), tr("Name"), tr("Type"), tr("Main"), tr("Distinct tags"), tr("Bindings"), tr("Subviews"), tr("Approximate"),
+            tr("Page"), tr("Distinct tags"), tr("Bindings"), tr("Subviews"), tr("Approximate"),
         ]
         try:
             export.write_csv(
@@ -494,7 +476,6 @@ class StatisticsPage(QWidget):
                 station_titles=_station_titles(),
                 page_titles=page_titles,
                 section_titles=(tr("Controllers"), tr("Pages")),
-                kind_labels=kind_labels(),
             )
         except OSError as exc:
             QMessageBox.critical(self, tr("Export to CSV…"), str(exc))

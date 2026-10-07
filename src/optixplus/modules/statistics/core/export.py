@@ -22,12 +22,12 @@ def write_csv(
     station_titles: list[str],
     page_titles: list[str],
     section_titles: tuple[str, str],
-    kind_labels: dict[str, str],
 ) -> None:
     """Écrit les stations puis les pages (deux sections séparées par une ligne vide), en UTF-8 avec BOM.
 
     ``station_titles`` : 5 colonnes (station, pilote, adresse:port, tags, structures) ;
-    ``page_titles`` : 8 colonnes (titre, nom, type, principale, tags distincts, liaisons, sous-vues, approximatif).
+    ``page_titles`` : 5 colonnes (page ou page/onglet, tags distincts, liaisons, sous-vues, approximatif), mêmes lignes
+    que le tableau de la page.
     """
     with open(path, "w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, delimiter=SEPARATOR)
@@ -38,7 +38,5 @@ def write_csv(
         writer.writerow([])
         writer.writerow([section_titles[1]])
         writer.writerow(page_titles)
-        for p in stats.pages:
-            writer.writerow(
-                [p.title, p.name, kind_labels.get(p.kind, p.kind), int(p.is_main), p.tags, p.links, p.subviews, int(p.approximate)]
-            )
+        for p in stats.rows:
+            writer.writerow([p.label, p.tags, p.links, p.subviews, int(p.approximate)])
