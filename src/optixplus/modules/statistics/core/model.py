@@ -21,10 +21,8 @@ VIEW_WINDOW = "window"
 class StatisticsOptions:
     """Réglages de l'analyse."""
 
-    #: Noms (affichés ou techniques, insensibles à la casse) qui désignent la page « Travail ».
-    work_names: tuple[str, ...] = ("Work", "Travail")
-    #: Idem pour la page « Supervision ».
-    supervision_names: tuple[str, ...] = ("Supervision", "Overwatch")
+    #: Une entrée par page à mettre en évidence : ses mots-clés (noms affichés ou techniques, casse ignorée).
+    highlights: tuple[tuple[str, ...], ...] = ()
 
 
 @dataclass
@@ -85,6 +83,17 @@ class PageRow:
 
 
 @dataclass
+class HighlightResult:
+    """Résultat d'une entrée « page à mettre en évidence »."""
+
+    keywords: tuple[str, ...]
+    #: Ligne de la page à son onglet par défaut (la feuille atteinte en suivant les onglets par défaut), ou la
+    #: page entière si elle n'a pas d'onglet ; ``tab_unknown`` si l'onglet par défaut est inconnu (total de la
+    #: page). ``None`` si aucune page ne correspond.
+    row: PageRow | None = None
+
+
+@dataclass
 class ProjectStatistics:
     name: str
     folder: str
@@ -110,15 +119,10 @@ class ProjectStatistics:
     #: somme donc jamais les onglets d'une page.
     average_tags_per_view: float = 0.0
     busiest_row: PageRow | None = None  # ligne avec le plus de tags distincts
-    work_page: PageStats | None = None
-    supervision_page: PageStats | None = None
     #: Lignes du tableau : pages principales et feuilles d'onglet (ni sous-vues, ni dialogues, ni popups).
     rows: list[PageRow] = field(default_factory=list)
-    #: Ligne de la page « Travail » / « Supervision » à son onglet par défaut (la feuille atteinte en suivant
-    #: les onglets par défaut), ou la page entière si elle n'a pas d'onglet ; ``tab_unknown`` si l'onglet
-    #: par défaut est inconnu (total de la page). ``None`` si la page est introuvable.
-    work_row: PageRow | None = None
-    supervision_row: PageRow | None = None
+    #: Pages à mettre en évidence, dans l'ordre des réglages (vide si aucune).
+    highlights: list[HighlightResult] = field(default_factory=list)
     # --- autres objets
     alarms: int = 0
     netlogic: int = 0

@@ -8,6 +8,7 @@ from optixplus.modules.statistics.core.model import (
     VIEW_SCREEN,
     PageStats,
     ProjectStatistics,
+    HighlightResult,
     PageRow,
     StationStats,
 )
@@ -15,14 +16,14 @@ from optixplus.modules.statistics.core.model import (
 
 def make_statistics(folder: str = "C:/demo/Demo", *, runtime: bool = False) -> ProjectStatistics:
     home = PageStats("Home", "Home", VIEW_SCREEN, "UI/Home", is_main=True, links=12, tags=8, subviews=1)
-    work = PageStats("Work", "Work", VIEW_SCREEN, "UI/Work", is_main=True, links=60, tags=40, approximate=True, subviews=3)
-    supervision = PageStats("Supervision", "Supervision", VIEW_SCREEN, "UI/Supervision", is_main=True, links=30, tags=25)
+    work = PageStats("Alpha", "Alpha", VIEW_SCREEN, "UI/Alpha", is_main=True, links=60, tags=40, approximate=True, subviews=3)
+    supervision = PageStats("Beta", "Beta", VIEW_SCREEN, "UI/Beta", is_main=True, links=30, tags=25)
     dialog = PageStats("Confirm", "Confirm", VIEW_DIALOG, "UI/Confirm", links=2, tags=2)
     rows = [
         PageRow("Home", "UI/Home", [], 12, 8, False, 1),
-        PageRow("Work", "UI/Work", [], 60, 40, True, 3),
-        PageRow("Supervision", "UI/Supervision", ["Axes"], 18, 13, False),
-        PageRow("Supervision", "UI/Supervision", ["Overview", "Detail"], 14, 12, False),
+        PageRow("Alpha", "UI/Alpha", [], 60, 40, True, 3),
+        PageRow("Beta", "UI/Beta", ["Axes"], 18, 13, False),
+        PageRow("Beta", "UI/Beta", ["Overview", "Detail"], 14, 12, False),
     ]
     return ProjectStatistics(
         name="Demo",
@@ -45,11 +46,8 @@ def make_statistics(folder: str = "C:/demo/Demo", *, runtime: bool = False) -> P
         main_pages=3,
         average_tags_per_view=18.0,
         busiest_row=rows[1],
-        work_page=work,
-        supervision_page=supervision,
         rows=rows,
-        work_row=rows[1],
-        supervision_row=rows[3],
+        highlights=[HighlightResult(("alpha",), rows[1]), HighlightResult(("beta", "overwatch"), rows[3])],
         alarms=12,
         netlogic=3,
         loggers=2,

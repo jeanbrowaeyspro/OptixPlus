@@ -1,4 +1,4 @@
-"""Catégorie « Statistics » de la boîte Paramètres : noms des pages « Travail » et « Supervision ».
+"""Catégorie « Statistics » de la boîte Paramètres : pages à mettre en évidence (mots-clés).
 
 Les choix s'appliquent par « OK » ou « Appliquer » de la boîte Paramètres, jamais à la saisie ;
 la page Statistiques les lit à chaque « Analyser ».
@@ -21,26 +21,14 @@ from PySide6.QtWidgets import (
 )
 
 from ....common.i18n import tr
-from ..core.config import StatisticsSettings
+from ..core.config import StatisticsSettings, normalise_entries, parse_keywords
 
 if TYPE_CHECKING:
     from ....shell.context import AppContext
 
 
-def clean_names(names: list[str]) -> list[str]:
-    """Noms sans espaces superflus, sans vides ni doublons (casse ignorée), dans l'ordre saisi."""
-    seen: set[str] = set()
-    result: list[str] = []
-    for name in names:
-        name = name.strip()
-        if name and name.lower() not in seen:
-            seen.add(name.lower())
-            result.append(name)
-    return result
-
-
 class NamesEditor(QWidget):
-    """Une liste de noms modifiables sur place, avec Ajouter / Retirer."""
+    """Une liste d'entrées modifiables sur place, avec Ajouter / Retirer."""
 
     changed = Signal()
 
@@ -97,7 +85,7 @@ class NamesEditor(QWidget):
             self.changed.emit()
 
     def _add(self) -> None:
-        item = self._append(tr("New name"))
+        item = self._append("")
         self.list.setCurrentItem(item)
         self.list.editItem(item)
         self.changed.emit()
@@ -118,47 +106,31 @@ class StatisticsSettingsPage(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
-        self.work = NamesEditor(tr("Names of the Work page"))
-        self.supervision = NamesEditor(tr("Names of the Supervision page"))
-        layout.addWidget(self.work)
-        layout.addWidget(self.supervision)
-        self.work.changed.connect(self._mark_dirty)
-        self.supervision.changed.connect(self._mark_dirty)
+        self.entries = NamesEditor(tr("Highlighted pages"))
+        self.entries.list.setMaximumHeight(160)
+        self.entries.changed.connect(self._mark_dirty)
+        layout.addWidget(self.entries)
 
         hint = QLabel(
             tr(
-                "The search ignores case and covers the displayed name and the technical name of the page "
-                "(without the IType_NN_ prefix). Double-click a name to edit it. "
-                "Empty names and duplicates are ignored. The names are used at the next analysis."
+                "Each entry is a page to highlight in the Pages summary. Write one or more keywords separated by "
+                "commas: the first page whose displayed name or technical name (without the IType_NN_ prefix) is "
+                "one of them is used, ignoring case. Double-click an entry to edit it. "
+                "Empty keywords and duplicates are ignored. The list is empty by default and is used at the next analysis."
             )
         )
         hint.setProperty("muted", True)
         hint.setWordWrap(True)
         layout.addWidget(hint)
         layout.addStretch(1)
-
-        self.defaults_button = defaults = QPushButton(tr("Restore defaults"))
-        defaults.setToolTip(tr("Puts back the default page names in this form (applied with OK or Apply)."))
-        defaults.clicked.connect(self._restore_defaults)
-        buttons = QHBoxLayout()
-        buttons.addWidget(defaults)
-        buttons.addStretch(1)
-        layout.addLayout(buttons)
-
         self._load(self._section)
 
     # ---- formulaire ----------------------------------------------------------------
     def _load(self, settings: StatisticsSettings) -> None:
-        options = settings.options()  # une liste vide retombe sur les noms par défaut
-        self.work.set_names(list(options.work_names))
-        self.supervision.set_names(list(options.supervision_names))
+        self.entries.set_names(list(settings.highlighted))
         self._dirty = False
 
     def _mark_dirty(self) -> None:
-        self._dirty = True
-
-    def _restore_defaults(self) -> None:
-        self._load(StatisticsSettings())
         self._dirty = True
 
     # ---- contrat de la boîte Paramètres -----------------------------------------------
@@ -166,32 +138,23 @@ class StatisticsSettingsPage(QWidget):
         return self._dirty
 
     def validate(self) -> str:
-        """Message d'erreur si une liste n'a aucun nom exploitable, sinon vide."""
-        for editor, title in ((self.work, tr("Names of the Work page")), (self.supervision, tr("Names of the Supervision page"))):
-            if not editor.names():
-                return tr("The list “{title}” needs at least one name.").format(title=title)
+        """Message d'erreur si une entrée n'a aucun mot-clé, sinon vide."""
+        if any(not parse_keywords(text) for text in self.entries.texts()):
+            return tr("Every highlighted page needs at least one keyword.")
         return ""
 
     def apply(self) -> None:
-        """Range les noms dans les réglages (enregistrés par la boîte Paramètres)."""
+        """Range les entrées dans les réglages (enregistrés par la boîte Paramètres)."""
         if not self._dirty:
             return
-        self._section.set_names(self.work.names(), self.supervision.names())
+        self._section.highlighted = normalise_entries(self.entries.texts())
         self._load(self._section)  # affiche les valeurs normalisées
 
     def snapshot(self) -> dict:
         """Formulaire tel qu'affiché, même non appliqué."""
-        return {
-            "work": self.work.texts(),
-            "work_row": self.work.list.currentRow(),
-            "supervision": self.supervision.texts(),
-            "supervision_row": self.supervision.list.currentRow(),
-            "dirty": self._dirty,
-        }
+        return {"entries": self.entries.texts(), "row": self.entries.list.currentRow(), "dirty": self._dirty}
 
     def restore(self, state: dict) -> None:
-        self.work.set_names(state.get("work", self.work.texts()))
-        self.work.list.setCurrentRow(state.get("work_row", -1))
-        self.supervision.set_names(state.get("supervision", self.supervision.texts()))
-        self.supervision.list.setCurrentRow(state.get("supervision_row", -1))
+        self.entries.set_names(state.get("entries", self.entries.texts()))
+        self.entries.list.setCurrentRow(state.get("row", -1))
         self._dirty = bool(state.get("dirty"))

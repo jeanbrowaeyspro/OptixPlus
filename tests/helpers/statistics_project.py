@@ -4,9 +4,9 @@ Contenu (projet ``Demo``) :
 
 - deux stations CODESYS : ``PlcA`` (5 tags simples + 2 structures) et ``PlcB`` (1 tag) ;
 - une fenêtre principale avec un menu (boutons ``BtPanel``) et un ``PanelLoader`` ;
-- trois écrans principaux : ``IType_00_Home`` (2 tags), ``IType_01_Work`` (nom affiché « Work
+- trois écrans principaux : ``IType_00_Home`` (2 tags), ``IType_01_Alpha`` (nom affiché « Alpha
   machine »; liaison absolue, relative, pointeur d'équipement et sous-panneau partagé),
-  ``IType_02_Supervision`` (``NavigationPanel`` à deux onglets dont le second contient un
+  ``IType_02_Beta`` (``NavigationPanel`` à deux onglets dont le second contient un
   ``NavigationPanel`` imbriqué à deux sous-onglets ; chemin dynamique ``{0}`` et convertisseur partagé) ; une boîte de dialogue non principale ;
 - 2 alarmes, 1 NetLogic, 2 loggers ; quelques fichiers de ``ProjectFiles``.
 
@@ -171,8 +171,8 @@ Children:
   Children:
 """
         + _button("BT_Home", "Home", "IType_00_Home")
-        + _button("BT_Work", "Work", "IType_01_Work")
-        + _button("BT_Supervision", "Supervision", "IType_02_Supervision")
+        + _button("BT_Alpha", "Alpha", "IType_01_Alpha")
+        + _button("BT_Beta", "Beta", "IType_02_Beta")
         + """- Name: IType_MainWindow
   Supertype: Window
   Children:
@@ -199,9 +199,9 @@ Children:
         + _label("LabelLevel", f"{TAGS_A}/Level")
         + _label("LabelPressureCopy", f"{TAGS_A}/Pressure")  # même tag, autre objet : 1 tag, 2 liaisons
         + _label("LabelLocal", "/Objects/Demo/Model/Local")
-        + """- Name: IType_01_Work
+        + """- Name: IType_01_Alpha
   Supertype: Screen
-  DisplayName: {"LocaleId":"fr-FR","Text":"Work machine"}
+  DisplayName: {"LocaleId":"fr-FR","Text":"Alpha machine"}
   Children:
 """
         + _label("LabelPressure", f"{TAGS_A}/Pressure")
@@ -214,7 +214,7 @@ Children:
     Type: NodePointer
     DataType: NodeId
     Value: "/Objects/Demo/CommDrivers/CODESYSDriver/PlcA/Tags/Motor"
-- Name: IType_02_Supervision
+- Name: IType_02_Beta
   Supertype: Screen
   Children:
   - Name: NavigationPanel

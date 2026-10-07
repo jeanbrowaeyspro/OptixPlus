@@ -6,6 +6,7 @@ import pytest
 
 from optixplus.common.progress import Cancelled
 from optixplus.modules.statistics.core import stats
+from optixplus.modules.statistics.core.config import parse_keywords
 from optixplus.modules.statistics.core.model import (
     KIND_PROJECT,
     KIND_RUNTIME,
@@ -50,7 +51,7 @@ def test_stations_and_tags(result):
 
 def test_main_pages(result):
     mains = [p.name for p in result.pages if p.is_main]
-    assert sorted(mains) == ["IType_00_Home", "IType_01_Work", "IType_02_Supervision"]
+    assert sorted(mains) == ["IType_00_Home", "IType_01_Alpha", "IType_02_Beta"]
     assert result.main_pages == 3
     assert [p.is_main for p in result.pages] == [True, True, True, False, False]  # principales d'abord
     assert page(result, "IType_Dlg").kind == VIEW_DIALOG
@@ -60,58 +61,62 @@ def test_main_pages(result):
 
 def test_titles(result):
     assert page(result, "IType_00_Home").title == "Home"  # texte du bouton de menu
-    assert page(result, "IType_01_Work").title == "Work machine"  # DisplayName prioritaire
+    assert page(result, "IType_01_Alpha").title == "Alpha machine"  # DisplayName prioritaire
     assert page(result, "IType_Dlg").title == "IType_Dlg"  # repli sur le nom du nœud
 
 
 def test_tags_per_page_with_shared_subview(result):
     home = page(result, "IType_00_Home")
     assert (home.links, home.tags, home.subviews, home.approximate) == (3, 2, 0, False)  # Pressure lié à deux objets : 2 liaisons, 1 tag ; le lien vers le modèle est ignoré
-    work = page(result, "IType_01_Work")
+    work = page(result, "IType_01_Alpha")
     # Pressure, Counters/Count1 (relatif), Motor (pointeur d'équipement) + Level, Motor/Speed (sous-vue)
     assert (work.links, work.tags, work.subviews, work.approximate) == (5, 5, 1, False)
 
 
 def test_dynamic_path_and_converter(result):
-    sup = page(result, "IType_02_Supervision")
+    sup = page(result, "IType_02_Beta")
     # Level, Motor/Speed (sous-vue partagée), Slot{0} (chemin dynamique), Temp via le convertisseur, Pressure
     assert sup.tags == 5
     assert sup.links == 6  # Level lié deux fois (sous-vue de l'onglet 1 et sous-onglet History)
     assert sup.subviews == 5  # deux onglets, deux sous-onglets et la sous-vue partagée
     assert sup.approximate is True
-    assert not page(result, "IType_01_Work").approximate
+    assert not page(result, "IType_01_Alpha").approximate
     assert any("approximate" in w for w in result.warnings)
 
 
 def test_average_and_busiest_are_per_row_not_per_page_total(result):
-    # lignes : Home 2, Work machine 5, Supervision/Axes 3, Alarms/Active 1, Alarms/History 2
+    # lignes : Home 2, Alpha machine 5, Beta/Axes 3, Alarms/Active 1, Alarms/History 2
     assert result.average_tags_per_view == pytest.approx((2 + 5 + 3 + 1 + 2) / 5)
-    assert result.busiest_row is not None and result.busiest_row.label == "Work machine"
+    assert result.busiest_row is not None and result.busiest_row.label == "Alpha machine"
     assert result.busiest_row in result.rows
 
 
-def test_work_and_supervision_pages(result):
-    assert result.work_page is not None and result.work_page.name == "IType_01_Work"  # nom technique sans IType_NN_
-    assert result.supervision_page is not None and result.supervision_page.name == "IType_02_Supervision"
+def _options(*entries: str) -> StatisticsOptions:
+    return StatisticsOptions(tuple(parse_keywords(e) for e in entries))
 
 
-def test_custom_names(tmp_path):
-    options = StatisticsOptions(work_names=("home",), supervision_names=("work machine",))
-    result = stats.compute(str(make_project(tmp_path)), options=options)
-    assert result.work_page.name == "IType_00_Home"
-    assert result.supervision_page.name == "IType_01_Work"  # nom affiché, casse ignorée
-    unknown = stats.compute(str(make_project(tmp_path, name="Demo2")), options=StatisticsOptions(work_names=("nothing",)))
-    assert unknown.work_page is None
+def test_no_highlighted_page_by_default(result):
+    assert StatisticsOptions().highlights == ()
+    assert result.highlights == []
 
 
-def test_supervision_is_also_named_overwatch(tmp_path):
-    assert StatisticsOptions().supervision_names == ("Supervision", "Overwatch")
-    assert StatisticsOptions().work_names == ("Work", "Travail")
+def test_highlighted_pages_search_title_technical_name_and_short_name(tmp_path):
     folder = str(make_project(tmp_path))
-    only = stats.compute(folder, options=StatisticsOptions(supervision_names=("OVERWATCH",)))
-    assert only.supervision_page is None  # aucune page de ce nom
-    both = stats.compute(folder, options=StatisticsOptions(supervision_names=("OverWatch", "supervision")))
-    assert both.supervision_page is not None and both.supervision_page.name == "IType_02_Supervision"
+    result = stats.compute(folder, options=_options("alpha machine", "beta", "IType_00_Home", "nothing, nowhere"))
+    rows = [h.row for h in result.highlights]
+    assert [h.keywords for h in result.highlights] == [("alpha machine",), ("beta",), ("IType_00_Home",), ("nothing", "nowhere")]
+    assert rows[0].page == "Alpha machine"  # nom affiché, casse ignorée
+    assert rows[1].page == "Beta"  # nom technique sans IType_NN_
+    assert rows[2].page == "Home"  # nom technique complet
+    assert rows[3] is None  # aucune page de ce nom
+
+
+def test_highlight_keywords_are_alternatives_and_exact_first(tmp_path):
+    folder = str(make_project(tmp_path))
+    found = stats.compute(folder, options=_options("Gamma, ALPHA MACHINE")).highlights[0]
+    assert found.row.page == "Alpha machine"  # un seul mot-clé suffit
+    partial = stats.compute(folder, options=_options("machin")).highlights[0]
+    assert partial.row is not None and partial.row.page == "Alpha machine"  # sous-chaîne en dernier recours
 
 
 def test_bindings_count_objects_and_tags_count_distinct_paths(result):
@@ -204,36 +209,37 @@ def _rows(result):
 def test_rows_are_main_pages_and_tab_leaves_only(result):
     assert [r.label for r in result.rows] == [
         "Home",
-        "Work machine",
-        "Supervision/Axes",
-        "Supervision/Alarms/Active",
-        "Supervision/Alarms/History",
+        "Alpha machine",
+        "Beta/Axes",
+        "Beta/Alarms/Active",
+        "Beta/Alarms/History",
     ]  # ni dialogue, ni fenêtre, ni sous-vue (IType_Gauge, IType_TabA…), ni total de page à onglets
     rows = _rows(result)
     assert rows["Home"] == (2, 3, False)
-    assert rows["Supervision/Axes"] == (3, 3, True)  # Level, Motor/Speed, Slot{0}
-    assert rows["Supervision/Alarms/Active"] == (1, 1, False)  # Temp via le convertisseur
-    assert rows["Supervision/Alarms/History"] == (2, 2, False)
+    assert rows["Beta/Axes"] == (3, 3, True)  # Level, Motor/Speed, Slot{0}
+    assert rows["Beta/Alarms/Active"] == (1, 1, False)  # Temp via le convertisseur
+    assert rows["Beta/Alarms/History"] == (2, 2, False)
     assert [r.tabs for r in result.rows][2:] == [["Axes"], ["Alarms", "Active"], ["Alarms", "History"]]
 
 
-def test_summary_rows_use_the_default_tab_of_the_rows(tmp_path):
-    first = stats.compute(str(make_project(tmp_path)))  # pas d'indice : premier onglet
-    assert first.supervision_row in first.rows  # même structure que le tableau
-    assert first.supervision_row.label == "Supervision/Axes" and first.supervision_row.tags == 3
-    assert first.supervision_page.tags == 5  # la page entière compte aussi les autres onglets
-    assert first.work_row.label == "Work machine"  # pas de NavigationPanel : page entière
-    second = stats.compute(str(make_project(tmp_path, current_tab=1, name="Demo4")))
-    assert second.supervision_row.label == "Supervision/Alarms/Active"  # onglets par défaut suivis jusqu'à la feuille
-    assert second.supervision_row.tags == 1
+def test_highlight_rows_use_the_default_tab_of_the_rows(tmp_path):
+    options = _options("beta", "alpha machine")
+    first = stats.compute(str(make_project(tmp_path)), options=options)  # pas d'indice : premier onglet
+    beta, alpha = (h.row for h in first.highlights)
+    assert beta in first.rows  # même structure que le tableau
+    assert beta.label == "Beta/Axes" and beta.tags == 3
+    assert alpha.label == "Alpha machine"  # pas de NavigationPanel : page entière
+    second = stats.compute(str(make_project(tmp_path, current_tab=1, name="Demo4")), options=options)
+    assert second.highlights[0].row.label == "Beta/Alarms/Active"  # onglets par défaut suivis jusqu'à la feuille
+    assert second.highlights[0].row.tags == 1
 
 
 def test_unknown_default_tab_keeps_page_total(tmp_path):
-    unknown = stats.compute(str(make_project(tmp_path, current_tab=7)))
-    row = unknown.supervision_row
-    assert row.tab_unknown and row.label == "Supervision" and row.tags == 5
+    unknown = stats.compute(str(make_project(tmp_path, current_tab=7)), options=_options("beta"))
+    row = unknown.highlights[0].row
+    assert row.tab_unknown and row.label == "Beta" and row.tags == 5  # total de la page entière
     assert row not in unknown.rows
-    assert len([r for r in unknown.rows if r.page == "Supervision"]) == 3  # les feuilles restent listées
+    assert len([r for r in unknown.rows if r.page == "Beta"]) == 3  # les feuilles restent listées
 
 
 def test_used_tags(result):

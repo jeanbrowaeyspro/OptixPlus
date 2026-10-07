@@ -395,10 +395,12 @@ class StatisticsPage(QWidget):
             (tr("Main pages"), str(r.main_pages), ""),
             (tr("Average tags per page/tab"), _num(r.average_tags_per_view), ""),
             (tr("Busiest page/tab"), busiest, ""),
-            (tr("Work page"), self._page_fact(r.work_row, not_found), ""),
-            (tr("Supervision page"), self._page_fact(r.supervision_row, not_found), ""),
         ]
+        for item in r.highlights:
+            facts.append((", ".join(item.keywords), self._page_fact(item.row, not_found), ""))
         card.add_facts(facts)
+        if not r.highlights:
+            card.add_text(tr("No highlighted page: add some in Settings > Statistics"), muted=True)
         if not r.rows:
             card.add_text(tr("No page found."), muted=True)
             return card

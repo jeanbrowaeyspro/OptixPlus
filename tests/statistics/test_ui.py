@@ -13,7 +13,7 @@ from optixplus.common.i18n import tr
 from optixplus.common.progress import Cancelled, Progress
 from optixplus.common.recent import recent_projects
 from optixplus.modules.statistics.core.config import StatisticsSettings
-from optixplus.modules.statistics.core.model import StatisticsOptions
+from optixplus.modules.statistics.core.model import HighlightResult, PageRow, StatisticsOptions
 from optixplus.modules.statistics.ui import page as page_module
 from statistics_fixture import make_statistics
 from support import wait_until
@@ -50,7 +50,7 @@ def test_analysis_runs_in_background_and_shows_cards(ui):
     assert "150 tags synchronisés" in page.summary.text()
     assert page.tables["stations"].displayed(2) == ["192.0.2.10:11740", ""]
     assert page.tables["stations"].displayed(5) == ["≈ 100", "20"]
-    assert page.tables["pages"].displayed(0) == ["Home", "Work", "Supervision/Axes", "Supervision/Overview/Detail"]  # ordre du calcul, sans dialogue
+    assert page.tables["pages"].displayed(0) == ["Home", "Alpha", "Beta/Axes", "Beta/Overview/Detail"]  # ordre du calcul, sans dialogue
     assert page.tables["pages"].displayed(1)[1] == "≈ 40"  # page approximative
     assert recent_projects(controller.context.settings) == [os.path.normpath("C:/demo/Demo")]
     assert page.act_export.isEnabled()
@@ -62,9 +62,9 @@ def test_pages_table_sorts_by_column(ui):
     _analysed(page)
     table = page.tables["pages"]
     table.sortByColumn(1, Qt.SortOrder.DescendingOrder)  # tags distincts : nombres, pas texte
-    assert table.displayed(0) == ["Work", "Supervision/Axes", "Supervision/Overview/Detail", "Home"]
+    assert table.displayed(0) == ["Alpha", "Beta/Axes", "Beta/Overview/Detail", "Home"]
     table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-    assert table.displayed(0) == ["Home", "Supervision/Axes", "Supervision/Overview/Detail", "Work"]
+    assert table.displayed(0) == ["Alpha", "Beta/Axes", "Beta/Overview/Detail", "Home"]
 
 
 def test_runtime_shows_database_files(ui, monkeypatch):
@@ -87,8 +87,8 @@ def test_export_csv_writes_stations_and_pages(ui, monkeypatch, tmp_path):
     assert lines[0] == "Automates"
     assert lines[2] == "Station1;CODESYSDriver;192.0.2.10:11740;120;6;100"
     assert "Pages" in lines
-    assert "Work;40;60;3;1" in lines
-    assert "Supervision/Overview/Detail;12;14;0;0" in lines
+    assert "Alpha;40;60;3;1" in lines
+    assert "Beta/Overview/Detail;12;14;0;0" in lines
     assert not any(line.startswith("Confirm") for line in lines)  # dialogue exclu
 
 
@@ -144,14 +144,13 @@ def test_empty_path_asks_for_a_folder(ui, message_boxes):
     assert message_boxes.of("warning")
 
 
-def test_settings_names_reach_the_options(ui):
+def test_settings_entries_reach_the_options(ui):
     controller, page, calls = ui
-    section = controller.context.settings.section(StatisticsSettings)
-    section.work_names = ["Atelier"]
-    section.supervision_names = []  # liste vide : noms par défaut
     _analysed(page)
-    assert calls[0][1].work_names == ("Atelier",)
-    assert calls[0][1].supervision_names == StatisticsOptions().supervision_names
+    assert calls[0][1].highlights == ()  # liste vide par défaut
+    controller.context.settings.section(StatisticsSettings).highlighted = ["Atelier, Shop", "", "Beta"]
+    _analysed(page)
+    assert calls[1][1].highlights == (("Atelier", "Shop"), ("Beta",))
 
 
 def test_language_change_keeps_result_and_sort(ui):
@@ -164,7 +163,7 @@ def test_language_change_keeps_result_and_sort(ui):
     assert new_page is not page
     assert new_page.result is not None
     table = new_page.tables["pages"]
-    assert table.displayed(0)[0] == "Work"
+    assert table.displayed(0)[0] == "Alpha"
     assert table.model().headerData(1, Qt.Orientation.Horizontal) == "Distinct tags"
     assert new_page.summary.text().startswith("Demo: 150 synchronised tags")
 
@@ -198,20 +197,32 @@ def _labels(page) -> list[str]:
     return [label.text() for label in page.cards.findChildren(QLabel)]
 
 
-def test_pages_card_gives_name_and_tag_count_of_work_and_supervision(ui):
+def test_pages_card_gives_page_tab_and_tag_count_of_highlighted_pages(ui):
     _controller, page, _calls = ui
     _analysed(page)
     labels = _labels(page)
-    assert "Work (≈ 40 tags)" in labels  # page approximative
-    assert "Supervision/Overview/Detail (12 tags)" in labels  # feuille de l'onglet par défaut, pas les 25 tags de la page
+    assert "alpha" in labels and "beta, overwatch" in labels  # mots-clés de chaque entrée
+    assert "Alpha (≈ 40 tags)" in labels  # page approximative
+    assert "Beta/Overview/Detail (12 tags)" in labels  # feuille de l'onglet par défaut, pas les 25 tags de la page
 
 
 def test_pages_card_says_not_found(ui):
     _controller, page, _calls = ui
     result = make_statistics()
-    result.work_page = result.supervision_page = result.work_row = result.supervision_row = None
+    result.highlights = [HighlightResult(("one", "two"), None)]
     page.show_result(result)
-    assert _labels(page).count(tr("not found")) >= 2  # travail et supervision (et la page la plus chargée n'est pas touchée)
+    assert _labels(page).count(tr("not found")) == 1
+    assert "one, two" in _labels(page)  # les mots-clés sont cités
+
+
+def test_pages_card_without_highlighted_page_shows_a_hint(ui):
+    _controller, page, _calls = ui
+    result = make_statistics()
+    result.highlights = []
+    page.show_result(result)
+    assert tr("No highlighted page: add some in Settings > Statistics") in _labels(page)
+    assert "alpha" not in _labels(page)
+
 
 
 def test_bindings_and_distinct_tags_columns_explain_themselves(ui):
@@ -236,16 +247,16 @@ def test_no_memory_nor_module_list_in_the_result(ui):
 
 
 def test_pages_card_tab_variants(ui):
-    from optixplus.modules.statistics.core.model import PageRow
-
     _controller, page, _calls = ui
     result = make_statistics()
-    result.work_row = PageRow("Work", "UI/Work", ["Sawing"], 9, 7, True)
-    result.supervision_row = PageRow("Supervision", "UI/Supervision", [], 30, 25, False, tab_unknown=True)
+    result.highlights = [
+        HighlightResult(("alpha",), PageRow("Alpha", "UI/Alpha", ["Sawing"], 9, 7, True)),
+        HighlightResult(("beta",), PageRow("Beta", "UI/Beta", [], 30, 25, False, tab_unknown=True)),
+    ]
     page.show_result(result)
     labels = _labels(page)
-    assert "Work/Sawing (≈ 7 tags)" in labels
-    assert "Supervision (25 tags), onglet inconnu" in labels
+    assert "Alpha/Sawing (≈ 7 tags)" in labels
+    assert "Beta (25 tags), onglet inconnu" in labels
 
 
 def test_busiest_and_average_are_per_page_or_tab(ui):
@@ -253,7 +264,7 @@ def test_busiest_and_average_are_per_page_or_tab(ui):
     _analysed(page)
     labels = _labels(page)
     assert "Page/onglet le plus chargé" in labels and "Moyenne de tags par page/onglet" in labels
-    assert labels.count("Work (≈ 40 tags)") == 2  # page la plus chargée et page Travail
+    assert labels.count("Alpha (≈ 40 tags)") == 2  # page la plus chargée et page mise en évidence
     assert "18,0" in labels
 
 

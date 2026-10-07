@@ -63,6 +63,7 @@ from .model import (
     ProjectStatistics,
     StationStats,
     StatisticsOptions,
+    HighlightResult,
     PageRow,
 )
 
@@ -663,8 +664,6 @@ def _pages(result: ProjectStatistics, an: _Analyzer, options: StatisticsOptions,
     result.pages = pages
     mains = [p for p in pages if p.is_main]
     result.main_pages = len(mains)
-    result.work_page = _find(pages, options.work_names)
-    result.supervision_page = _find(pages, options.supervision_names)
     cache: dict[str, tuple[list[PageRow], PageRow]] = {}
 
     def rows_of(page: PageStats | None) -> tuple[list[PageRow], PageRow] | None:
@@ -685,10 +684,9 @@ def _pages(result: ProjectStatistics, an: _Analyzer, options: StatisticsOptions,
     if result.rows:
         result.average_tags_per_view = sum(r.tags for r in result.rows) / len(result.rows)
         result.busiest_row = max(result.rows, key=lambda r: r.tags)
-    for page, attr in ((result.work_page, "work_row"), (result.supervision_page, "supervision_row")):
-        found = rows_of(page)
-        if found is not None:
-            setattr(result, attr, found[1])
+    for keywords in options.highlights:
+        found = rows_of(_find(pages, keywords))
+        result.highlights.append(HighlightResult(keywords, found[1] if found is not None else None))
 
 
 def _find(pages: list[PageStats], names: tuple[str, ...]) -> PageStats | None:
