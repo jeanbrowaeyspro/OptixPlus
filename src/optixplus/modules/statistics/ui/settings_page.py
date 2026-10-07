@@ -176,8 +176,7 @@ class StatisticsSettingsPage(QWidget):
         """Range les noms dans les réglages (enregistrés par la boîte Paramètres)."""
         if not self._dirty:
             return
-        self._section.work_names = self.work.names()
-        self._section.supervision_names = self.supervision.names()
+        self._section.set_names(self.work.names(), self.supervision.names())
         self._load(self._section)  # affiche les valeurs normalisées
 
     def snapshot(self) -> dict:

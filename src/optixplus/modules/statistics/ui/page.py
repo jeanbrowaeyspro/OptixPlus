@@ -395,11 +395,9 @@ class StatisticsPage(QWidget):
             (tr("Main pages"), str(r.main_pages), ""),
             (tr("Average tags per main page"), _num(r.average_tags_per_main_page), ""),
             (tr("Busiest page"), busiest, ""),
-            (tr("Work page"), self._page_fact(r.work_page, not_found), ""),
-            (tr("Supervision page"), self._page_fact(r.supervision_page, not_found), ""),
+            (tr("Work page"), self._page_fact(r.work_page, r.work_tab, not_found), ""),
+            (tr("Supervision page"), self._page_fact(r.supervision_page, r.supervision_tab, not_found), ""),
         ]
-        if r.supervision_page is not None:
-            facts.append((tr("Supervision default tab"), r.supervision_default_tab or tr("unknown"), ""))
         card.add_facts(facts)
         if not r.pages:
             card.add_text(tr("No page found."), muted=True)
@@ -426,12 +424,17 @@ class StatisticsPage(QWidget):
         return card
 
     @staticmethod
-    def _page_fact(page, not_found: str) -> str:
-        """Nom de la page et nombre de tags liés (« ≈ » si approximatif)."""
+    def _page_fact(page, tab, not_found: str) -> str:
+        """Page (et onglet par défaut s'il y en a un) avec son nombre de tags liés (« ≈ » si approximatif)."""
         if page is None:
             return not_found
-        tags = f"≈ {page.tags}" if page.approximate else page.tags
-        return tr("{title} ({tags} tags)").format(title=page.title, tags=tags)
+        if tab is None or not tab.title:
+            tags = f"≈ {page.tags}" if page.approximate else page.tags
+            if tab is None:
+                return tr("{title} ({tags} tags)").format(title=page.title, tags=tags)
+            return tr("{title} ({tags} tags), tab unknown").format(title=page.title, tags=tags)
+        tags = f"≈ {tab.tags}" if tab.approximate else tab.tags
+        return tr("{title} ({tags} tags)").format(title=f"{page.title}/{tab.title}", tags=tags)
 
     def _project_card(self, r: ProjectStatistics) -> QWidget:
         card = _Card(tr("Content"))

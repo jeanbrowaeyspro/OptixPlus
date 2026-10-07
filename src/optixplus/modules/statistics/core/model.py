@@ -60,6 +60,16 @@ class PageStats:
 
 
 @dataclass
+class TabStats:
+    """Onglet d'un ``NavigationPanel`` : sa sous-vue et les sous-vues de celle-ci, sans le reste de la page."""
+
+    title: str  # titre de l'onglet par défaut ; vide si inconnu (indice hors limites, aucun onglet)
+    tags: int = 0  # tags d'automate distincts liés dans cet onglet
+    links: int = 0  # liaisons dans cet onglet
+    approximate: bool = False
+
+
+@dataclass
 class ProjectStatistics:
     name: str
     folder: str
@@ -83,6 +93,10 @@ class ProjectStatistics:
     busiest_page: PageStats | None = None  # page principale avec le plus de tags liés
     work_page: PageStats | None = None
     supervision_page: PageStats | None = None
+    #: Onglet par défaut de la page « Travail » / « Supervision » ; ``None`` si la page n'a pas de
+    #: ``NavigationPanel`` (le nombre de tags est alors celui de la page entière).
+    work_tab: TabStats | None = None
+    supervision_tab: TabStats | None = None
     supervision_default_tab: str = ""  # titre de l'onglet sélectionné par défaut, vide si inconnu
     # --- autres objets
     alarms: int = 0

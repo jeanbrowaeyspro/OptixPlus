@@ -9,6 +9,7 @@ from optixplus.modules.statistics.core.model import (
     PageStats,
     ProjectStatistics,
     StationStats,
+    TabStats,
 )
 
 
@@ -38,6 +39,7 @@ def make_statistics(folder: str = "C:/demo/Demo", *, runtime: bool = False) -> P
         busiest_page=work,
         work_page=work,
         supervision_page=supervision,
+        supervision_tab=TabStats("Overview", tags=12, links=14),
         supervision_default_tab="Overview",
         alarms=12,
         netlogic=3,

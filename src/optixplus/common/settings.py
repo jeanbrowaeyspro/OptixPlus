@@ -100,6 +100,9 @@ def section_from_dict(cls: type[T], data: Any) -> T:
                 data[f.name],
             )
         setattr(instance, f.name, value)
+    migrate = getattr(instance, "migrate", None)
+    if callable(migrate):
+        migrate()  # mise à niveau facultative propre à la section
     return instance
 
 

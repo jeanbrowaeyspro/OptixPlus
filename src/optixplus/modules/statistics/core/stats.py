@@ -44,6 +44,7 @@ from .model import (
     ProjectStatistics,
     StationStats,
     StatisticsOptions,
+    TabStats,
 )
 
 log = logging.getLogger("optixplus.statistics")
@@ -523,30 +524,32 @@ def _stations(result: ProjectStatistics, root: Node | None, ticker: _Ticker) -> 
     result.structures_total = sum(s.structures for s in result.stations)
 
 
+def _closure(an: _Analyzer, start: _Unit) -> tuple[set[int], set[str], bool, int]:
+    """Liaisons, tags distincts, approximation et nombre de panneaux d'une unité et de ses sous-vues."""
+    seen = {start.node.path()}
+    queue = deque([start])
+    links: set[int] = set()
+    keys: set[str] = set()
+    approx = False
+    panels = 0
+    while queue:
+        unit = queue.popleft()
+        links |= unit.links
+        keys |= unit.keys
+        approx = approx or unit.approximate
+        for path in unit.edges:
+            if path not in seen:
+                seen.add(path)
+                target = an.units.get(path)
+                if target is not None:
+                    queue.append(target)
+                    panels += target.kind == _PANEL
+    return links, keys, approx, panels
+
+
 def _pages(result: ProjectStatistics, an: _Analyzer, options: StatisticsOptions, nav_titles: dict[str, str],
            main_names: set[str]) -> None:
     views = [u for u in an.units.values() if u.kind in _MAIN_KINDS]
-
-    def closure(start: _Unit) -> tuple[set[int], set[str], bool, int]:
-        seen = {start.node.path()}
-        queue = deque([start])
-        links: set[int] = set()
-        keys: set[str] = set()
-        approx = False
-        panels = 0
-        while queue:
-            unit = queue.popleft()
-            links |= unit.links
-            keys |= unit.keys
-            approx = approx or unit.approximate
-            for path in unit.edges:
-                if path not in seen:
-                    seen.add(path)
-                    target = an.units.get(path)
-                    if target is not None:
-                        queue.append(target)
-                        panels += target.kind == _PANEL
-        return links, keys, approx, panels
 
     main = {u.node.path() for u in views if u.kind == VIEW_SCREEN and u.node.name in main_names}
     if not main:
@@ -556,7 +559,7 @@ def _pages(result: ProjectStatistics, an: _Analyzer, options: StatisticsOptions,
     pages: list[PageStats] = []
     for unit in views:
         node = unit.node
-        links, keys, approx, panels = closure(unit)
+        links, keys, approx, panels = _closure(an, unit)
         title = localized_text(an.raw.key_text(node, "DisplayName")) or nav_titles.get(node.name, "") or node.name
         pages.append(PageStats(
             name=node.name, title=title, kind=unit.kind, path=node.path(),
@@ -575,10 +578,10 @@ def _pages(result: ProjectStatistics, an: _Analyzer, options: StatisticsOptions,
         result.busiest_page = max(mains, key=lambda p: p.tags)
     result.work_page = _find(pages, options.work_names)
     result.supervision_page = _find(pages, options.supervision_names)
-    if result.supervision_page is not None:
-        unit = an.units.get(result.supervision_page.path)
-        if unit is not None:
-            result.supervision_default_tab = _default_tab(an, unit)
+    result.work_tab = _page_tab(an, result.work_page)
+    result.supervision_tab = _page_tab(an, result.supervision_page)
+    if result.supervision_tab is not None:
+        result.supervision_default_tab = result.supervision_tab.title
 
 
 def _find(pages: list[PageStats], names: tuple[str, ...]) -> PageStats | None:
@@ -599,8 +602,16 @@ def _find(pages: list[PageStats], names: tuple[str, ...]) -> PageStats | None:
     return None
 
 
-def _default_tab(an: _Analyzer, start: _Unit) -> str:
-    """Titre de l'onglet affiché au départ par le premier ``NavigationPanel`` de la page."""
+def _page_tab(an: _Analyzer, page: PageStats | None) -> TabStats | None:
+    """Onglet affiché au départ par le premier ``NavigationPanel`` de la page.
+
+    ``None`` si la page n'a pas de ``NavigationPanel`` (ou n'existe pas) ; un ``TabStats`` de titre vide si
+    l'onglet par défaut est inconnu. Les chiffres ne portent que sur la sous-vue de cet onglet et ses propres
+    sous-vues, pas sur la page entière ni sur les autres onglets.
+    """
+    start = an.units.get(page.path) if page is not None else None
+    if start is None:
+        return None
     seen = {start.node.path()}
     queue = deque([start])
     while queue:
@@ -609,28 +620,32 @@ def _default_tab(an: _Analyzer, start: _Unit) -> str:
         while nodes:
             node = nodes.popleft()
             if node.type == "NavigationPanel":
-                return _tab_title(an, node)
+                return _tab_stats(an, node)
             nodes.extend(node.children.values())
         for path in unit.edges:
             if path not in seen and path in an.units:
                 seen.add(path)
                 queue.append(an.units[path])
-    return ""
+    return None
 
 
-def _tab_title(an: _Analyzer, nav: Node) -> str:
-    """Onglet ``CurrentTabIndex`` s'il a une valeur scalaire, sinon le premier."""
+def _tab_stats(an: _Analyzer, nav: Node) -> TabStats:
+    """Onglet ``CurrentTabIndex`` s'il a une valeur scalaire, sinon le premier ; chiffres de sa sous-vue."""
     panels = nav.children.get("Panels")
     items = [c for c in panels.children.values() if c.type == "NavigationPanelItem"] if panels is not None else []
-    if not items:
-        return ""
     index = 0
     current = nav.children.get("CurrentTabIndex")
     if current is not None and isinstance(current.value, int) and not isinstance(current.value, bool):
         index = current.value
     if not 0 <= index < len(items):
-        return ""
+        return TabStats("")
     item = items[index]
     title = item.children.get("Title")
     text = localized_text(an.raw.value_text(title)) if title is not None else ""
-    return text or item.name
+    pointer = item.children.get("Panel")
+    target = an.types.get(pointer.value.rsplit("/", 1)[-1]) if pointer is not None and isinstance(pointer.value, str) else None
+    unit = an.units.get(target.path()) if target is not None else None
+    if unit is None:
+        return TabStats(text or item.name)
+    links, keys, approx, _panels = _closure(an, unit)
+    return TabStats(text or item.name, len(keys), len(links), approx)

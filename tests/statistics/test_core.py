@@ -7,6 +7,7 @@ import pytest
 from optixplus.common.progress import Cancelled
 from optixplus.modules.statistics.core import stats
 from optixplus.modules.statistics.core.model import (
+    TabStats,
     KIND_PROJECT,
     KIND_RUNTIME,
     VIEW_DIALOG,
@@ -204,3 +205,19 @@ def test_core_does_not_import_qt():
     assert stats.__name__ in sys.modules
     source = open(stats.__file__, encoding="utf-8").read()
     assert "PySide6" not in source
+
+
+def test_default_tab_counts_only_that_tab(tmp_path):
+    first = stats.compute(str(make_project(tmp_path)))  # pas d'indice : premier onglet
+    assert first.supervision_tab == TabStats("Axes", tags=3, links=3, approximate=True)
+    assert first.supervision_page.tags == 4  # la page entière compte aussi l'autre onglet
+    second = stats.compute(str(make_project(tmp_path, current_tab=1, name="Demo4")))
+    assert second.supervision_tab == TabStats("Alarms", tags=1, links=1, approximate=False)
+    assert second.supervision_default_tab == "Alarms"
+
+
+def test_unknown_default_tab_and_page_without_tabs(tmp_path):
+    unknown = stats.compute(str(make_project(tmp_path, current_tab=7)))
+    assert unknown.supervision_tab == TabStats("")  # onglet inconnu : titre vide
+    assert unknown.work_tab is None  # pas de NavigationPanel : tags de la page entière
+    assert unknown.supervision_page is not None

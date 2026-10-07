@@ -200,8 +200,7 @@ def test_pages_card_gives_name_and_tag_count_of_work_and_supervision(ui):
     _analysed(page)
     labels = _labels(page)
     assert "Work (≈ 40 tags)" in labels  # page approximative
-    assert "Supervision (25 tags)" in labels
-    assert "Overview" in labels  # onglet par défaut de la supervision
+    assert "Supervision/Overview (12 tags)" in labels  # onglet par défaut seulement, pas les 25 tags de la page
 
 
 def test_pages_card_says_not_found(ui):
@@ -231,3 +230,16 @@ def test_no_memory_nor_module_list_in_the_result(ui):
     assert "mémoire" not in texts and "mio (estimation)" not in texts
     assert "modules" not in texts
     assert "memory" not in page.tables
+
+
+def test_pages_card_tab_variants(ui):
+    from optixplus.modules.statistics.core.model import TabStats
+
+    _controller, page, _calls = ui
+    result = make_statistics()
+    result.work_tab = TabStats("Sawing", tags=7, links=9, approximate=True)
+    result.supervision_tab = TabStats("")  # onglet inconnu : page seule, total de la page
+    page.show_result(result)
+    labels = _labels(page)
+    assert "Work/Sawing (≈ 7 tags)" in labels
+    assert "Supervision (25 tags), onglet inconnu" in labels
