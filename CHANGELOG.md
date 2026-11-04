@@ -4,6 +4,9 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 
 ## [Non publié]
 
+### Corrigé
+- Mise à jour automatique : le raccourci du bureau n'est plus recréé s'il avait été supprimé.
+
 ## [1.2.2] - 2026-11-04
 
 ### Ajouté

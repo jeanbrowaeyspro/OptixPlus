@@ -92,7 +92,7 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AppUserModelID}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AppUserModelID}"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AppUserModelID}"; Tasks: desktopicon; Check: DesktopIconWanted
 
 [Registry]
 ; Dossier d'installation : OptixPlus s'y reconnaît « installé » (tray, surveillance, mises à jour).
@@ -148,6 +148,17 @@ begin
   end;
 end;
 
+var
+  WasInstalled: Boolean;
+
+// Mise à jour silencieuse (lancée par OptixPlus) : le raccourci du bureau est seulement
+// remplacé s'il existe encore, jamais recréé après avoir été supprimé à la main.
+function DesktopIconWanted(): Boolean;
+begin
+  Result := not (WizardSilent() and WasInstalled) or
+            FileExists(ExpandConstant('{autodesktop}\{#AppName}.lnk'));
+end;
+
 function MigrationRequested(): Boolean;
 begin
   Result := (not WizardSilent()) and (MigrationTasks('') <> '');
@@ -179,6 +190,7 @@ function InitializeSetup(): Boolean;
 var
   Waited: Integer;
 begin
+  WasInstalled := RegValueExists(HKLM64, 'Software\{#AppName}', 'InstallDir');
   // Mise à jour lancée depuis OptixPlus : lui laisser le temps de se fermer.
   Waited := 0;
   while CheckForMutexes('{#AppMutexName}') and (Waited < 15000) do
