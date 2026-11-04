@@ -67,6 +67,10 @@ Pré-requis : Inno Setup 6 (`winget install JRSoftware.InnoSetup`). Pour publier
 
 L'interface suit la langue de Windows (français ou anglais) ; un réglage permet de la forcer, avec effet immédiat. Les textes sources sont en anglais, le catalogue français est `src/optixplus/i18n/fr.json`. `tools/i18n_check.py` signale les traductions manquantes.
 
+## Licence
+
+OptixPlus est distribué sous licence MIT ([LICENSE](LICENSE)). Les composants tiers (Qt et QtAds en LGPL, openpyxl, PyYAML et truststore en MIT) sont listés dans [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt), textes LGPL dans [licenses](licenses).
+
 ## Auteur
 
 Jean Browaeys — Automaticien Indépendant

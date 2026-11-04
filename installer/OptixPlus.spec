@@ -53,6 +53,10 @@ a = Analysis(
     datas=[
         (os.path.join(PACKAGE, "resources"), os.path.join("optixplus", "resources")),
         (os.path.join(PACKAGE, "i18n"), os.path.join("optixplus", "i18n")),
+        # Licence d'OptixPlus et des composants tiers (LGPL, MIT) livrées avec l'application.
+        (os.path.join(ROOT, "LICENSE"), "."),
+        (os.path.join(ROOT, "THIRD-PARTY-NOTICES.txt"), "."),
+        (os.path.join(ROOT, "licenses"), "licenses"),
     ],
     # Outils chargés à la demande par leur chemin d'import (ModuleSpec.import_path).
     hiddenimports=collect_submodules("optixplus"),
