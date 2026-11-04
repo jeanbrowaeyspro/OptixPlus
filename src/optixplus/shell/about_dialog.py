@@ -85,13 +85,22 @@ class AboutDialog(QDialog):
 
         licenses = QLabel(
             tr(
-                "Third-party components: Qt and PySide6 (LGPL v3), Qt Advanced Docking System (LGPL v2.1), "
-                "openpyxl (MIT), PyYAML (MIT)."
+                "OptixPlus is released under the MIT License. Third-party components: Qt and PySide6 (LGPL v3), "
+                "Qt Advanced Docking System (LGPL v2.1), openpyxl (MIT), PyYAML (MIT), truststore (MIT)."
             )
         )
         licenses.setProperty("muted", True)
         licenses.setWordWrap(True)
         layout.addWidget(licenses)
+
+        legal = QHBoxLayout()
+        notices = paths.legal_dir() / "THIRD-PARTY-NOTICES.txt"
+        notices_button = QPushButton(tr("Open license notices"))
+        notices_button.setEnabled(notices.is_file())
+        notices_button.clicked.connect(lambda _c=False: QDesktopServices.openUrl(QUrl.fromLocalFile(os.fspath(notices))))
+        legal.addWidget(notices_button)
+        legal.addStretch(1)
+        layout.addLayout(legal)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)

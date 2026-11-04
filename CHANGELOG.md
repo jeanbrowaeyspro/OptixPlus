@@ -4,6 +4,9 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; les ve
 
 ## [Non publié]
 
+### Ajouté
+- OptixPlus est distribué sous licence MIT. Les licences des composants tiers (Qt et QtAds en LGPL, openpyxl, PyYAML et truststore en MIT) sont livrées avec l'application, et la fenêtre « À propos » propose de les ouvrir.
+
 ## [1.2.1] - 2026-10-07
 
 ### Corrigé

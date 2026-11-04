@@ -26,6 +26,15 @@ def resource_path(*parts: str) -> Path:
     return PACKAGE_DIR.joinpath("resources", *parts)
 
 
+def legal_dir() -> Path:
+    """Dossier des fichiers de licence (``LICENSE``, ``THIRD-PARTY-NOTICES.txt``, ``licenses``).
+
+    Dans l'exécutable PyInstaller ils sont à la racine des données embarquées, depuis les
+    sources à la racine du dépôt.
+    """
+    return PACKAGE_DIR.parent if is_frozen() else PACKAGE_DIR.parent.parent
+
+
 @cache
 def data_dir() -> Path:
     """``%APPDATA%\\OptixPlus``, créé au premier appel."""
