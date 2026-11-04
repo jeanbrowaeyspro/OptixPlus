@@ -7,6 +7,8 @@ name = "optixplus"
 dynamic = ["version"]
 description = "Boîte à outils FactoryTalk Optix : Log Reader, Link Checker, Compare, Auto Validate, Statistiques"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Jean Browaeys" }]
 
 [project.scripts]
